@@ -265,7 +265,9 @@ function buildCalc(){
     data[c.id].items.forEach(it=>{
       if(it.kg<=0)return;
       const g=it.kg*data[c.id].anz;
-      let name=it.name || globalCfg[it.type+"Name"];
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:
+               it.name;
       let zeit="-";
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
@@ -335,13 +337,31 @@ function buildSettings(){
   CATS.forEach(c=>{
     settings.innerHTML+=`<h3>${c.name}</h3>`;
     data[c.id].items.forEach((it,i)=>{
-      settings.innerHTML+=`
-      <div>
-        <input type="text" value="${it.name||''}"
-          oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">
-        <input type="number" step="0.01" value="${it.kg}"
-          oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
-      </div>`;
+      if(it.type==="agf"){
+        settings.innerHTML+=`
+        <div>
+          <strong>${globalCfg.agfName}</strong>
+          <input type="number" step="0.01" value="${it.kg}"
+            oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+        </div>`;
+      }
+      else if(it.type==="mlf"){
+        settings.innerHTML+=`
+        <div>
+          <strong>${globalCfg.mlfName}</strong>
+          <input type="number" step="0.01" value="${it.kg}"
+            oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+        </div>`;
+      }
+      else{
+        settings.innerHTML+=`
+        <div>
+          <input type="text" value="${it.name}"
+            oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">
+          <input type="number" step="0.01" value="${it.kg}"
+            oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+        </div>`;
+      }
     });
   });
 }
