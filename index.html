@@ -7,11 +7,11 @@
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
-header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
+header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:20px}
 
 /* Tabs */
 .tabs{display:flex;position:sticky;top:0;z-index:1000;background:#d5dbe0}
-.tab{flex:1;text-align:center;padding:14px;font-size:17px;cursor:pointer}
+.tab{flex:1;padding:14px;text-align:center;font-size:17px;cursor:pointer}
 .tab.active{background:#2f3b45;color:#fff}
 .panel{padding:12px}
 .hidden{display:none}
@@ -32,24 +32,15 @@ th,td{border-bottom:1px solid #ddd;padding:8px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
 /* Summe */
-.total{
-  background:#2f3b45;
-  color:#fff;
-  padding:12px;
-  border-radius:10px;
-  font-size:18px;
-  margin-top:10px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center
-}
+.total{background:#2f3b45;color:#fff;padding:12px;border-radius:10px;
+display:flex;justify-content:space-between;align-items:center;font-size:18px;margin-top:10px}
 
 /* Buttons */
 .kilo-btn{padding:6px 14px;border-radius:8px;border:none;background:#ccc;font-size:15px}
 .kilo-btn.active{background:#2f80ed;color:#fff}
 
 /* Inputs */
-input[type=text],input[type=number]{padding:10px;font-size:16px;margin:4px 0}
+input{padding:10px;font-size:16px;margin:4px 0}
 .inline-total-input{width:140px;font-size:18px}
 
 /* AGF / MLF */
@@ -57,8 +48,10 @@ input[type=text],input[type=number]{padding:10px;font-size:16px;margin:4px 0}
 .mlf{color:#003399;font-weight:bold}
 
 /* Taschenrechner */
-.calc-box{max-width:340px;margin:20px auto;background:#fff;padding:14px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
-.calc-display{font-size:28px;padding:10px;background:#eef1f4;text-align:right;border-radius:6px;margin-bottom:12px}
+.calc-box{max-width:340px;margin:20px auto;background:#fff;padding:14px;
+border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.calc-display{font-size:28px;padding:10px;background:#eef1f4;text-align:right;
+border-radius:6px;margin-bottom:12px}
 .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .calc-btn{padding:18px;font-size:18px;border:none;border-radius:8px;background:#d5dbe0}
 .calc-btn.op{background:#2f80ed;color:#fff}
@@ -87,13 +80,13 @@ input[type=text],input[type=number]{padding:10px;font-size:16px;margin:4px 0}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-/* Hilfsfunktion */
+/* ================= HILFE ================= */
 function fmt(sec){
   sec=Math.round(sec);
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
-/* Kategorien */
+/* ================= KONFIG ================= */
 const CATS=[
   {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
   {id:"bullen",name:"Bullen",cls:"cat-bullen"},
@@ -108,7 +101,6 @@ function defItems(){
   return a;
 }
 
-/* Global */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",
   mlfName:"MLF",
@@ -124,7 +116,7 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 
 let kiloMode={};
 
-/* Tabs */
+/* ================= TABS ================= */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
@@ -133,7 +125,7 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* Kilo */
+/* ================= KILO ================= */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -151,14 +143,14 @@ function enableTotalEdit(cat){
 }
 
 function applyTotalKg(cat,kg){
-  let p=0;
-  data[cat].items.forEach(i=>p+=i.kg);
-  if(p<=0)return;
-  data[cat].anz=Math.round(kg/p);
+  let per=0;
+  data[cat].items.forEach(i=>per+=i.kg);
+  if(per<=0)return;
+  data[cat].anz=Math.round(kg/per);
   save();buildCalc();
 }
 
-/* Rechner */
+/* ================= RECHNER ================= */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -169,16 +161,18 @@ function buildCalc(){
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
       let zeit="-";
-      if(it.type==="agf") zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
-      if(it.type==="mlf") zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
+      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
       lauf+=g; sum+=g;
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}">
-      <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
-        <strong>${c.name}</strong><span>${data[c.id].collapsed?'▼':'▲'}</span>
+      <div class="cat-header ${c.cls}"
+        onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
+        <strong>${c.name}</strong>
+        <span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
         Tiere:
@@ -202,20 +196,22 @@ function buildCalc(){
   });
 }
 
-/* Einstellungen – HIER IST DER WICHTIGE FIX */
+/* ================= EINSTELLUNGEN ================= */
 function buildSettings(){
   settings.innerHTML=`
-    <h3>Globale AGF / MLF Einstellungen</h3>
+    <h3>AGF / MLF global</h3>
     AGF Name:
     <input type="text" value="${globalCfg.agfName}"
-      oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
+      oninput="globalCfg.agfName=this.value;saveGlobal()"
+      onblur="buildCalc();buildSettings()"><br>
     AGF kg / Sek:
     <input type="number" step="0.01" value="${globalCfg.agfKg}"
       oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
 
     MLF Name:
     <input type="text" value="${globalCfg.mlfName}"
-      oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
+      oninput="globalCfg.mlfName=this.value;saveGlobal()"
+      onblur="buildCalc();buildSettings()"><br>
     MLF kg / Sek:
     <input type="number" step="0.01" value="${globalCfg.mlfKg}"
       oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()">
@@ -248,7 +244,7 @@ function buildSettings(){
   });
 }
 
-/* Taschenrechner */
+/* ================= TASCHENRECHNER ================= */
 let cv="",op="",last=0;
 function calcPress(v){
   if("+-×÷*/".includes(v)){last=parseFloat(cv)||0;cv="";op=v;}
@@ -268,16 +264,17 @@ function buildCalc2(){
   const b=["7","8","9","÷","4","5","6","×","1","2","3","−","C","0","=","+"];
   calc2.innerHTML=`<div class="calc-box"><div id="calcDisp" class="calc-display">0</div>
   <div class="calc-grid">
-  ${b.map(x=>`<button class="calc-btn ${"+−×÷*/".includes(x)?'op':''} ${x==='='?'eq':''} ${x==='C'?'clear':''}"
+  ${b.map(x=>`<button class="calc-btn ${"+−×÷*/".includes(x)?'op':''}
+  ${x==='='?'eq':''} ${x==='C'?'clear':''}"
   onclick="calcPress('${x}')">${x}</button>`).join("")}
   </div></div>`;
 }
 
-/* Speicher */
+/* ================= SPEICHERN ================= */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
-/* Start */
+/* ================= START ================= */
 buildCalc();
 buildSettings();
 buildCalc2();
