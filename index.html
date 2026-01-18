@@ -32,8 +32,17 @@ th,td{border-bottom:1px solid #ddd;padding:8px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
 /* Summe */
-.total{background:#2f3b45;color:#fff;padding:12px;border-radius:10px;
-display:flex;justify-content:space-between;align-items:center;font-size:18px;margin-top:10px}
+.total{
+  background:#2f3b45;
+  color:#fff;
+  padding:12px;
+  border-radius:10px;
+  font-size:18px;
+  margin-top:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center
+}
 
 /* Buttons */
 .kilo-btn{padding:6px 14px;border-radius:8px;border:none;background:#ccc;font-size:15px}
@@ -244,20 +253,46 @@ function buildSettings(){
   });
 }
 
-/* ================= TASCHENRECHNER ================= */
-let cv="",op="",last=0;
+/* ================= TASCHENRECHNER (FIX) ================= */
+let cv="", last=null, op=null;
+
 function calcPress(v){
-  if("+-×÷*/".includes(v)){last=parseFloat(cv)||0;cv="";op=v;}
-  else if(v==="="){
-    let c=parseFloat(cv)||0;
-    if(op==="+")cv=last+c;
-    if(op==="−"||op==="-" )cv=last-c;
-    if(op==="×"||op==="*" )cv=last*c;
-    if(op==="÷"||op==="/" )cv=c?last/c:0;
-    op="";
-  }else if(v==="C"){cv="";op="";last=0;}
-  else{cv+=v}
-  document.getElementById("calcDisp").innerText=cv||"0";
+  const d=document.getElementById("calcDisp");
+
+  if(!isNaN(v)){
+    cv+=v;
+    d.innerText=cv;
+    return;
+  }
+
+  if(v==="C"){
+    cv="";last=null;op=null;
+    d.innerText="0";return;
+  }
+
+  if("+-×÷*/−".includes(v)){
+    if(last!==null && cv!==""){
+      last=calcDo(last,parseFloat(cv),op);
+    }else if(cv!==""){
+      last=parseFloat(cv);
+    }
+    op=v; cv="";
+    d.innerText=last; return;
+  }
+
+  if(v==="=" && last!==null && cv!==""){
+    last=calcDo(last,parseFloat(cv),op);
+    d.innerText=last;
+    cv=""; op=null;
+  }
+}
+
+function calcDo(a,b,o){
+  if(o==="+")return a+b;
+  if(o==="-"||o==="−")return a-b;
+  if(o==="*"||o==="×")return a*b;
+  if(o==="/"||o==="÷")return b? a/b:0;
+  return b;
 }
 
 function buildCalc2(){
