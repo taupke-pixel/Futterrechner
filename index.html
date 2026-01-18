@@ -92,7 +92,7 @@ th:first-child,td:first-child{text-align:left}
 }
 .kilo-btn.active{background:#2f80ed;color:#fff}
 
-/* Größere Touch-Zonen für Zahlen */
+/* Größere Touch-Zonen */
 input[type=number]{
   padding:10px;
   font-size:16px;
@@ -107,20 +107,6 @@ input[type=number]{
 /* AGF / MLF */
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
-
-/* Textarea & Buttons */
-textarea{width:100%;min-height:180px}
-button{
-  padding:10px 14px;
-  border-radius:8px;
-  border:none;
-  background:#2f80ed;
-  color:#fff;
-  margin:6px 0;
-  font-size:15px
-}
-button.secondary{background:#27ae60}
-button.warn{background:#b30000}
 
 /* Tablet Querformat */
 @media (min-width:900px){
@@ -145,10 +131,11 @@ button.warn{background:#b30000}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-/* ---------- HILFE ---------- */
-function fmt(sec){sec=Math.round(sec);return Math.floor(sec/60)+" min "+(sec%60)+" s"}
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
+}
 
-/* ---------- GLOBAL ---------- */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -175,7 +162,6 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 
 let kiloMode={};
 
-/* ---------- TABS ---------- */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t)
@@ -184,13 +170,11 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* ---------- AUTO-EINKLAPPEN ---------- */
 function autoCollapse(cat){
   const hasData=data[cat].items.some(i=>i.kg>0);
   data[cat].collapsed=!hasData;
 }
 
-/* ---------- KILO ---------- */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -215,7 +199,6 @@ function applyTotalKg(cat,kg){
   save();buildCalc();
 }
 
-/* ---------- RECHNER ---------- */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -257,61 +240,15 @@ function buildCalc(){
   });
 }
 
-/* ---------- EXPORT / BACKUP ---------- */
-function exportText(){
-  let out="";
-  CATS.forEach(c=>{
-    out+=`== ${c.name} ==\nTiere: ${data[c.id].anz}\n`;
-    data[c.id].items.forEach(it=>{
-      if(it.kg>0){
-        let name=it.name||globalCfg[it.type+"Name"];
-        out+=`${name}: ${(it.kg*data[c.id].anz).toFixed(1)} kg\n`;
-      }
-    });
-    out+="\n";
-  });
-  document.getElementById("exportBox").value=out;
-}
-
-function saveBackup(){
-  const blob=new Blob([JSON.stringify({data,globalCfg})],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="futter_backup.json";
-  a.click();
-}
-
-function loadBackup(e){
-  const r=new FileReader();
-  r.onload=ev=>{
-    const obj=JSON.parse(ev.target.result);
-    data=obj.data;globalCfg=obj.globalCfg;
-    save();buildCalc();buildSettings();
-  };
-  r.readAsText(e.target.files[0]);
-}
-
-/* ---------- EINSTELLUNGEN ---------- */
 function buildSettings(){
-  settings.innerHTML=`
-  <h3>Export / Teilen</h3>
-  <button onclick="exportText()">Export erzeugen</button>
-  <textarea id="exportBox" placeholder="Hier erscheint der Text…"></textarea>
-
-  <h3>Backup</h3>
-  <button class="secondary" onclick="saveBackup()">Backup speichern</button><br>
-  <input type="file" onchange="loadBackup(event)">
-  `;
+  settings.innerHTML="<p>Keine zusätzlichen Einstellungen.</p>";
 }
 
-/* ---------- TASCHENRECHNER ---------- */
 function buildCalc2(){
   calc2.innerHTML="<p>Einfacher Taschenrechner – funktioniert.</p>";
 }
 
-/* ---------- SPEICHERN ---------- */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
-function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
 buildCalc();
 buildSettings();
