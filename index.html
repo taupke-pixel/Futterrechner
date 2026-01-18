@@ -38,7 +38,9 @@ th:first-child,td:first-child{text-align:left}
   display:flex;
   justify-content:space-between;
   align-items:center;
+  transition:background 0.3s;
 }
+.total.flash{background:#2ecc71}
 
 .kilo-btn{padding:4px 10px;border-radius:6px;border:none;background:#ccc}
 .kilo-btn.active{background:#2f80ed;color:#fff}
@@ -97,13 +99,11 @@ th:first-child,td:first-child{text-align:left}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-/* ---------- HILFE ---------- */
 function fmt(sec){
   sec=Math.round(sec);
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
-/* ---------- GLOBAL ---------- */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -130,7 +130,6 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 
 let kiloMode={};
 
-/* ---------- TABS ---------- */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t)
@@ -142,30 +141,48 @@ function showTab(t){
 /* ---------- KILO ---------- */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
-  document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
+  const btn=document.getElementById("kilo-"+cat);
+  btn.classList.toggle("active",kiloMode[cat]);
+
+  if(!kiloMode[cat]){
+    const span=document.getElementById("total-"+cat);
+    const input=span.querySelector("input");
+    if(input){
+      applyTotalKg(cat,parseFloat(input.value)||0);
+    }
+  }
 }
 
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
-  const s=document.getElementById("total-"+cat);
-  if(s.querySelector("input"))return;
-  const v=parseFloat(s.dataset.val)||0;
-  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
-  const i=s.querySelector("input");
-  i.focus();
-  i.onkeydown=e=>{
-    if(e.key==="Enter"){
-      applyTotalKg(cat,parseFloat(i.value)||0);
-    }
+  const span=document.getElementById("total-"+cat);
+  if(span.querySelector("input"))return;
+
+  const val=parseFloat(span.dataset.val)||0;
+  span.innerHTML=`<input class="inline-total-input" type="number" value="${val}"> kg`;
+  const input=span.querySelector("input");
+  input.focus();
+
+  input.onkeydown=e=>{
+    if(e.key==="Enter")input.blur();
+    if(e.key==="Escape")buildCalc();
+  };
+
+  input.onblur=()=>{
+    applyTotalKg(cat,parseFloat(input.value)||0);
   };
 }
 
 function applyTotalKg(cat,kg){
   let c=data[cat],p=0;
   c.items.forEach(i=>p+=i.kg);
-  if(p<=0)return;
+  if(p<=0){buildCalc();return;}
   c.anz=Math.round(kg/p);
   save();buildCalc();
+
+  const t=document.getElementById("wrap-"+cat);
+  t.classList.add("flash");
+  setTimeout(()=>t.classList.remove("flash"),300);
 }
 
 /* ---------- RECHNER ---------- */
@@ -201,7 +218,7 @@ function buildCalc(){
           ${rows||"<tr><td colspan=4 style='text-align:center;color:#888'>keine Daten</td></tr>"}
         </table>
 
-        <div class="total">
+        <div class="total" id="wrap-${c.id}">
           <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
             onclick="enableTotalEdit('${c.id}')">
             Gesamt: ${sum.toFixed(1)} kg
