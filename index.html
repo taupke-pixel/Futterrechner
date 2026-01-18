@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Futterrechner</title>
+
+<style>
+body{font-family:Arial;margin:0;background:#eef1f4}
+header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
+.tabs{display:flex}
+.tab{flex:1;text-align:center;padding:12px;background:#d5dbe0;font-size:17px}
+.tab.active{background:#2f3b45;color:#fff}
+.panel{padding:10px}
+.category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
+.cat-header{padding:10px;color:#fff;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.cat-header h2{margin:0;font-size:18px}
+.cat-body{background:#fff;padding:10px}
+.category.collapsed .cat-body{display:none}
+.cat-kuehe{background:#2f80ed}
+.cat-bullen{background:#27ae60}
+.cat-trocken{background:#f2a900}
+input{font-size:15px;padding:6px}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right;font-size:14px}
+th:first-child,td:first-child{text-align:left}
+.total{
+  background:#2f3b45;
+  color:#fff;
+  padding:10px;
+  border-radius:8px;
+  font-size:18px;
+  margin-top:8px;
+}
+.kilo-btn{
+  margin-left:8px;
+  padding:4px 10px;
+  font-size:13px;
+  border-radius:6px;
+  border:none;
+  background
