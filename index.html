@@ -8,14 +8,15 @@
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
+
 .tabs{display:flex}
 .tab{flex:1;text-align:center;padding:12px;background:#d5dbe0;font-size:17px;cursor:pointer}
 .tab.active{background:#2f3b45;color:#fff}
 .panel{padding:10px}
+.hidden{display:none}
 
-.category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
+.category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.1)}
 .cat-header{padding:10px;color:#fff;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-.cat-header h2{margin:0;font-size:18px}
 .cat-body{background:#fff;padding:10px}
 .category.collapsed .cat-body{display:none}
 
@@ -23,9 +24,8 @@ header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
 
-input{font-size:15px;padding:6px}
 table{width:100%;border-collapse:collapse}
-th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right;font-size:14px}
+th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
 .total{
@@ -41,23 +41,17 @@ th:first-child,td:first-child{text-align:left}
 }
 
 .kilo-btn{
-  margin-left:8px;
   padding:4px 10px;
-  font-size:13px;
   border-radius:6px;
   border:none;
   background:#ccc;
 }
-.kilo-btn.active{
-  background:#2f80ed;
-  color:#fff;
-}
+.kilo-btn.active{background:#2f80ed;color:#fff}
 
-.inline-total-input{
-  width:120px;
-  font-size:17px;
-}
-.hidden{display:none}
+.inline-total-input{width:120px;font-size:17px}
+
+.agf{color:#b30000;font-weight:bold}
+.mlf{color:#003399;font-weight:bold}
 </style>
 </head>
 
@@ -74,21 +68,36 @@ th:first-child,td:first-child{text-align:left}
 <div id="settings" class="panel hidden"></div>
 
 <script>
-/* ---------- GRUNDLAGEN ---------- */
+/* ---------- HILFSFUNKTIONEN ---------- */
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
+}
+
+/* ---------- GLOBALE EINSTELLUNGEN ---------- */
+let globalConfig = JSON.parse(localStorage.getItem("globalCfg")) || {
+  agfName:"AGF",
+  mlfName:"MLF",
+  agfKgSec:0.5,
+  mlfKgSec:0.5
+};
+
+/* ---------- KATEGORIEN ---------- */
 const CATS=[
   {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
   {id:"bullen",name:"Bullen",cls:"cat-bullen"},
   {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
 ];
-const ITEMS=10;
 
 function defItems(){
   let a=[];
-  for(let i=0;i<ITEMS;i++) a.push({name:"Futter "+(i+1),kg:0});
+  for(let i=1;i<=8;i++) a.push({name:"Futter "+i,kg:0});
+  a.push({type:"agf",kg:0});
+  a.push({type:"mlf",kg:0});
   return a;
 }
 
-let data=JSON.parse(localStorage.getItem("futter_v7"))||{
+let data = JSON.parse(localStorage.getItem("futterData")) || {
   kuehe:{anz:100,items:defItems(),collapsed:false},
   bullen:{anz:10,items:defItems(),collapsed:false},
   trocken:{anz:5,items:defItems(),collapsed:false}
@@ -104,13 +113,7 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* ---------- KATEGORIE ---------- */
-function toggleCat(id){
-  data[id].collapsed=!data[id].collapsed;
-  save(); buildCalc();
-}
-
-/* ---------- KILO-FUNKTION ---------- */
+/* ---------- KILO ---------- */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -147,31 +150,33 @@ function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
     let lauf=0,sum=0,a=data[c.id].anz,rows="";
+
     data[c.id].items.forEach(it=>{
-      if(it.kg===0) return;
+      if(it.kg<=0) return;
       const g=it.kg*a;
+      let name=it.name||globalConfig[it.type+"Name"];
+      let zeit="-";
+
+      if(it.type==="agf") zeit=`<span class="agf">${fmt(g/globalConfig.agfKgSec)}</span>`;
+      if(it.type==="mlf") zeit=`<span class="mlf">${fmt(g/globalConfig.mlfKgSec)}</span>`;
+
       lauf+=g; sum+=g;
-      rows+=`<tr>
-        <td>${it.name}</td>
-        <td>${g.toFixed(1)}</td>
-        <td>${lauf.toFixed(1)}</td>
-        <td>-</td>
-      </tr>`;
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}">
-      <div class="cat-header ${c.cls}" onclick="toggleCat('${c.id}')">
-        <h2>${c.name}</h2><span>${data[c.id].collapsed?'▼':'▲'}</span>
+      <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
+        <strong>${c.name}</strong><span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
-        Anzahl Tiere:
+        Tiere:
         <input type="number" value="${a}"
           oninput="data.${c.id}.anz=this.valueAsNumber||0;save();buildCalc()">
 
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
-          ${rows || `<tr><td colspan="4" style="text-align:center;color:#888">Keine Daten</td></tr>`}
+          ${rows||`<tr><td colspan="4" style="text-align:center;color:#888">keine Daten</td></tr>`}
         </table>
 
         <div class="total">
@@ -189,14 +194,26 @@ function buildCalc(){
 
 /* ---------- EINSTELLUNGEN ---------- */
 function buildSettings(){
-  settings.innerHTML="";
+  settings.innerHTML=`
+  <h3>AGF / MLF global</h3>
+  Name AGF <input value="${globalConfig.agfName}"
+    oninput="globalConfig.agfName=this.value;saveGlobal();buildCalc()"><br>
+  kg / s <input type="number" step="0.01" value="${globalConfig.agfKgSec}"
+    oninput="globalConfig.agfKgSec=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
+
+  Name MLF <input value="${globalConfig.mlfName}"
+    oninput="globalConfig.mlfName=this.value;saveGlobal();buildCalc()"><br>
+  kg / s <input type="number" step="0.01" value="${globalConfig.mlfKgSec}"
+    oninput="globalConfig.mlfKgSec=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><hr>
+  `;
+
   CATS.forEach(c=>{
     settings.innerHTML+=`<h3>${c.name}</h3>`;
     data[c.id].items.forEach((it,i)=>{
       settings.innerHTML+=`
-      <div style="background:#fff;padding:6px;margin-bottom:6px;border-radius:6px">
-        <input type="text" value="${it.name}"
-          oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">
+      <div style="background:#fff;padding:6px;margin-bottom:6px">
+        ${it.type? (it.type==="agf"?globalConfig.agfName:globalConfig.mlfName):
+        `<input value="${it.name}" oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`}
         <input type="number" step="0.01" value="${it.kg}"
           oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
       </div>`;
@@ -204,13 +221,10 @@ function buildSettings(){
   });
 }
 
-function save(){
-  localStorage.setItem("futter_v7",JSON.stringify(data));
-}
+function save(){localStorage.setItem("futterData",JSON.stringify(data))}
+function saveGlobal(){localStorage.setItem("globalCfg",JSON.stringify(globalConfig))}
 
-buildCalc();
-buildSettings();
+buildCalc(); buildSettings();
 </script>
-
 </body>
 </html>
