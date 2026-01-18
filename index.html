@@ -12,18 +12,22 @@ header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20
 .tab{flex:1;text-align:center;padding:12px;background:#d5dbe0;font-size:17px}
 .tab.active{background:#2f3b45;color:#fff}
 .panel{padding:10px}
+
 .category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
 .cat-header{padding:10px;color:#fff;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
 .cat-header h2{margin:0;font-size:18px}
 .cat-body{background:#fff;padding:10px}
 .category.collapsed .cat-body{display:none}
+
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
+
 input{font-size:15px;padding:6px}
 table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right;font-size:14px}
 th:first-child,td:first-child{text-align:left}
+
 .total{
   background:#2f3b45;
   color:#fff;
@@ -31,11 +35,172 @@ th:first-child,td:first-child{text-align:left}
   border-radius:8px;
   font-size:18px;
   margin-top:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
 }
+
 .kilo-btn{
   margin-left:8px;
   padding:4px 10px;
   font-size:13px;
   border-radius:6px;
   border:none;
-  background
+  background:#ccc;
+}
+.kilo-btn.active{
+  background:#2f80ed;
+  color:#fff;
+}
+
+.inline-total-input{
+  width:120px;
+  font-size:17px;
+}
+.hidden{display:none}
+</style>
+</head>
+
+<body>
+
+<header>🐄 Futter-Rechner</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('calc')">Rechner</div>
+  <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+</div>
+
+<div id="calc" class="panel"></div>
+<div id="settings" class="panel hidden"></div>
+
+<script>
+/* ---------------- BASISDATEN ---------------- */
+let globalConfig = {
+  agfName:"AGF",
+  mlfName:"MLF",
+  agfKgPerSec:0.5,
+  mlfKgPerSec:0.5
+};
+
+const CATS=[
+  {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
+  {id:"bullen",name:"Bullen",cls:"cat-bullen"},
+  {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
+];
+const ITEMS=10;
+
+function defItems(){
+  let arr=[];
+  for(let i=0;i<ITEMS-2;i++) arr.push({name:"Futter "+(i+1),kg:0});
+  arr.push({type:"agf",kg:0});
+  arr.push({type:"mlf",kg:0});
+  return arr;
+}
+
+let data={
+  kuehe:{anz:100,items:defItems(),collapsed:true},
+  bullen:{anz:1,items:defItems(),collapsed:true},
+  trocken:{anz:10,items:defItems(),collapsed:true}
+};
+
+let kiloMode={};
+
+/* ---------------- TABS ---------------- */
+function showTab(t){
+  calc.classList.toggle("hidden",t!=="calc");
+  settings.classList.toggle("hidden",t!=="settings");
+  document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+  document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
+}
+
+/* ---------------- KATEGORIEN ---------------- */
+function toggleCat(id){
+  data[id].collapsed=!data[id].collapsed;
+  buildCalc();
+}
+
+/* ---------------- KILO-FUNKTION ---------------- */
+function toggleKilo(cat){
+  kiloMode[cat]=!kiloMode[cat];
+  document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
+}
+
+function enableTotalEdit(cat){
+  if(!kiloMode[cat]) return;
+
+  const span=document.getElementById("total-"+cat);
+  if(span.querySelector("input")) return;
+
+  const val=parseFloat(span.dataset.val)||0;
+  span.innerHTML=`<input class="inline-total-input" type="number" value="${val}"> kg`;
+  const input=span.querySelector("input");
+  input.focus();
+
+  input.onkeydown=e=>{
+    if(e.key==="Enter"){
+      applyTotalKg(cat,parseFloat(input.value)||0);
+    }
+  };
+}
+
+function applyTotalKg(cat,totalKg){
+  const c=data[cat];
+  let perAnimal=0;
+  c.items.forEach(i=>perAnimal+=i.kg);
+  if(perAnimal<=0) return;
+
+  c.anz=Math.round(totalKg/perAnimal);
+  buildCalc();
+}
+
+/* ---------------- RECHNER ---------------- */
+function buildCalc(){
+  calc.innerHTML="";
+  CATS.forEach(c=>{
+    let lauf=0,sum=0,a=data[c.id].anz,rows="";
+
+    data[c.id].items.forEach(it=>{
+      if(it.kg===0) return;
+      const g=it.kg*a;
+      lauf+=g; sum+=g;
+      rows+=`<tr>
+        <td>${it.name||it.type}</td>
+        <td>${g.toFixed(1)}</td>
+        <td>${lauf.toFixed(1)}</td>
+        <td>-</td>
+      </tr>`;
+    });
+
+    calc.innerHTML+=`
+    <div class="category ${data[c.id].collapsed?'collapsed':''}">
+      <div class="cat-header ${c.cls}" onclick="toggleCat('${c.id}')">
+        <h2>${c.name}</h2><span>${data[c.id].collapsed?'▼':'▲'}</span>
+      </div>
+      <div class="cat-body">
+        Anzahl Tiere:
+        <input type="number" value="${a}"
+          oninput="data.${c.id}.anz=this.valueAsNumber||0;buildCalc()">
+
+        <table>
+          <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+          ${rows}
+        </table>
+
+        <div class="total">
+          <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
+            onclick="enableTotalEdit('${c.id}')">
+            Gesamt: ${sum.toFixed(1)} kg
+          </span>
+          <button id="kilo-${c.id}" class="kilo-btn"
+            onclick="toggleKilo('${c.id}')">kilo</button>
+        </div>
+      </div>
+    </div>`;
+  });
+}
+
+buildCalc();
+</script>
+
+</body>
+</html>
