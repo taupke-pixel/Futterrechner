@@ -9,18 +9,14 @@
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:20px}
 
-.tabs{display:flex;background:#d5dbe0}
-.tab{flex:1;padding:14px;text-align:center;font-size:17px;cursor:pointer}
-.tab.active{background:#2f3b45;color:#fff}
-.panel{padding:12px}
-.hidden{display:none}
-
-.category{border-radius:12px;margin-bottom:16px;overflow:hidden;
-box-shadow:0 2px 6px rgba(0,0,0,.1)}
-.cat-header{padding:12px;color:#fff;
-display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.category{
+  border-radius:12px;margin:16px;overflow:hidden;
+  box-shadow:0 2px 6px rgba(0,0,0,.1)
+}
+.cat-header{
+  padding:12px;color:#fff;font-weight:bold
+}
 .cat-body{background:#fff;padding:12px}
-.category.collapsed .cat-body{display:none}
 
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
@@ -35,8 +31,9 @@ tr.dragging{opacity:.4}
 tr.over{outline:2px dashed #2f80ed}
 
 .total{
-background:#2f3b45;color:#fff;padding:12px;border-radius:10px;
-font-size:18px;margin-top:10px
+  background:#2f3b45;color:#fff;
+  padding:10px;border-radius:8px;
+  font-size:18px;margin-top:10px
 }
 
 .agf{color:#b30000;font-weight:bold}
@@ -48,14 +45,9 @@ font-size:18px;margin-top:10px
 
 <header>🐄 Futter-Rechner – Drag & Drop Test</header>
 
-<div class="tabs">
-  <div class="tab active" onclick="showTab('calc')">Rechner</div>
-</div>
-
-<div id="calc" class="panel"></div>
+<div id="app"></div>
 
 <script>
-/* ---------------- BASIS ---------------- */
 function fmt(sec){
   sec=Math.round(sec);
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
@@ -75,70 +67,46 @@ function defItems(){
  return a;
 }
 
-let globalCfg={
- agfName:"AGF",
- mlfName:"MLF",
- agfKg:0.5,
- mlfKg:0.5
-};
+let cfg={agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5};
 
 let data={
- kuehe:{anz:50,items:defItems(),collapsed:false},
- bullen:{anz:10,items:defItems(),collapsed:false},
- trocken:{anz:5,items:defItems(),collapsed:false}
+ kuehe:{anz:50,items:defItems()},
+ bullen:{anz:10,items:defItems()},
+ trocken:{anz:5,items:defItems()}
 };
 
-/* ---------------- TAB ---------------- */
-function showTab(){}
-
-/* ---------------- DRAG LOGIK ---------------- */
-let dragIndex=null;
-let dragCat=null;
+let dragIndex=null, dragCat=null;
 
 function onDragStart(e,cat,i){
- dragIndex=i;
- dragCat=cat;
+ dragIndex=i; dragCat=cat;
  e.currentTarget.classList.add("dragging");
 }
-
-function onDragOver(e){
- e.preventDefault();
- e.currentTarget.classList.add("over");
-}
-
-function onDragLeave(e){
- e.currentTarget.classList.remove("over");
-}
-
+function onDragOver(e){e.preventDefault();e.currentTarget.classList.add("over")}
+function onDragLeave(e){e.currentTarget.classList.remove("over")}
 function onDrop(e,cat,i){
  e.preventDefault();
  e.currentTarget.classList.remove("over");
-
- if(dragIndex===null || dragCat!==cat) return;
-
+ if(dragCat!==cat||dragIndex===null)return;
  const arr=data[cat].items;
  const item=arr.splice(dragIndex,1)[0];
  arr.splice(i,0,item);
-
- dragIndex=null;
- dragCat=null;
- buildCalc();
+ dragIndex=null; dragCat=null;
+ build();
 }
 
-/* ---------------- RECHNER ---------------- */
-function buildCalc(){
- calc.innerHTML="";
+function build(){
+ const app=document.getElementById("app");
+ app.innerHTML="";
  CATS.forEach(c=>{
   let sum=0,lauf=0,rows="";
-
   data[c.id].items.forEach((it,i)=>{
-   if(it.kg<=0) return;
+   if(it.kg<=0)return;
    let g=it.kg*data[c.id].anz;
-   let name=it.type==="agf"?globalCfg.agfName:
-            it.type==="mlf"?globalCfg.mlfName:it.name;
+   let name=it.type==="agf"?cfg.agfName:
+            it.type==="mlf"?cfg.mlfName:it.name;
    let zeit="-";
-   if(it.type==="agf") zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
-   if(it.type==="mlf") zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+   if(it.type==="agf")zeit=`<span class="agf">${fmt(g/cfg.agfKg)}</span>`;
+   if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/cfg.mlfKg)}</span>`;
    lauf+=g; sum+=g;
 
    rows+=`
@@ -154,23 +122,21 @@ function buildCalc(){
    </tr>`;
   });
 
-  calc.innerHTML+=`
+  app.innerHTML+=`
   <div class="category">
-   <div class="cat-header ${c.cls}">
-    <strong>${c.name}</strong>
-   </div>
-   <div class="cat-body">
-    <table>
-     <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
-     ${rows}
-    </table>
-    <div class="total">Gesamt: ${sum.toFixed(1)} kg</div>
-   </div>
+    <div class="cat-header ${c.cls}">${c.name}</div>
+    <div class="cat-body">
+      <table>
+        <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+        ${rows}
+      </table>
+      <div class="total">Gesamt: ${sum.toFixed(1)} kg</div>
+    </div>
   </div>`;
  });
 }
 
-buildCalc();
+build();
 </script>
 
 </body>
