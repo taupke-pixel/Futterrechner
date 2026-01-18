@@ -28,28 +28,34 @@ table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid #ddd;padding:8px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
-tr:hover .sort-wrap{opacity:1}
-
 .total{
   background:#2f3b45;color:#fff;padding:12px;border-radius:10px;
   display:flex;justify-content:space-between;align-items:center;
   font-size:18px;margin-top:10px
 }
 
-/* dezente Sortierpfeile */
-.sort-wrap{
-  opacity:0;
-  transition:.2s;
-  white-space:nowrap
+/* Sortieren */
+.sort-toggle{
+  background:#e6e6e6;
+  border:none;
+  border-radius:6px;
+  padding:4px 10px;
+  font-size:13px;
+  cursor:pointer;
+  margin-bottom:6px
 }
+.sort-toggle.active{
+  background:#cfd6dc;
+  font-weight:bold
+}
+
 .sort-btn{
   background:none;
   border:none;
-  color:#999;
+  color:#777;
   font-size:14px;
-  padding:2px 6px;
+  padding:2px 6px
 }
-.sort-btn:hover{color:#333}
 
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
@@ -106,9 +112,9 @@ let cfg=JSON.parse(localStorage.getItem("cfg"))||{
 };
 
 let data=JSON.parse(localStorage.getItem("data"))||{
- kuehe:{anz:100,items:defItems(),collapsed:false},
- bullen:{anz:10,items:defItems(),collapsed:false},
- trocken:{anz:5,items:defItems(),collapsed:false}
+ kuehe:{anz:100,items:defItems(),collapsed:false,sort:false},
+ bullen:{anz:10,items:defItems(),collapsed:false,sort:false},
+ trocken:{anz:5,items:defItems(),collapsed:false,sort:false}
 };
 
 function showTab(t){
@@ -151,10 +157,10 @@ function buildCalc(){
     <td>${lauf.toFixed(1)}</td>
     <td>${zeit}</td>
     <td>
-      <span class="sort-wrap">
+      ${data[c.id].sort?`
         <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
         <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
-      </span>
+      `:""}
     </td>
    </tr>`;
   });
@@ -166,6 +172,10 @@ function buildCalc(){
     <strong>${c.name}</strong><span>${data[c.id].collapsed?'▼':'▲'}</span>
    </div>
    <div class="cat-body">
+    <button class="sort-toggle ${data[c.id].sort?'active':''}"
+      onclick="data.${c.id}.sort=!data.${c.id}.sort;save();buildCalc()">
+      Sortieren ${data[c.id].sort?'✓':''}
+    </button><br>
     Tiere:
     <input type="number" value="${data[c.id].anz}"
       oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
@@ -192,19 +202,6 @@ function buildSettings(){
  kg/s <input type="number" step="0.01" value="${cfg.mlfKg}"
    oninput="cfg.mlfKg=this.valueAsNumber||0.01;save();buildCalc()"><hr>
  `;
- CATS.forEach(c=>{
-  settings.innerHTML+=`<h3>${c.name}</h3>`;
-  data[c.id].items.forEach((it,i)=>{
-   settings.innerHTML+=`
-   <div>
-    ${it.type? itemName(it):
-      `<input value="${it.name}"
-        oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`}
-    <input type="number" step="0.01" value="${it.kg}"
-      oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
-   </div>`;
-  });
- });
 }
 
 let cv="",last=null,op=null;
