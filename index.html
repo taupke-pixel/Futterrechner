@@ -28,13 +28,28 @@ table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid #ddd;padding:8px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
-.total{background:#2f3b45;color:#fff;padding:12px;border-radius:10px;
-display:flex;justify-content:space-between;align-items:center;font-size:18px;margin-top:10px}
+tr:hover .sort-wrap{opacity:1}
 
-.sort-btn{
-  background:#eee;border:none;border-radius:6px;
-  padding:4px 8px;margin-left:4px;font-size:16px
+.total{
+  background:#2f3b45;color:#fff;padding:12px;border-radius:10px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:18px;margin-top:10px
 }
+
+/* dezente Sortierpfeile */
+.sort-wrap{
+  opacity:0;
+  transition:.2s;
+  white-space:nowrap
+}
+.sort-btn{
+  background:none;
+  border:none;
+  color:#999;
+  font-size:14px;
+  padding:2px 6px;
+}
+.sort-btn:hover{color:#333}
 
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
@@ -67,7 +82,10 @@ border-radius:6px;margin-bottom:12px}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-function fmt(sec){sec=Math.round(sec);return Math.floor(sec/60)+" min "+(sec%60)+" s"}
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
+}
 
 const CATS=[
  {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
@@ -109,6 +127,12 @@ function moveItem(cat,i,dir){
  save();buildCalc();
 }
 
+function itemName(it){
+ if(it.type==="agf") return cfg.agfName;
+ if(it.type==="mlf") return cfg.mlfName;
+ return it.name;
+}
+
 function buildCalc(){
  calc.innerHTML="";
  CATS.forEach(c=>{
@@ -116,28 +140,29 @@ function buildCalc(){
   data[c.id].items.forEach((it,i)=>{
    if(it.kg<=0)return;
    let g=it.kg*data[c.id].anz;
-   let name=it.type==="agf"?cfg.agfName:
-            it.type==="mlf"?cfg.mlfName:it.name;
    let zeit="-";
    if(it.type==="agf")zeit=`<span class="agf">${fmt(g/cfg.agfKg)}</span>`;
    if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/cfg.mlfKg)}</span>`;
    lauf+=g;sum+=g;
    rows+=`
    <tr>
-    <td>${name}</td>
+    <td>${itemName(it)}</td>
     <td>${g.toFixed(1)}</td>
     <td>${lauf.toFixed(1)}</td>
     <td>${zeit}</td>
     <td>
-     <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">⬆</button>
-     <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">⬇</button>
+      <span class="sort-wrap">
+        <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
+        <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
+      </span>
     </td>
    </tr>`;
   });
 
   calc.innerHTML+=`
   <div class="category">
-   <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
+   <div class="cat-header ${c.cls}"
+    onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
     <strong>${c.name}</strong><span>${data[c.id].collapsed?'▼':'▲'}</span>
    </div>
    <div class="cat-body">
@@ -158,22 +183,25 @@ function buildCalc(){
 function buildSettings(){
  settings.innerHTML=`
  <h3>AGF / MLF</h3>
- AGF Name <input value="${cfg.agfName}" oninput="cfg.agfName=this.value;save();buildCalc()"><br>
+ AGF Name <input value="${cfg.agfName}"
+   oninput="cfg.agfName=this.value;save();buildCalc()"><br>
  kg/s <input type="number" step="0.01" value="${cfg.agfKg}"
- oninput="cfg.agfKg=this.valueAsNumber||0.01;save();buildCalc()"><br><br>
- MLF Name <input value="${cfg.mlfName}" oninput="cfg.mlfName=this.value;save();buildCalc()"><br>
+   oninput="cfg.agfKg=this.valueAsNumber||0.01;save();buildCalc()"><br><br>
+ MLF Name <input value="${cfg.mlfName}"
+   oninput="cfg.mlfName=this.value;save();buildCalc()"><br>
  kg/s <input type="number" step="0.01" value="${cfg.mlfKg}"
- oninput="cfg.mlfKg=this.valueAsNumber||0.01;save();buildCalc()"><hr>
+   oninput="cfg.mlfKg=this.valueAsNumber||0.01;save();buildCalc()"><hr>
  `;
  CATS.forEach(c=>{
   settings.innerHTML+=`<h3>${c.name}</h3>`;
   data[c.id].items.forEach((it,i)=>{
    settings.innerHTML+=`
    <div>
-    ${it.type? (it.type==="agf"?cfg.agfName:cfg.mlfName):
-    `<input value="${it.name}" oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`}
+    ${it.type? itemName(it):
+      `<input value="${it.name}"
+        oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`}
     <input type="number" step="0.01" value="${it.kg}"
-    oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+      oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
    </div>`;
   });
  });
@@ -184,9 +212,9 @@ function calcPress(v){
  const d=document.getElementById("calcDisp");
  if(!isNaN(v)){cv+=v;d.innerText=cv;return;}
  if(v==="C"){cv="";last=null;op=null;d.innerText="0";return;}
- if("+-×÷*/−".includes(v)){
-  if(last!==null&&cv!=="")last=calcDo(last,parseFloat(cv),op);
-  else if(cv!=="")last=parseFloat(cv);
+ if("+-×÷".includes(v)){
+  if(last!==null&&cv!=="") last=calcDo(last,parseFloat(cv),op);
+  else if(cv!=="") last=parseFloat(cv);
   op=v;cv="";d.innerText=last;return;
  }
  if(v==="="&&last!==null&&cv!==""){
@@ -196,17 +224,18 @@ function calcPress(v){
 }
 function calcDo(a,b,o){
  if(o==="+")return a+b;
- if(o==="-"||o==="−")return a-b;
- if(o==="*"||o==="×")return a*b;
- if(o==="/"||o==="÷")return b?a/b:0;
+ if(o==="−")return a-b;
+ if(o==="×")return a*b;
+ if(o==="÷")return b?a/b:0;
  return b;
 }
+
 function buildCalc2(){
  const b=["7","8","9","÷","4","5","6","×","1","2","3","−","C","0","=","+"];
  calc2.innerHTML=`<div class="calc-box">
  <div id="calcDisp" class="calc-display">0</div>
  <div class="calc-grid">
- ${b.map(x=>`<button class="calc-btn ${"+−×÷*/".includes(x)?'op':''}
+ ${b.map(x=>`<button class="calc-btn ${"+−×÷".includes(x)?'op':''}
  ${x==='='?'eq':''} ${x==='C'?'clear':''}"
  onclick="calcPress('${x}')">${x}</button>`).join("")}
  </div></div>`;
