@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Futterrechner</title>
+
+<style>
+body{font-family:Arial;margin:0;background:#eef1f4}
+header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
+
+.tabs{display:flex}
+.tab{flex:1;text-align:center;padding:12px;background:#d5dbe0;cursor:pointer}
+.tab.active{background:#2f3b45;color:#fff}
+.panel{padding:12px}
+.hidden{display:none}
+
+/* Kategorien */
+.category{background:#fff;border-radius:10px;margin-bottom:16px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.cat-header{padding:10px;color:#fff}
+.cat-kuehe{background:#2f80ed}
+.cat-bullen{background:#27ae60}
+.cat-trocken{background:#f2a900}
+.cat-body{padding:10px}
+
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+
+.total{background:#2f3b45;color:#fff;padding:10px;border-radius:8px;margin-top:8px;
+display:flex;justify-content:space-between;align-items:center}
+
+input[type=text],input[type=number]{font-size:15px;padding:6px}
+button{padding:6px 10px;border:none;border-radius:6px;background:#2f80ed;color:#fff;cursor:pointer}
+button.gray{background:#ccc;color:#000}
+
+.inline-total-input{width:120px;font-size:16px}
+
+/* Editor */
+.editor{position:fixed;inset:0;background:#eef1f4;z-index:1000;padding:12px;overflow:auto}
+.edit-row{background:#fff;padding:10px;margin-bottom:8px;border-radius:8px;
+display:flex;justify-content:space-between;align-items:center}
+
+/* Taschenrechner */
+.calc-box{max-width:320px;margin:auto;background:#fff;padding:10px;border-radius:10px;
+box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.calc-display{font-size:26px;background:#eef1f4;padding:10px;text-align:right;border-radius:6px;margin-bottom:10px}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.calc-btn{padding:14px;font-size:18px;border:none;border-radius:6px;background:#d5dbe0}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+.history div{background:#eef1f4;padding:6px;margin-bottom:4px;border-radius:6px;cursor:pointer}
+</style>
+</head>
+
+<body>
+
+<header>🐄 Futter-Rechner</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('calc')">Rechner</div>
+  <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
+</div>
+
+<div id="calc" class="panel"></div>
+<div id="settings" class="panel hidden"></div>
+<div id="calc2" class="panel hidden"></div>
+<div id="editor" class="editor hidden"></div>
+
+<script>
+/* ========= BASIS ========= */
+const CATS=[
+ {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
+ {id:"bullen",name:"Bullen",cls:"cat-bullen"},
+ {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
+];
+
+function defItems(){
+ let a=[];
+ for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
+ a.push({type:"agf",kg:0});
+ a.push({type:"mlf",kg:0});
+ return a;
+}
+
+let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
+ agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
+};
+
+let data=JSON.parse(localStorage.getItem("futter"))||{
+ kuehe:{anz:100,items:defItems()},
+ bullen:{anz:10,items:defItems()},
+ trocken:{anz:5,items:defItems()}
+};
+
+let sortEnabled=JSON.parse(localStorage.getItem("sortOn"))||false;
+
+/* ========= HILFE ========= */
+function fmt(sec){
+ sec=Math.round(sec);
+ return Math.floor(sec/60)+" min "+(sec%60)+" s";
+}
+
+/* ========= TABS ========= */
+function showTab(t){
+ ["calc","settings","calc2"].forEach(id=>{
+  document.getElementById(id).classList.toggle("hidden",id!==t)
+ });
+ document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+ document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
+}
+
+/* ========= RECHNER ========= */
+let kiloMode={};
+
+function toggleKilo(cat){
+ kiloMode[cat]=!kiloMode[cat];
+ buildCalc();
+}
+
+function enableTotalEdit(cat){
+ if(!kiloMode[cat])return;
+ const span=document.getElementById("total-"+cat);
+ if(span.querySelector("input"))return;
+ const val=parseFloat(span.dataset.val)||0;
+ span.innerHTML=`<input class="inline-total-input" type="number" value="${val}"> kg`;
+ const inp=span.querySelector("input");
+ inp.focus();
+ inp.onblur=()=>applyTotalKg(cat,parseFloat(inp.value)||0);
+ inp.onkeydown=e=>{if(e.key==="Enter")inp.blur()};
+}
+
+function applyTotalKg(cat,total){
+ let per=0;
+ data[cat].items.forEach(i=>per+=i.kg);
+ if(per<=0)return;
+ data[cat].anz=Math.round(total/per);
+ save();buildCalc();
+}
+
+function buildCalc(){
+ calc.innerHTML="";
+ CATS.forEach(c=>{
+  let sum=0,lauf=0,rows="";
+  data[c.id].items.forEach(it=>{
+   if(it.kg<=0)return;
+   let g=it.kg*data[c.id].anz;
+   let name=it.name||(it.type==="agf"?globalCfg.agfName:globalCfg.mlfName);
+   let zeit="-";
+   if(it.type==="agf")zeit=fmt(g/globalCfg.agfKg);
+   if(it.type==="mlf")zeit=fmt(g/globalCfg.mlfKg);
+   lauf+=g;sum+=g;
+   rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
+  });
+
+  calc.innerHTML+=`
+  <div class="category">
+   <div class="cat-header ${c.cls}">${c.name}</div>
+   <div class="cat-body">
+    Tiere:
+    <input type="number" value="${data[c.id].anz}"
+     onblur="data.${c.id}.anz=this.valueAsNumber||0;save();buildCalc()">
+    <table>
+     <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+     ${rows||"<tr><td colspan=4 style='text-align:center;color:#888'>keine Daten</td></tr>"}
+    </table>
+    <div class="total">
+     <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
+      onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
+     <button class="gray" onclick="toggleKilo('${c.id}')">kilo</button>
+    </div>
+   </div>
+  </div>`;
+ });
+}
+
+/* ========= EINSTELLUNGEN ========= */
+function buildSettings(){
+ settings.innerHTML=`
+ <h3>Sortieren</h3>
+ <button onclick="toggleSort()">${sortEnabled?"Sortieren deaktivieren":"Sortieren aktivieren"}</button>
+ <hr>
+ <h3>AGF / MLF</h3>
+ AGF Name <input value="${globalCfg.agfName}"
+  onblur="globalCfg.agfName=this.value;saveGlobal();buildCalc()"><br>
+ kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}"
+  onblur="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal()"><br><br>
+ MLF Name <input value="${globalCfg.mlfName}"
+  onblur="globalCfg.mlfName=this.value;saveGlobal();buildCalc()"><br>
+ kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}"
+  onblur="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal()"><hr>
+ `;
+ CATS.forEach(c=>{
+  settings.innerHTML+=`<h3>${c.name}</h3>`;
+  if(sortEnabled)settings.innerHTML+=`<button class="gray" onclick="openEditor('${c.id}')">Reihenfolge bearbeiten</button><br><br>`;
+  data[c.id].items.forEach((it,i)=>{
+   settings.innerHTML+=`
+   <div style="background:#fff;padding:6px;margin-bottom:6px">
+    ${it.type?(it.type==="agf"?globalCfg.agfName:globalCfg.mlfName):
+    `<input value="${it.name}"
+      onblur="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`}
+    <input type="number" step="0.01" value="${it.kg}"
+      onblur="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+   </div>`;
+  });
+ });
+}
+
+function toggleSort(){
+ sortEnabled=!sortEnabled;
+ localStorage.setItem("sortOn",JSON.stringify(sortEnabled));
+ buildSettings();
+}
+
+/* ========= SORTIER-EDITOR ========= */
+function openEditor(cid){
+ const arr=data[cid].items;
+ editor.innerHTML=`<h2>${cid} – Reihenfolge</h2>`;
+ arr.forEach((it,i)=>{
+  let name=it.name||(it.type==="agf"?globalCfg.agfName:globalCfg.mlfName);
+  editor.innerHTML+=`
+   <div class="edit-row">
+    <span>${name}</span>
+    <span>
+     <button onclick="moveItem('${cid}',${i},-1)">⬆</button>
+     <button onclick="moveItem('${cid}',${i},1)">⬇</button>
+    </span>
+   </div>`;
+ });
+ editor.innerHTML+=`<button onclick="closeEditor()">Fertig</button>`;
+ editor.classList.remove("hidden");
+}
+
+function moveItem(cid,i,dir){
+ const a=data[cid].items;
+ const ni=i+dir;
+ if(ni<0||ni>=a.length)return;
+ [a[i],a[ni]]=[a[ni],a[i]];
+ openEditor(cid);
+}
+
+function closeEditor(){
+ editor.classList.add("hidden");
+ save();buildCalc();buildSettings();
+}
+
+/* ========= TASCHENRECHNER ========= */
+let expr="",hist=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+function press(v){
+ if(v==="C"){expr="";}
+ else if(v==="="){
+  try{
+   const res=eval(expr);
+   hist.unshift(expr+" = "+res);
+   hist=hist.slice(0,10);
+   localStorage.setItem("calcHist",JSON.stringify(hist));
+   expr=""+res;
+  }catch{expr="";}
+ }else expr+=v;
+ renderCalc2();
+}
+
+function renderCalc2(){
+ calc2.innerHTML=`
+ <div class="calc-box">
+  <div class="calc-display">${expr||0}</div>
+  <div class="calc-grid">
+   ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+    .map(b=>`<button class="calc-btn ${"+-*/".includes(b)?"op":b==="="?"eq":b==="C"?"clear":""}"
+     onclick="press('${b}')">${b}</button>`).join("")}
+  </div>
+  <div class="history">
+   ${hist.map(h=>`<div onclick="expr='${h.split("=")[1].trim()}';renderCalc2()">${h}</div>`).join("")}
+  </div>
+ </div>`;
+}
+
+/* ========= SPEICHERN ========= */
+function save(){localStorage.setItem("futter",JSON.stringify(data))}
+function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
+
+/* ========= START ========= */
+buildCalc();
+buildSettings();
+renderCalc2();
+</script>
+
+</body>
+</html>
