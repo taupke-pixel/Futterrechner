@@ -3,155 +3,196 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Futterrechner – Test Ein Ziel Sortierung</title>
+<title>Futterrechner – ruhige Sortierung</title>
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
 
+.tabs{display:flex}
+.tab{flex:1;text-align:center;padding:12px;background:#d5dbe0;cursor:pointer}
+.tab.active{background:#2f3b45;color:#fff}
+.panel{padding:12px}
+.hidden{display:none}
+
 .category{
   background:#fff;
   border-radius:10px;
-  margin:12px;
   padding:10px;
+  margin-bottom:16px;
   box-shadow:0 2px 6px rgba(0,0,0,.1)
 }
 
 .row{
   display:flex;
-  align-items:center;
   justify-content:space-between;
+  align-items:center;
   padding:8px;
   border-bottom:1px solid #ddd
 }
 .row:last-child{border-bottom:none}
-.row.selected{background:#eaf1ff;border-radius:6px}
 
 .btn{
-  padding:4px 8px;
+  padding:6px 10px;
   border:none;
   border-radius:6px;
-  background:#d5dbe0;
-  font-size:14px
-}
-
-.target{
-  margin:8px 0;
-  padding:8px;
-  border:2px dashed #2f80ed;
-  border-radius:8px;
-  text-align:center;
-  background:#f0f6ff
-}
-
-.target-controls{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:6px
-}
-.target-controls button{
-  flex:1;
-  margin:0 4px;
-  padding:6px;
-  font-size:16px
-}
-
-.insert-btn{
   background:#2f80ed;
   color:#fff;
-  padding:6px 12px;
+  cursor:pointer
+}
+.btn.gray{background:#ccc;color:#000}
+.btn.small{padding:4px 8px;font-size:14px}
+
+.edit-overlay{
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background:#eef1f4;
+  z-index:1000;
+  padding:12px;
+  overflow:auto
+}
+
+.edit-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#fff;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:8px;
+  box-shadow:0 1px 4px rgba(0,0,0,.1)
+}
+
+.arrow{
+  padding:6px 10px;
+  font-size:18px;
   border:none;
   border-radius:6px;
-  font-size:15px
+  background:#d5dbe0
 }
 </style>
 </head>
 
 <body>
 
-<header>🐄 Futterrechner – Test Ein-Ziel-Sortierung</header>
+<header>🐄 Futter-Rechner</header>
 
-<div class="category" id="cat"></div>
+<div class="tabs">
+  <div class="tab active" onclick="showTab('calc')">Rechner</div>
+  <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+</div>
+
+<div id="calc" class="panel"></div>
+<div id="settings" class="panel hidden"></div>
+
+<div id="editor" class="edit-overlay hidden"></div>
 
 <script>
-let data = JSON.parse(localStorage.getItem("einziel_test")) || {
-  items:[
-    "Futter 1","Futter 2","Futter 3","Futter 4",
-    "Futter 5","Futter 6","Futter 7","Futter 8",
-    "AGF","MLF"
-  ],
-  moving:null,
-  targetIndex:0
+/* ---------- DATEN ---------- */
+const CATS=["Kühe","Bullen","Trockensteher"];
+
+let data = JSON.parse(localStorage.getItem("ruhe_sort")) || {
+  cats: CATS.map(name=>({
+    name,
+    items:[
+      "Futter 1","Futter 2","Futter 3","Futter 4",
+      "Futter 5","Futter 6","Futter 7","Futter 8",
+      "AGF","MLF"
+    ]
+  }))
 };
 
 function save(){
-  localStorage.setItem("einziel_test",JSON.stringify(data));
+  localStorage.setItem("ruhe_sort",JSON.stringify(data));
 }
 
-function startMove(i){
-  data.moving=i;
-  data.targetIndex=i;
-  save();
-  render();
+/* ---------- TABS ---------- */
+function showTab(t){
+  calc.classList.toggle("hidden",t!=="calc");
+  settings.classList.toggle("hidden",t!=="settings");
+  document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+  document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-function moveTarget(dir){
-  data.targetIndex+=dir;
-  if(data.targetIndex<0) data.targetIndex=0;
-  if(data.targetIndex>data.items.length) data.targetIndex=data.items.length;
-  render();
+/* ---------- RECHNER (RUHIG) ---------- */
+function buildCalc(){
+  calc.innerHTML="";
+  data.cats.forEach(cat=>{
+    let c=document.createElement("div");
+    c.className="category";
+    c.innerHTML=`<h3>${cat.name}</h3>`;
+    cat.items.forEach(n=>{
+      let r=document.createElement("div");
+      r.className="row";
+      r.innerHTML=`<span>${n}</span>`;
+      c.appendChild(r);
+    });
+    calc.appendChild(c);
+  });
 }
 
-function insertHere(){
-  const item=data.items.splice(data.moving,1)[0];
-  let idx=data.targetIndex;
-  if(idx>data.moving) idx--;
-  data.items.splice(idx,0,item);
-  data.moving=null;
-  save();
-  render();
+/* ---------- EINSTELLUNGEN ---------- */
+function buildSettings(){
+  settings.innerHTML="";
+  data.cats.forEach((cat,ci)=>{
+    let c=document.createElement("div");
+    c.className="category";
+    c.innerHTML=`
+      <h3>${cat.name}</h3>
+      <button class="btn" onclick="openEditor(${ci})">
+        Reihenfolge bearbeiten
+      </button>
+    `;
+    settings.appendChild(c);
+  });
 }
 
-function render(){
-  const c=document.getElementById("cat");
-  c.innerHTML="<h3>Sortieren</h3>";
-
-  data.items.forEach((name,i)=>{
-    if(data.moving!==null && data.targetIndex===i){
-      c.appendChild(makeTarget());
-    }
-
+/* ---------- BEARBEITEN-ANSICHT ---------- */
+function openEditor(ci){
+  const cat=data.cats[ci];
+  editor.innerHTML=`
+    <h2>${cat.name} – Reihenfolge bearbeiten</h2>
+  `;
+  cat.items.forEach((name,i)=>{
     let r=document.createElement("div");
-    r.className="row"+(data.moving===i?" selected":"");
+    r.className="edit-row";
     r.innerHTML=`
       <span>${name}</span>
-      ${data.moving===null
-        ? `<button class="btn" onclick="startMove(${i})">Verschieben</button>`
-        : ""
-      }
+      <span>
+        <button class="arrow" onclick="moveItem(${ci},${i},-1)">⬆</button>
+        <button class="arrow" onclick="moveItem(${ci},${i},1)">⬇</button>
+      </span>
     `;
-    c.appendChild(r);
+    editor.appendChild(r);
   });
 
-  if(data.moving!==null && data.targetIndex===data.items.length){
-    c.appendChild(makeTarget());
-  }
+  let done=document.createElement("button");
+  done.className="btn";
+  done.textContent="Fertig";
+  done.onclick=closeEditor;
+  editor.appendChild(done);
+
+  editor.classList.remove("hidden");
 }
 
-function makeTarget(){
-  let t=document.createElement("div");
-  t.className="target";
-  t.innerHTML=`
-    <div class="target-controls">
-      <button onclick="moveTarget(-1)">⬆</button>
-      <button onclick="moveTarget(1)">⬇</button>
-    </div>
-    <button class="insert-btn" onclick="insertHere()">Hier einfügen</button>
-  `;
-  return t;
+function closeEditor(){
+  editor.classList.add("hidden");
+  save();
+  buildCalc();
+  buildSettings();
 }
 
-render();
+function moveItem(ci,i,dir){
+  const arr=data.cats[ci].items;
+  const ni=i+dir;
+  if(ni<0||ni>=arr.length)return;
+  [arr[i],arr[ni]]=[arr[ni],arr[i]];
+  openEditor(ci);
+}
+
+/* ---------- START ---------- */
+buildCalc();
+buildSettings();
 </script>
 
 </body>
