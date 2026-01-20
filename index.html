@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Futterrechner – ruhige Sortierung</title>
+<title>Futterrechner</title>
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
@@ -15,24 +15,47 @@ header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20
 .panel{padding:12px}
 .hidden{display:none}
 
+/* Kategorien */
 .category{
   background:#fff;
   border-radius:10px;
-  padding:10px;
   margin-bottom:16px;
-  box-shadow:0 2px 6px rgba(0,0,0,.1)
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+  overflow:hidden
 }
-
-.row{
+.cat-header{
+  padding:10px;
+  color:#fff;
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  padding:8px;
-  border-bottom:1px solid #ddd
+  cursor:pointer
 }
-.row:last-child{border-bottom:none}
+.cat-body{padding:10px}
+.cat-kuehe{background:#2f80ed}
+.cat-bullen{background:#27ae60}
+.cat-trocken{background:#f2a900}
 
-.btn{
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+
+.total{
+  background:#2f3b45;
+  color:#fff;
+  padding:10px;
+  border-radius:8px;
+  margin-top:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center
+}
+
+input[type=number],input[type=text]{
+  font-size:15px;
+  padding:6px
+}
+
+button{
   padding:6px 10px;
   border:none;
   border-radius:6px;
@@ -40,35 +63,64 @@ header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20
   color:#fff;
   cursor:pointer
 }
-.btn.gray{background:#ccc;color:#000}
-.btn.small{padding:4px 8px;font-size:14px}
+button.gray{background:#ccc;color:#000}
 
-.edit-overlay{
+/* Editor */
+.editor{
   position:fixed;
-  top:0;left:0;right:0;bottom:0;
+  inset:0;
   background:#eef1f4;
   z-index:1000;
   padding:12px;
   overflow:auto
 }
-
 .edit-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
   background:#fff;
   padding:10px;
-  border-radius:8px;
   margin-bottom:8px;
-  box-shadow:0 1px 4px rgba(0,0,0,.1)
+  border-radius:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center
 }
 
-.arrow{
-  padding:6px 10px;
-  font-size:18px;
-  border:none;
+/* Taschenrechner */
+.calc-box{
+  max-width:320px;
+  margin:auto;
+  background:#fff;
+  padding:10px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.2)
+}
+.calc-display{
+  font-size:26px;
+  background:#eef1f4;
+  padding:10px;
+  text-align:right;
   border-radius:6px;
-  background:#d5dbe0
+  margin-bottom:10px
+}
+.calc-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px
+}
+.calc-btn{padding:14px;font-size:18px;border:none;border-radius:6px;background:#d5dbe0}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+
+.history{
+  margin-top:10px;
+  font-size:14px
+}
+.history div{
+  background:#eef1f4;
+  padding:6px;
+  margin-bottom:4px;
+  border-radius:6px;
+  cursor:pointer
 }
 </style>
 </head>
@@ -80,119 +132,193 @@ header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20
 <div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
-
-<div id="editor" class="edit-overlay hidden"></div>
+<div id="calc2" class="panel hidden"></div>
+<div id="editor" class="editor hidden"></div>
 
 <script>
-/* ---------- DATEN ---------- */
-const CATS=["Kühe","Bullen","Trockensteher"];
+/* ---------------- BASIS ---------------- */
+const CATS=[
+  {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
+  {id:"bullen",name:"Bullen",cls:"cat-bullen"},
+  {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
+];
 
-let data = JSON.parse(localStorage.getItem("ruhe_sort")) || {
-  cats: CATS.map(name=>({
-    name,
-    items:[
-      "Futter 1","Futter 2","Futter 3","Futter 4",
-      "Futter 5","Futter 6","Futter 7","Futter 8",
-      "AGF","MLF"
-    ]
-  }))
-};
-
-function save(){
-  localStorage.setItem("ruhe_sort",JSON.stringify(data));
+function defItems(){
+  let a=[];
+  for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
+  a.push({type:"agf",kg:0});
+  a.push({type:"mlf",kg:0});
+  return a;
 }
 
-/* ---------- TABS ---------- */
+let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
+  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
+};
+
+let data=JSON.parse(localStorage.getItem("futter"))||{
+  kuehe:{anz:100,items:defItems()},
+  bullen:{anz:10,items:defItems()},
+  trocken:{anz:5,items:defItems()}
+};
+
+let sortEnabled = JSON.parse(localStorage.getItem("sortOn"))||false;
+
+/* ---------------- TABS ---------------- */
 function showTab(t){
-  calc.classList.toggle("hidden",t!=="calc");
-  settings.classList.toggle("hidden",t!=="settings");
+  ["calc","settings","calc2"].forEach(id=>{
+    document.getElementById(id).classList.toggle("hidden",id!==t)
+  });
   document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* ---------- RECHNER (RUHIG) ---------- */
+/* ---------------- RECHNER ---------------- */
 function buildCalc(){
   calc.innerHTML="";
-  data.cats.forEach(cat=>{
-    let c=document.createElement("div");
-    c.className="category";
-    c.innerHTML=`<h3>${cat.name}</h3>`;
-    cat.items.forEach(n=>{
-      let r=document.createElement("div");
-      r.className="row";
-      r.innerHTML=`<span>${n}</span>`;
-      c.appendChild(r);
+  CATS.forEach(c=>{
+    let sum=0,lauf=0,rows="";
+    data[c.id].items.forEach(it=>{
+      if(it.kg<=0)return;
+      let g=it.kg*data[c.id].anz;
+      let name=it.name||(it.type==="agf"?globalCfg.agfName:globalCfg.mlfName);
+      lauf+=g;sum+=g;
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>-</td></tr>`;
     });
-    calc.appendChild(c);
+
+    calc.innerHTML+=`
+    <div class="category">
+      <div class="cat-header ${c.cls}">${c.name}</div>
+      <div class="cat-body">
+        Tiere:
+        <input type="number" value="${data[c.id].anz}"
+          oninput="data.${c.id}.anz=this.valueAsNumber||0;save();buildCalc()">
+        <table>
+          <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+          ${rows||"<tr><td colspan=4 style='text-align:center;color:#888'>keine Daten</td></tr>"}
+        </table>
+        <div class="total">Gesamt: ${sum.toFixed(1)} kg</div>
+      </div>
+    </div>`;
   });
 }
 
-/* ---------- EINSTELLUNGEN ---------- */
+/* ---------------- EINSTELLUNGEN ---------------- */
 function buildSettings(){
-  settings.innerHTML="";
-  data.cats.forEach((cat,ci)=>{
-    let c=document.createElement("div");
-    c.className="category";
-    c.innerHTML=`
-      <h3>${cat.name}</h3>
-      <button class="btn" onclick="openEditor(${ci})">
-        Reihenfolge bearbeiten
-      </button>
-    `;
-    settings.appendChild(c);
+  settings.innerHTML=`
+    <h3>Sortieren</h3>
+    <button onclick="toggleSort()">
+      ${sortEnabled?"Sortieren deaktivieren":"Sortieren aktivieren"}
+    </button><hr>
+
+    <h3>AGF / MLF</h3>
+    AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc()"><br>
+    kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}" oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal()"><br><br>
+    MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc()"><br>
+    kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal()"><hr>
+  `;
+
+  CATS.forEach(c=>{
+    settings.innerHTML+=`<h3>${c.name}</h3>`;
+    if(sortEnabled){
+      settings.innerHTML+=`<button class="gray" onclick="openEditor('${c.id}')">Reihenfolge bearbeiten</button><br><br>`;
+    }
+    data[c.id].items.forEach((it,i)=>{
+      settings.innerHTML+=`
+      <div style="background:#fff;padding:6px;margin-bottom:6px">
+        ${it.type
+          ? (it.type==="agf"?globalCfg.agfName:globalCfg.mlfName)
+          : `<input value="${it.name}" oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`
+        }
+        <input type="number" step="0.01" value="${it.kg}"
+          oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+      </div>`;
+    });
   });
 }
 
-/* ---------- BEARBEITEN-ANSICHT ---------- */
-function openEditor(ci){
-  const cat=data.cats[ci];
-  editor.innerHTML=`
-    <h2>${cat.name} – Reihenfolge bearbeiten</h2>
-  `;
-  cat.items.forEach((name,i)=>{
-    let r=document.createElement("div");
-    r.className="edit-row";
-    r.innerHTML=`
-      <span>${name}</span>
-      <span>
-        <button class="arrow" onclick="moveItem(${ci},${i},-1)">⬆</button>
-        <button class="arrow" onclick="moveItem(${ci},${i},1)">⬇</button>
-      </span>
-    `;
-    editor.appendChild(r);
+function toggleSort(){
+  sortEnabled=!sortEnabled;
+  localStorage.setItem("sortOn",JSON.stringify(sortEnabled));
+  buildSettings();
+}
+
+/* ---------------- SORTIER-EDITOR ---------------- */
+function openEditor(cid){
+  const arr=data[cid].items;
+  editor.innerHTML=`<h2>${cid} – Reihenfolge</h2>`;
+  arr.forEach((it,i)=>{
+    let name=it.name||(it.type==="agf"?globalCfg.agfName:globalCfg.mlfName);
+    editor.innerHTML+=`
+      <div class="edit-row">
+        <span>${name}</span>
+        <span>
+          <button onclick="moveItem('${cid}',${i},-1)">⬆</button>
+          <button onclick="moveItem('${cid}',${i},1)">⬇</button>
+        </span>
+      </div>`;
   });
-
-  let done=document.createElement("button");
-  done.className="btn";
-  done.textContent="Fertig";
-  done.onclick=closeEditor;
-  editor.appendChild(done);
-
+  editor.innerHTML+=`<button onclick="closeEditor()">Fertig</button>`;
   editor.classList.remove("hidden");
+}
+
+function moveItem(cid,i,dir){
+  const a=data[cid].items;
+  const ni=i+dir;
+  if(ni<0||ni>=a.length)return;
+  [a[i],a[ni]]=[a[ni],a[i]];
+  openEditor(cid);
 }
 
 function closeEditor(){
   editor.classList.add("hidden");
-  save();
-  buildCalc();
-  buildSettings();
+  save();buildCalc();buildSettings();
 }
 
-function moveItem(ci,i,dir){
-  const arr=data.cats[ci].items;
-  const ni=i+dir;
-  if(ni<0||ni>=arr.length)return;
-  [arr[i],arr[ni]]=[arr[ni],arr[i]];
-  openEditor(ci);
+/* ---------------- TASCHENRECHNER ---------------- */
+let expr="",hist=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+function press(v){
+  if(v==="C"){expr="";}
+  else if(v==="="){
+    try{
+      const res=eval(expr);
+      hist.unshift(expr+" = "+res);
+      hist=hist.slice(0,10);
+      localStorage.setItem("calcHist",JSON.stringify(hist));
+      expr=""+res;
+    }catch{expr="";}
+  }else expr+=v;
+  renderCalc2();
 }
 
-/* ---------- START ---------- */
+function renderCalc2(){
+  calc2.innerHTML=`
+    <div class="calc-box">
+      <div class="calc-display">${expr||0}</div>
+      <div class="calc-grid">
+        ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+          .map(b=>`<button class="calc-btn ${"+-*/".includes(b)?"op":b==="="?"eq":b==="C"?"clear":""}"
+          onclick="press('${b}')">${b}</button>`).join("")}
+      </div>
+      <div class="history">
+        ${hist.map(h=>`<div onclick="expr='${h.split("=")[1].trim()}';renderCalc2()">${h}</div>`).join("")}
+      </div>
+    </div>`;
+}
+
+/* ---------------- SPEICHERN ---------------- */
+function save(){localStorage.setItem("futter",JSON.stringify(data))}
+function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
+
+/* ---------------- START ---------------- */
 buildCalc();
 buildSettings();
+renderCalc2();
 </script>
 
 </body>
