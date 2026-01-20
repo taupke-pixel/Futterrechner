@@ -37,6 +37,49 @@ th:first-child,td:first-child{text-align:left}
 
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
+
+/* Taschenrechner */
+.calc-box{
+  max-width:360px;
+  margin:auto;
+  background:#fff;
+  padding:12px;
+  border-radius:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,.15)
+}
+.calc-display{
+  background:#eef1f4;
+  padding:12px;
+  font-size:24px;
+  text-align:right;
+  border-radius:6px;
+  margin-bottom:10px
+}
+.calc-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px
+}
+.calc-btn{
+  padding:16px;
+  font-size:18px;
+  border:none;
+  border-radius:8px;
+  background:#d5dbe0
+}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+
+.calc-history{
+  margin-top:12px;
+  font-size:14px;
+  background:#f5f7fa;
+  padding:8px;
+  border-radius:6px;
+  max-height:160px;
+  overflow:auto
+}
 </style>
 </head>
 
@@ -47,17 +90,21 @@ th:first-child,td:first-child{text-align:left}
 <div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
+<div id="calc2" class="panel hidden"></div>
 
 <script>
+/* ================= HILFE ================= */
 function fmt(sec){
   sec=Math.round(sec);
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
+/* ================= GLOBAL ================= */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -84,13 +131,16 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 
 let kiloMode={};
 
+/* ================= TABS ================= */
 function showTab(t){
-  calc.classList.toggle("hidden",t!=="calc");
-  settings.classList.toggle("hidden",t!=="settings");
+  ["calc","settings","calc2"].forEach(id=>{
+    document.getElementById(id).classList.toggle("hidden",id!==t);
+  });
   document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
+/* ================= KILO ================= */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -115,6 +165,7 @@ function applyTotalKg(cat,kg){
   save();buildCalc();
 }
 
+/* ================= RECHNER ================= */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -156,6 +207,7 @@ function buildCalc(){
   });
 }
 
+/* ================= EINSTELLUNGEN ================= */
 function buildSettings(){
   settings.innerHTML=`
   <h3>AGF / MLF</h3>
@@ -178,10 +230,47 @@ function buildSettings(){
   });
 }
 
+/* ================= TASCHENRECHNER ================= */
+let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+function press(v){
+  if(v==="C"){expr="";update();return;}
+  if(v==="="){
+    try{
+      const res=eval(expr);
+      history.unshift(expr+" = "+res);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+res;
+    }catch{expr="";}
+    update();renderHistory();return;
+  }
+  expr+=v;update();
+}
+
+function update(){document.getElementById("disp").innerText=expr||"0";}
+function renderHistory(){
+  hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");
+}
+
+function buildCalc2(){
+  calc2.innerHTML=`
+  <div class="calc-box">
+    <div id="disp" class="calc-display">0</div>
+    <div class="calc-grid">
+      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+        .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}" onclick="press('${v}')">${v}</button>`).join("")}
+    </div>
+    <div id="hist" class="calc-history"></div>
+  </div>`;
+  renderHistory();
+}
+
+/* ================= SPEICHERN ================= */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
-buildCalc();buildSettings();
+buildCalc();buildSettings();buildCalc2();
 </script>
 
 </body>
