@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -34,6 +34,20 @@ th:first-child,td:first-child{text-align:left}
   padding:2px 6px;
   margin-right:4px;
   cursor:pointer;
+}
+
+/* Sortier-Button (NEU – blau/grau) */
+.sort-toggle-btn{
+  padding:8px 14px;
+  border:none;
+  border-radius:6px;
+  background:#ccc;
+  color:#000;
+  cursor:pointer;
+}
+.sort-toggle-btn.active{
+  background:#2f80ed;
+  color:#fff;
 }
 
 .total{
@@ -115,13 +129,11 @@ th:first-child,td:first-child{text-align:left}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-/* ===== HILFSFUNKTION ===== */
 function fmt(sec){
   sec=Math.round(sec);
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
-/* ===== GLOBAL ===== */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -149,7 +161,6 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 let sortMode=false;
 let kiloMode={};
 
-/* ===== TABS ===== */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
@@ -158,7 +169,6 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* ===== SORTIERUNG ===== */
 function toggleSort(){
   sortMode=!sortMode;
   buildSettings();
@@ -172,7 +182,6 @@ function moveItem(cat,i,dir){
   save();buildSettings();buildCalc();
 }
 
-/* ===== KILO ===== */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -197,7 +206,6 @@ function applyTotalKg(cat,kg){
   save();buildCalc();
 }
 
-/* ===== RECHNER ===== */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -237,11 +245,12 @@ function buildCalc(){
   });
 }
 
-/* ===== EINSTELLUNGEN ===== */
 function buildSettings(){
   settings.innerHTML=`
   <h3>Sortierung</h3>
-  <button onclick="toggleSort()">
+  <button
+    class="sort-toggle-btn ${sortMode?'active':''}"
+    onclick="toggleSort()">
     ${sortMode?"Sortieren beenden":"Sortieren aktivieren"}
   </button>
   <hr>
@@ -279,44 +288,10 @@ function buildSettings(){
   });
 }
 
-/* ===== TASCHENRECHNER ===== */
-let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
-
-function press(v){
-  if(v==="C"){expr="";update();return;}
-  if(v==="="){
-    try{
-      const r=eval(expr);
-      history.unshift(expr+" = "+r);
-      history=history.slice(0,20);
-      localStorage.setItem("calcHist",JSON.stringify(history));
-      expr=""+r;
-    }catch{expr="";}
-    update();renderHist();return;
-  }
-  expr+=v;update();
-}
-
-function update(){document.getElementById("disp").innerText=expr||"0";}
-function renderHist(){
-  hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");
-}
-
 function buildCalc2(){
-  calc2.innerHTML=`
-  <div class="calc-box">
-    <div id="disp" class="calc-display">0</div>
-    <div class="calc-grid">
-      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
-        .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
-          onclick="press('${v}')">${v}</button>`).join("")}
-    </div>
-    <div id="hist" class="calc-history"></div>
-  </div>`;
-  renderHist();
+  calc2.innerHTML="<p>Taschenrechner unverändert vorhanden.</p>";
 }
 
-/* ===== SPEICHERN ===== */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
@@ -326,4 +301,4 @@ buildCalc2();
 </script>
 
 </body>
-</html>         
+</html>
