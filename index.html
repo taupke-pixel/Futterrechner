@@ -28,13 +28,7 @@ table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
-.sort-btn{
-  border:none;
-  background:#eef1f4;
-  padding:2px 6px;
-  margin-right:4px;
-  cursor:pointer;
-}
+.sort-btn{border:none;background:#eef1f4;padding:2px 6px;margin-right:4px;cursor:pointer}
 
 .total{
   background:#2f3b45;
@@ -155,11 +149,11 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
+/* Sortierung */
 function toggleSort(){
   sortMode=!sortMode;
   buildSettings();
 }
-
 function moveItem(cat,i,dir){
   const a=data[cat].items;
   const n=i+dir;
@@ -168,11 +162,11 @@ function moveItem(cat,i,dir){
   save();buildSettings();buildCalc();
 }
 
+/* Kilo */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
 }
-
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
   const s=document.getElementById("total-"+cat);
@@ -183,7 +177,6 @@ function enableTotalEdit(cat){
   i.focus();
   i.onblur=()=>applyTotalKg(cat,parseFloat(i.value)||0);
 }
-
 function applyTotalKg(cat,kg){
   let p=0;
   data[cat].items.forEach(i=>p+=i.kg);
@@ -192,6 +185,7 @@ function applyTotalKg(cat,kg){
   save();buildCalc();
 }
 
+/* Rechner */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -231,6 +225,7 @@ function buildCalc(){
   });
 }
 
+/* Einstellungen */
 function buildSettings(){
   settings.innerHTML=`
   <h3>Sortierung</h3>
@@ -274,6 +269,7 @@ function buildSettings(){
   });
 }
 
+/* Taschenrechner */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
 function press(v){
@@ -291,9 +287,15 @@ function press(v){
   expr+=v;update();
 }
 
-function update(){document.getElementById("disp").innerText=expr||"0";}
+function update(){
+  const d=document.getElementById("disp");
+  if(d) d.innerText=expr||"0";
+}
+
 function renderHist(){
-  hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");
+  const h=document.getElementById("hist");
+  if(!h) return;
+  h.innerHTML=history.map(x=>"<div>"+x+"</div>").join("");
 }
 
 function buildCalc2(){
