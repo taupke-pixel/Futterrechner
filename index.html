@@ -8,17 +8,15 @@
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
-
 .tabs{display:flex}
-.tab{flex:1;text-align:center;padding:12px;background:#d5dbe0;font-size:17px;cursor:pointer}
+.tab{flex:1;padding:12px;text-align:center;background:#d5dbe0;cursor:pointer}
 .tab.active{background:#2f3b45;color:#fff}
-
 .panel{padding:12px}
 .hidden{display:none}
 
 .category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.1)}
-.cat-header{padding:10px;color:#fff;display:flex;justify-content:space-between;cursor:pointer}
-.cat-body{background:#fff;padding:10px}
+.cat-header{padding:12px;color:#fff;display:flex;justify-content:space-between;cursor:pointer}
+.cat-body{background:#fff;padding:12px}
 .category.collapsed .cat-body{display:none}
 
 .cat-kuehe{background:#2f80ed}
@@ -31,51 +29,34 @@ th:first-child,td:first-child{text-align:left}
 
 .total{
   background:#2f3b45;color:#fff;padding:10px;border-radius:8px;
-  display:flex;justify-content:space-between;align-items:center;
-  font-size:18px;margin-top:8px
+  display:flex;justify-content:space-between;align-items:center;margin-top:8px
 }
-
-.kilo-btn{padding:4px 10px;border-radius:6px;border:none;background:#ccc}
+.kilo-btn{padding:6px 12px;border-radius:6px;border:none;background:#ccc}
 .kilo-btn.active{background:#2f80ed;color:#fff}
-
-.inline-total-input{width:130px;font-size:17px}
+.inline-total-input{width:120px;font-size:16px}
 
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
-
-/* Sortieren */
-.sort-btn{margin:6px 0;padding:6px 10px;border:none;border-radius:6px;background:#27ae60;color:#fff}
-.sort-row button{margin-left:6px}
-
-/* Taschenrechner */
-.calc-box{max-width:320px;margin:auto;background:#fff;padding:10px;border-radius:10px}
-.calc-display{font-size:26px;padding:10px;background:#eef1f4;text-align:right;margin-bottom:8px}
-.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.calc-btn{padding:14px;font-size:18px;border:none;border-radius:6px;background:#d5dbe0}
-.calc-btn.op{background:#2f80ed;color:#fff}
-.calc-btn.eq{background:#27ae60;color:#fff}
-.calc-btn.clear{background:#b30000;color:#fff}
-.calc-log{font-size:13px;margin-top:8px;color:#444}
 </style>
 </head>
 
 <body>
 
-<header>🐄 Futter-Rechner</header>
+<header>🐄 Futterrechner</header>
 
 <div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
-  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
-<div id="calc2" class="panel hidden"></div>
 
 <script>
-/* ------------------ BASIS ------------------ */
-function fmt(sec){sec=Math.round(sec);return Math.floor(sec/60)+" min "+(sec%60)+" s"}
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
+}
 
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
@@ -101,18 +82,15 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
   trocken:{anz:5,items:defItems(),collapsed:false}
 };
 
-let kiloMode={}, sortMode=false;
+let kiloMode={};
 
-/* ------------------ TABS ------------------ */
 function showTab(t){
-  ["calc","settings","calc2"].forEach(id=>{
-    document.getElementById(id).classList.toggle("hidden",id!==t)
-  });
+  calc.classList.toggle("hidden",t!=="calc");
+  settings.classList.toggle("hidden",t!=="settings");
   document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* ------------------ KILO ------------------ */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -120,24 +98,23 @@ function toggleKilo(cat){
 
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
-  const span=document.getElementById("total-"+cat);
-  if(span.querySelector("input"))return;
-  const val=parseFloat(span.dataset.val)||0;
-  span.innerHTML=`<input class="inline-total-input" type="number" value="${val}"> kg`;
-  const input=span.querySelector("input");
-  input.focus();
-  input.onblur=()=>applyTotalKg(cat,parseFloat(input.value)||0);
+  const s=document.getElementById("total-"+cat);
+  if(s.querySelector("input"))return;
+  const v=parseFloat(s.dataset.val)||0;
+  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
+  const i=s.querySelector("input");
+  i.focus();
+  i.onblur=()=>applyTotalKg(cat,parseFloat(i.value)||0);
 }
 
 function applyTotalKg(cat,kg){
-  let per=0;
-  data[cat].items.forEach(i=>per+=i.kg);
-  if(per<=0)return;
-  data[cat].anz=Math.round(kg/per);
+  let p=0;
+  data[cat].items.forEach(i=>p+=i.kg);
+  if(p<=0)return;
+  data[cat].anz=Math.round(kg/p);
   save();buildCalc();
 }
 
-/* ------------------ RECHNER ------------------ */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -160,10 +137,10 @@ function buildCalc(){
         <strong>${c.name}</strong><span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
-        Anzahl Tiere:
+        Tiere:
         <input type="number" value="${data[c.id].anz}"
-          oninput="data.${c.id}.anz=this.valueAsNumber||0"
-          onblur="save();buildCalc()">
+          oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
+          onblur="buildCalc()">
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
           ${rows||"<tr><td colspan=4 style='text-align:center;color:#888'>keine Daten</td></tr>"}
@@ -172,74 +149,39 @@ function buildCalc(){
           <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
             onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
           <button id="kilo-${c.id}" class="kilo-btn"
-            onclick="toggleKilo('${c.id}')">Gesamt-kg ändern</button>
+            onclick="toggleKilo('${c.id}')">kilo</button>
         </div>
       </div>
     </div>`;
   });
 }
 
-/* ------------------ EINSTELLUNGEN ------------------ */
 function buildSettings(){
   settings.innerHTML=`
   <h3>AGF / MLF</h3>
-  AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value" onblur="saveGlobal();buildCalc()"><br>
-  kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}" onblur="saveGlobal();buildCalc()"><br><br>
-  MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value" onblur="saveGlobal();buildCalc()"><br>
-  kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}" onblur="saveGlobal();buildCalc()"><br><br>
-
-  <button class="sort-btn" onclick="sortMode=!sortMode;buildSettings()">Sortieren ${sortMode?'AUS':'EIN'}</button>
+  AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc()"><br>
+  kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}" oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
+  MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc()"><br>
+  kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><hr>
   `;
-
   CATS.forEach(c=>{
-    settings.innerHTML+=`<h4>${c.name}</h4>`;
+    settings.innerHTML+=`<h3>${c.name}</h3>`;
     data[c.id].items.forEach((it,i)=>{
       settings.innerHTML+=`
-      <div class="sort-row">
+      <div style="background:#fff;padding:6px;margin-bottom:6px">
         ${it.type? (it.type==="agf"?globalCfg.agfName:globalCfg.mlfName):
-          `<input value="${it.name}" oninput="it=this.value;data.${c.id}.items[${i}].name=this.value" onblur="save();buildCalc()">`}
+        `<input value="${it.name}" oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()">`}
         <input type="number" step="0.01" value="${it.kg}"
-          onblur="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
+          oninput="data.${c.id}.items[${i}].kg=this.valueAsNumber||0;save();buildCalc()">
       </div>`;
     });
   });
 }
 
-/* ------------------ TASCHENRECHNER ------------------ */
-let cv="",cop="",cl=0,log=[];
-function calcPress(v){
-  if("+-*/".includes(v)){cl=parseFloat(cv)||0;cv="";cop=v}
-  else if(v==="="){
-    let cur=parseFloat(cv)||0,res=0;
-    if(cop==="+")res=cl+cur;
-    if(cop==="-")res=cl-cur;
-    if(cop==="*")res=cl*cur;
-    if(cop==="/")res=cur?cl/cur:0;
-    log.unshift(cl+cop+cur+"="+res);
-    cv=""+res;cop="";
-  }else if(v==="C"){cv="";cop="";cl=0;log=[]}
-  else{cv+=v}
-  buildCalc2();
-}
-
-function buildCalc2(){
-  calc2.innerHTML=`
-  <div class="calc-box">
-    <div class="calc-display">${cv||0}</div>
-    <div class="calc-grid">
-      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"].map(b=>
-        `<button class="calc-btn ${"+-*/".includes(b)?'op':''} ${b==="="? 'eq':''} ${b==="C"?'clear':''}"
-          onclick="calcPress('${b}')">${b}</button>`).join("")}
-    </div>
-    <div class="calc-log">${log.slice(0,5).join("<br>")}</div>
-  </div>`;
-}
-
-/* ------------------ SAVE ------------------ */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
-buildCalc();buildSettings();buildCalc2();
+buildCalc();buildSettings();
 </script>
 
 </body>
