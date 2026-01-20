@@ -114,6 +114,7 @@ function fmt(sec){
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
+/* GLOBAL */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -141,6 +142,7 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 let sortMode=false;
 let kiloMode={};
 
+/* TABS */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
@@ -149,7 +151,7 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* Sortierung */
+/* SORTIERUNG */
 function toggleSort(){
   sortMode=!sortMode;
   buildSettings();
@@ -162,7 +164,7 @@ function moveItem(cat,i,dir){
   save();buildSettings();buildCalc();
 }
 
-/* Kilo */
+/* KILO */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
@@ -185,7 +187,7 @@ function applyTotalKg(cat,kg){
   save();buildCalc();
 }
 
-/* Rechner */
+/* RECHNER */
 function buildCalc(){
   calc.innerHTML="";
   CATS.forEach(c=>{
@@ -225,7 +227,7 @@ function buildCalc(){
   });
 }
 
-/* Einstellungen */
+/* EINSTELLUNGEN */
 function buildSettings(){
   settings.innerHTML=`
   <h3>Sortierung</h3>
@@ -236,12 +238,12 @@ function buildSettings(){
 
   <h3>AGF / MLF</h3>
   AGF Name <input value="${globalCfg.agfName}"
-    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc()"><br>
+    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
   kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}"
     oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
 
   MLF Name <input value="${globalCfg.mlfName}"
-    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc()"><br>
+    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
   kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}"
     oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><hr>
   `;
@@ -256,7 +258,8 @@ function buildSettings(){
           <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
         `:""}
         ${it.type ? `
-          <strong>${it.type==="agf"?globalCfg.agfName:globalCfg.mlfName}</strong>
+          <input type="text" value="${it.type==="agf"?globalCfg.agfName:globalCfg.mlfName}"
+            disabled style="width:60%;margin-right:6px;background:#eee">
         ` : `
           <input type="text" value="${it.name}"
             oninput="data.${c.id}.items[${i}].name=this.value;save();buildCalc()"
@@ -269,7 +272,7 @@ function buildSettings(){
   });
 }
 
-/* Taschenrechner */
+/* TASCHENRECHNER */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
 function press(v){
@@ -312,6 +315,7 @@ function buildCalc2(){
   renderHist();
 }
 
+/* SPEICHERN */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
