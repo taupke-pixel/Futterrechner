@@ -197,13 +197,13 @@ function buildCalc(){
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
       lauf+=g;sum+=g;
-      rows+=`<tr><td>\( {name}</td><td> \){g.toFixed(1)}</td><td>\( {lauf.toFixed(1)}</td><td> \){zeit}</td></tr>`;
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}">
-      <div class="cat-header \( {c.cls}" onclick="data. \){c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
-        \( {c.name}<span> \){data[c.id].collapsed?'▼':'▲'}</span>
+      <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
+        ${c.name}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
         Tiere:
@@ -215,7 +215,7 @@ function buildCalc(){
           ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
         <div class="total">
-          <span id="total-\( {c.id}" data-val=" \){sum.toFixed(1)}"
+          <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
             onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
           <button id="kilo-${c.id}" class="kilo-btn"
             onclick="toggleKilo('${c.id}')">kilo</button>
@@ -253,17 +253,16 @@ function buildSettings(){
       <div class="sort-row">
         ${sortMode?`
         <div class="sort-arrows">
-          <button class="sort-btn" onclick="moveItem('\( {c.id}', \){i},-1)">▲</button>
-          <button class="sort-btn" onclick="moveItem('\( {c.id}', \){i},1)">▼</button>
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
         </div>`:`<div></div>`}
         <div>
-          <input type="text"
-            value="${it.type==='agf'?globalCfg.agfName:it.type==='mlf'?globalCfg.mlfName:it.name}"
+          <input type="text" value="${it.type==='agf'?globalCfg.agfName:it.type==='mlf'?globalCfg.mlfName:it.name}"
             oninput="${
               it.type==='agf'
-                ? 'globalCfg.agfName=this.value;saveGlobal();buildCalc()'
+                ? 'globalCfg.agfName=this.value;saveGlobal();buildCalc();'
                 : it.type==='mlf'
-                ? 'globalCfg.mlfName=this.value;saveGlobal();buildCalc()'
+                ? 'globalCfg.mlfName=this.value;saveGlobal();buildCalc();'
                 : 'it.name=this.value;save();buildCalc();'
             }">
           <input type="number" step="0.01" value="${it.kg}"
@@ -301,7 +300,7 @@ function buildCalc2(){
     <div class="calc-grid">
       ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
       .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
-        onclick="press('\( {v}')"> \){v}</button>`).join("")}
+        onclick="press('${v}')">${v}</button>`).join("")}
     </div>
     <div id="hist" class="calc-history"></div>
   </div>`;
