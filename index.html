@@ -8,45 +8,89 @@
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
+
 .tabs{display:flex}
 .tab{flex:1;padding:12px;text-align:center;background:#d5dbe0;cursor:pointer}
 .tab.active{background:#2f3b45;color:#fff}
+
 .panel{padding:12px}
 .hidden{display:none}
+
+/* Kategorien */
 .category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.1)}
 .cat-header{padding:12px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between}
 .cat-body{background:#fff;padding:12px}
 .category.collapsed .cat-body{display:none}
+
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
+
+/* Tabellen */
 table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
 th:first-child,td:first-child{text-align:left}
-.total{background:#2f3b45;color:#fff;padding:10px;border-radius:8px;margin-top:8px;display:flex;justify-content:space-between;align-items:center}
-.kilo-btn{padding:6px 12px;border-radius:6px;border:none;background:#ccc;cursor:pointer}
+
+/* Sortierung */
+.sort-btn{
+  border:none;
+  background:#e0e0e0;
+  padding:4px 6px;
+  cursor:pointer;
+}
+.sort-active{background:#2f80ed;color:#fff}
+
+.sort-row{
+  display:grid;
+  grid-template-columns:40px 1fr;
+  gap:8px;
+  margin-bottom:6px;
+}
+.sort-arrows{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+/* Summen */
+.total{
+  background:#2f3b45;
+  color:#fff;
+  padding:10px;
+  border-radius:8px;
+  margin-top:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center
+}
+.kilo-btn{padding:6px 12px;border-radius:6px;border:none;background:#ccc}
 .kilo-btn.active{background:#2f80ed;color:#fff}
 .inline-total-input{width:120px;font-size:16px}
+
+/* AGF / MLF */
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
+
+/* Taschenrechner */
 .calc-box{max-width:360px;margin:auto;background:#fff;padding:12px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .calc-display{background:#eef1f4;padding:12px;font-size:24px;text-align:right;border-radius:6px;margin-bottom:10px}
 .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.calc-btn{padding:16px;font-size:18px;border:none;border-radius:8px;background:#d5dbe0;cursor:pointer}
+.calc-btn{padding:16px;font-size:18px;border:none;border-radius:8px;background:#d5dbe0}
 .calc-btn.op{background:#2f80ed;color:#fff}
 .calc-btn.eq{background:#27ae60;color:#fff}
 .calc-btn.clear{background:#b30000;color:#fff}
 .calc-history{margin-top:12px;font-size:14px;background:#f5f7fa;padding:8px;border-radius:6px;max-height:160px;overflow:auto}
 </style>
 </head>
+
 <body>
 
 <header>🐄 Futterrechner</header>
 
 <div class="tabs">
-  <div class="tab active" data-tab="calc">Rechner</div>
-  <div class="tab" data-tab="settings">Einstellungen</div>
-  <div class="tab" data-tab="calc2">Taschenrechner</div>
+  <div class="tab active" onclick="showTab('calc')">Rechner</div>
+  <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
@@ -54,345 +98,224 @@ th:first-child,td:first-child{text-align:left}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-// ──────────────────────────────────────────────
-// Hilfsfunktionen
-// ──────────────────────────────────────────────
-function escapeHtml(str) {
-  return (str + '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+/* ===== HILFE ===== */
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
-function fmt(sec) {
-  sec = Math.round(sec);
-  return Math.floor(sec/60) + " min " + (sec % 60) + " s";
-}
-
-const debounce = (fn, ms) => {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
-  };
+/* ===== GLOBAL ===== */
+let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
+  agfName:"AGF",
+  mlfName:"MLF",
+  agfKg:0.5,
+  mlfKg:0.5
 };
 
-// ──────────────────────────────────────────────
-// Daten
-// ──────────────────────────────────────────────
-let globalCfg = JSON.parse(localStorage.getItem("gCfg")) || {
-  agfName: "AGF",
-  mlfName: "MLF",
-  agfKg: 0.5,
-  mlfKg: 0.5
-};
-
-const CATS = [
-  {id: "kuehe",   name: "Kühe",         cls: "cat-kuehe"},
-  {id: "bullen",  name: "Bullen",       cls: "cat-bullen"},
-  {id: "trocken", name: "Trockensteher", cls: "cat-trocken"}
+const CATS=[
+  {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
+  {id:"bullen",name:"Bullen",cls:"cat-bullen"},
+  {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
 ];
 
-function defItems() {
-  let a = [];
-  for (let i = 1; i <= 8; i++) a.push({name: "Futter " + i, kg: 0});
-  a.push({type: "agf", kg: 0});
-  a.push({type: "mlf", kg: 0});
+function defItems(){
+  let a=[];
+  for(let i=1;i<=8;i++) a.push({name:"Futter "+i,kg:0});
+  a.push({type:"agf",kg:0});
+  a.push({type:"mlf",kg:0});
   return a;
 }
 
-let data = JSON.parse(localStorage.getItem("futter")) || {
-  kuehe:   {anz: 100, items: defItems(), collapsed: false},
-  bullen:  {anz: 10,  items: defItems(), collapsed: false},
-  trocken: {anz: 5,   items: defItems(), collapsed: false}
+let data=JSON.parse(localStorage.getItem("futter"))||{
+  kuehe:{anz:100,items:defItems(),collapsed:false},
+  bullen:{anz:10,items:defItems(),collapsed:false},
+  trocken:{anz:5,items:defItems(),collapsed:false}
 };
 
-let sortMode = false;
-let kiloMode = {};
+let sortMode=false;
+let kiloMode={};
 
-// ──────────────────────────────────────────────
-// Tabs
-// ──────────────────────────────────────────────
-function showTab(tabId) {
-  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden", p.id !== tabId));
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabId));
-}
-
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => showTab(tab.dataset.tab));
-});
-
-// ──────────────────────────────────────────────
-// Taschenrechner (sichere Variante – nur einfache Rechenzeichen)
-// ──────────────────────────────────────────────
-let expr = "";
-let history = JSON.parse(localStorage.getItem("calcHist")) || [];
-
-function safeCalc(str) {
-  if (!/^[0-9.+\-*/() ]*$/.test(str)) return "Error";
-  try {
-    return Function('"use strict";return (' + str + ')')();
-  } catch {
-    return "Error";
-  }
-}
-
-function press(v) {
-  if (v === "C") {
-    expr = "";
-  } else if (v === "=") {
-    const result = safeCalc(expr);
-    if (result !== "Error") {
-      history.unshift(expr + " = " + result);
-      history = history.slice(0, 20);
-      localStorage.setItem("calcHist", JSON.stringify(history));
-      expr = String(result);
-    } else {
-      expr = "Error";
-    }
-  } else {
-    expr += v;
-  }
-  document.getElementById("disp").textContent = expr || "0";
-  document.getElementById("hist").innerHTML = history.map(h => "<div>" + escapeHtml(h) + "</div>").join("");
-}
-
-function buildCalc2() {
-  const calc2 = document.getElementById("calc2");
-  calc2.innerHTML = `
-    <div class="calc-box">
-      <div id="disp" class="calc-display">0</div>
-      <div class="calc-grid">
-        ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
-          .map(v => `<button class="calc-btn ${v==="="? "eq" : "+-*/".includes(v)? "op" : v==="C"? "clear" : ""}"
-            data-value="\( {v}"> \){v}</button>`).join("")}
-      </div>
-      <div id="hist" class="calc-history"></div>
-    </div>`;
-
-  document.querySelectorAll("#calc2 button").forEach(btn => {
-    btn.addEventListener("click", () => press(btn.dataset.value));
+/* ===== TABS ===== */
+function showTab(t){
+  ["calc","settings","calc2"].forEach(id=>{
+    document.getElementById(id).classList.toggle("hidden",id!==t);
   });
-  document.getElementById("hist").innerHTML = history.map(h => "<div>" + escapeHtml(h) + "</div>").join("");
+  document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+  document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-// ──────────────────────────────────────────────
-// Haupt-Rechner
-// ──────────────────────────────────────────────
-const debouncedBuildCalc = debounce(buildCalc, 250);
+/* ===== SORTIERUNG ===== */
+function toggleSort(){
+  sortMode=!sortMode;
+  buildSettings();
+}
 
-function buildCalc() {
-  const container = document.getElementById("calc");
-  container.innerHTML = "";
+function moveItem(cat,i,dir){
+  const a=data[cat].items;
+  const n=i+dir;
+  if(n<0||n>=a.length)return;
+  [a[i],a[n]]=[a[n],a[i]];
+  save();buildSettings();buildCalc();
+}
 
-  CATS.forEach(cat => {
-    const catData = data[cat.id];
-    let sum = 0, lauf = 0;
-    let rows = "";
+/* ===== KILO ===== */
+function toggleKilo(cat){
+  kiloMode[cat]=!kiloMode[cat];
+  document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
+}
 
-    catData.items.forEach(item => {
-      if (item.kg <= 0) return;
-      const g = item.kg * catData.anz;
-      const name = item.type === "agf" ? globalCfg.agfName :
-                   item.type === "mlf" ? globalCfg.mlfName :
-                   item.name;
-      let zeit = "-";
-      if (item.type === "agf") zeit = `<span class="agf">${fmt(g / globalCfg.agfKg)}</span>`;
-      if (item.type === "mlf") zeit = `<span class="mlf">${fmt(g / globalCfg.mlfKg)}</span>`;
+function enableTotalEdit(cat){
+  if(!kiloMode[cat])return;
+  const s=document.getElementById("total-"+cat);
+  if(s.querySelector("input"))return;
+  const v=parseFloat(s.dataset.val)||0;
+  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
+  const i=s.querySelector("input");
+  i.focus();
+  i.onblur=()=>applyTotalKg(cat,parseFloat(i.value)||0);
+}
 
-      lauf += g;
-      sum += g;
+function applyTotalKg(cat,kg){
+  let p=0;
+  data[cat].items.forEach(i=>p+=i.kg);
+  if(p<=0)return;
+  data[cat].anz=Math.round(kg/p);
+  save();buildCalc();
+}
 
-      rows += `
-        <tr>
-          <td>${escapeHtml(name)}</td>
-          <td>${g.toFixed(1)}</td>
-          <td>${lauf.toFixed(1)}</td>
-          <td>${zeit}</td>
-        </tr>`;
+/* ===== RECHNER ===== */
+function buildCalc(){
+  calc.innerHTML="";
+  CATS.forEach(c=>{
+    let sum=0,lauf=0,rows="";
+    data[c.id].items.forEach(it=>{
+      if(it.kg<=0)return;
+      let g=it.kg*data[c.id].anz;
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:it.name;
+      let zeit="-";
+      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
+      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+      lauf+=g;sum+=g;
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
-    const section = document.createElement("div");
-    section.className = "category" + (catData.collapsed ? " collapsed" : "");
-    section.innerHTML = `
-      <div class="cat-header ${cat.cls}">
-        \( {cat.name}<span> \){catData.collapsed ? '▼' : '▲'}</span>
+    calc.innerHTML+=`
+    <div class="category ${data[c.id].collapsed?'collapsed':''}">
+      <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc()">
+        ${c.name}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
-        Tiere: <input type="number" value="\( {catData.anz}" min="0" class="anz-input" data-cat=" \){cat.id}">
+        Tiere:
+        <input type="number" value="${data[c.id].anz}"
+          oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
+          onblur="buildCalc()">
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
-          ${rows || "<tr><td colspan=4>–</td></tr>"}
+          ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
         <div class="total">
-          <span class="total-span" data-cat="${cat.id}">Gesamt: ${sum.toFixed(1)} kg</span>
-          <button class="kilo-btn \( {kiloMode[cat.id] ? 'active' : ''}" data-cat=" \){cat.id}">kilo</button>
+          <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
+            onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
+          <button id="kilo-${c.id}" class="kilo-btn"
+            onclick="toggleKilo('${c.id}')">kilo</button>
         </div>
-      </div>`;
-
-    section.querySelector(".cat-header").addEventListener("click", () => {
-      catData.collapsed = !catData.collapsed;
-      save();
-      buildCalc();
-    });
-
-    section.querySelector(".anz-input").addEventListener("input", e => {
-      catData.anz = Number(e.target.value) || 0;
-      save();
-      debouncedBuildCalc();
-    });
-
-    section.querySelector(".kilo-btn").addEventListener("click", e => {
-      const c = e.target.dataset.cat;
-      kiloMode[c] = !kiloMode[c];
-      e.target.classList.toggle("active", kiloMode[c]);
-      if (!kiloMode[c]) debouncedBuildCalc();
-    });
-
-    section.querySelector(".total-span").addEventListener("click", e => {
-      const c = e.target.dataset.cat;
-      if (!kiloMode[c]) return;
-      const current = parseFloat(e.target.dataset.val) || 0;
-      e.target.innerHTML = `<input type="number" class="inline-total-input" value="\( {current}" data-cat=" \){c}"> kg`;
-      const inp = e.target.querySelector("input");
-      inp.focus();
-      inp.select();
-      inp.addEventListener("blur", () => {
-        const kg = Number(inp.value) || 0;
-        let portion = 0;
-        data[c].items.forEach(i => portion += i.kg);
-        if (portion > 0) {
-          data[c].anz = Math.round(kg / portion);
-          save();
-          buildCalc();
-        }
-      }, {once: true});
-    });
-
-    container.appendChild(section);
+      </div>
+    </div>`;
   });
 }
 
-// ──────────────────────────────────────────────
-// Einstellungen
-// ──────────────────────────────────────────────
-function buildSettings() {
-  const container = document.getElementById("settings");
-  let html = `
-    <h3>Sortierung</h3>
-    <button id="sort-toggle">${sortMode ? 'Sortieren beenden' : 'Sortieren aktivieren'}</button>
-    <hr>
+/* ===== EINSTELLUNGEN ===== */
+function buildSettings(){
+  settings.innerHTML=`
+  <h3>Sortierung</h3>
+  <button class="${sortMode?'sort-active':''}" onclick="toggleSort()">
+    ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
+  </button>
+  <hr>
 
-    <h3>AGF / MLF</h3>
-    AGF Name <input type="text" id="agf-name" value="${escapeHtml(globalCfg.agfName)}"><br>
-    kg/s <input type="number" step="0.1" id="agf-kg" value="${globalCfg.agfKg}"><br><br>
+  <h3>AGF / MLF</h3>
+  AGF Name <input value="${globalCfg.agfName}"
+    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
+  kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}"
+    oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
 
-    MLF Name <input type="text" id="mlf-name" value="${escapeHtml(globalCfg.mlfName)}"><br>
-    kg/s <input type="number" step="0.1" id="mlf-kg" value="${globalCfg.mlfKg}"><hr>
+  MLF Name <input value="${globalCfg.mlfName}"
+    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
+  kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}"
+    oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><hr>
   `;
 
-  CATS.forEach(cat => {
-    html += `<h3>\( {cat.name}</h3><div class="cat-items" data-cat=" \){cat.id}"></div>`;
-  });
-
-  container.innerHTML = html;
-
-  // Event-Listener für globale Felder
-  document.getElementById("sort-toggle").addEventListener("click", () => {
-    sortMode = !sortMode;
-    buildSettings();
-  });
-
-  ["agf-name","agf-kg","mlf-name","mlf-kg"].forEach(id => {
-    const el = document.getElementById(id);
-    el.addEventListener("input", () => {
-      if (id === "agf-name") globalCfg.agfName = el.value;
-      if (id === "mlf-name") globalCfg.mlfName = el.value;
-      if (id === "agf-kg") globalCfg.agfKg = Number(el.value) || 0.01;
-      if (id === "mlf-kg") globalCfg.mlfKg = Number(el.value) || 0.01;
-      saveGlobal();
-      debouncedBuildCalc();
-    });
-  });
-
-  // Items rendern
-  CATS.forEach(cat => {
-    const parent = container.querySelector(`.cat-items[data-cat="${cat.id}"]`);
-    data[cat.id].items.forEach((item, idx) => {
-      const name = item.type === "agf" ? globalCfg.agfName :
-                   item.type === "mlf" ? globalCfg.mlfName :
-                   item.name;
-
-      const row = document.createElement("div");
-      row.style.display = "flex";
-      row.style.gap = "8px";
-      row.style.marginBottom = "6px";
-      row.innerHTML = `
-        ${sortMode ? `
-          <div style="display:flex;flex-direction:column;gap:2px;">
-            <button data-cat="\( {cat.id}" data-idx=" \){idx}" data-dir="-1">▲</button>
-            <button data-cat="\( {cat.id}" data-idx=" \){idx}" data-dir="1">▼</button>
-          </div>` : '<div style="width:40px"></div>'}
-        <div style="flex:1">
-          <input type="text" value="\( {escapeHtml(name)}" data-cat=" \){cat.id}" data-idx="\( {idx}" data-type=" \){item.type || 'name'}">
-          <input type="number" step="0.1" value="\( {item.kg}" data-cat=" \){cat.id}" data-idx="${idx}" data-type="kg">
-        </div>`;
-
-      parent.appendChild(row);
-    });
-  });
-
-  // Sortier-Buttons
-  container.querySelectorAll("button[data-dir]").forEach(btn => {
-    btn.addEventListener("click", e => {
-      const c = e.target.dataset.cat;
-      const i = Number(e.target.dataset.idx);
-      const d = Number(e.target.dataset.dir);
-      const arr = data[c].items;
-      const ni = i + d;
-      if (ni < 0 || ni >= arr.length) return;
-      [arr[i], arr[ni]] = [arr[ni], arr[i]];
-      save();
-      buildSettings();
-      debouncedBuildCalc();
-    });
-  });
-
-  // Item-Eingaben
-  container.querySelectorAll("input[data-type]").forEach(inp => {
-    inp.addEventListener("input", e => {
-      const c = e.target.dataset.cat;
-      const i = Number(e.target.dataset.idx);
-      const item = data[c].items[i];
-      if (e.target.dataset.type === "kg") {
-        item.kg = Number(e.target.value) || 0;
-      } else if (item.type) {
-        if (item.type === "agf") globalCfg.agfName = e.target.value;
-        if (item.type === "mlf") globalCfg.mlfName = e.target.value;
-        saveGlobal();
-      } else {
-        item.name = e.target.value;
-      }
-      save();
-      debouncedBuildCalc();
+  CATS.forEach(c=>{
+    settings.innerHTML+=`<h3>${c.name}</h3>`;
+    data[c.id].items.forEach((it,i)=>{
+      settings.innerHTML+=`
+      <div class="sort-row">
+        ${sortMode?`
+        <div class="sort-arrows">
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
+        </div>`:`<div></div>`}
+        <div>
+          <input type="text"
+            value="${it.type==='agf'?globalCfg.agfName:it.type==='mlf'?globalCfg.mlfName:it.name}"
+            oninput="${
+              it.type==='agf'
+                ? 'globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();'
+                : it.type==='mlf'
+                ? 'globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();'
+                : 'it.name=this.value;save();buildCalc();'
+            }">
+          <input type="number" step="0.01" value="${it.kg}"
+            oninput="it.kg=this.valueAsNumber||0;save();buildCalc()">
+        </div>
+      </div>`;
     });
   });
 }
 
-// ──────────────────────────────────────────────
-// Speichern
-// ──────────────────────────────────────────────
-function save() {
-  localStorage.setItem("futter", JSON.stringify(data));
+/* ===== TASCHENRECHNER ===== */
+let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+function press(v){
+  if(v==="C"){expr="";update();return;}
+  if(v==="="){
+    try{
+      const r=eval(expr);
+      history.unshift(expr+" = "+r);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+r;
+    }catch{expr="";}
+    update();renderHist();return;
+  }
+  expr+=v;update();
 }
-function saveGlobal() {
-  localStorage.setItem("gCfg", JSON.stringify(globalCfg));
+function update(){document.getElementById("disp").innerText=expr||"0";}
+function renderHist(){hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
+
+function buildCalc2(){
+  calc2.innerHTML=`
+  <div class="calc-box">
+    <div id="disp" class="calc-display">0</div>
+    <div class="calc-grid">
+      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+      .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
+        onclick="press('${v}')">${v}</button>`).join("")}
+    </div>
+    <div id="hist" class="calc-history"></div>
+  </div>`;
+  renderHist();
 }
 
-// ──────────────────────────────────────────────
-// Start
-// ──────────────────────────────────────────────
+/* ===== SPEICHERN ===== */
+function save(){localStorage.setItem("futter",JSON.stringify(data))}
+function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
+
 buildCalc();
 buildSettings();
 buildCalc2();
-showTab("calc");
 </script>
+
 </body>
 </html>
