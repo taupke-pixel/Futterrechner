@@ -32,9 +32,6 @@ th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
 /* Sortierung */
-.sort-btn{border:none;background:#eef1f4;padding:4px 6px;cursor:pointer}
-.sort-active{background:#2f80ed;color:#fff}
-
 .sort-row{
   display:grid;
   grid-template-columns:40px 1fr;
@@ -44,8 +41,20 @@ th:first-child,td:first-child{text-align:left}
 .sort-arrows{
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:6px;
 }
+.sort-btn{
+  border:none;
+  background:#e2e6ea;
+  padding:6px 0;
+  cursor:pointer;
+  border-radius:4px;
+  font-size:14px;
+}
+.sort-btn:hover{
+  background:#d5dbe0;
+}
+.sort-active{background:#2f80ed;color:#fff}
 
 /* Summen */
 .total{
@@ -93,13 +102,11 @@ th:first-child,td:first-child{text-align:left}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-/* ===== HILFE ===== */
 function fmt(sec){
   sec=Math.round(sec);
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
-/* ===== GLOBAL ===== */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -127,7 +134,6 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
 let sortMode=false;
 let kiloMode={};
 
-/* ===== TABS ===== */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
@@ -137,7 +143,6 @@ function showTab(t){
   if(t==="calc") buildCalc();
 }
 
-/* ===== SORTIERUNG ===== */
 function toggleSort(){
   sortMode=!sortMode;
   buildSettings();
@@ -149,31 +154,6 @@ function moveItem(cat,i,dir){
   if(n<0||n>=a.length)return;
   [a[i],a[n]]=[a[n],a[i]];
   save();buildSettings();buildCalc();
-}
-
-/* ===== KILO ===== */
-function toggleKilo(cat){
-  kiloMode[cat]=!kiloMode[cat];
-  document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
-}
-
-function enableTotalEdit(cat){
-  if(!kiloMode[cat])return;
-  const s=document.getElementById("total-"+cat);
-  if(s.querySelector("input"))return;
-  const v=parseFloat(s.dataset.val)||0;
-  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
-  const i=s.querySelector("input");
-  i.focus();
-  i.onblur=()=>applyTotalKg(cat,parseFloat(i.value)||0);
-}
-
-function applyTotalKg(cat,kg){
-  let p=0;
-  data[cat].items.forEach(i=>p+=i.kg);
-  if(p<=0)return;
-  data[cat].anz=Math.round(kg/p);
-  save();buildCalc();
 }
 
 /* ===== RECHNER ===== */
@@ -199,20 +179,10 @@ function buildCalc(){
         ${c.name}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
-        Tiere:
-        <input type="number" value="${data[c.id].anz}"
-          oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
-          onblur="buildCalc()">
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
           ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
-        <div class="total">
-          <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
-            onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
-          <button id="kilo-${c.id}" class="kilo-btn"
-            onclick="toggleKilo('${c.id}')">kilo</button>
-        </div>
       </div>
     </div>`;
   });
@@ -229,14 +199,12 @@ function buildSettings(){
 
   <h3>AGF / MLF</h3>
   AGF Name <input value="${globalCfg.agfName}"
-    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();syncSpecialNames()"
-    onblur="buildSettings()"><br>
+    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
   kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}"
     oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
 
   MLF Name <input value="${globalCfg.mlfName}"
-    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();syncSpecialNames()"
-    onblur="buildSettings()"><br>
+    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings()"><br>
   kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}"
     oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><hr>
   `;
@@ -252,12 +220,14 @@ function buildSettings(){
           <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
         </div>`:`<div></div>`}
         <div>
-          ${it.type
-            ? `<strong data-special="${it.type}">
-                 ${it.type==="agf"?globalCfg.agfName:globalCfg.mlfName}
-               </strong>`
-            : `<input type="text" value="${it.name}"
-                oninput="it.name=this.value;save();buildCalc()">`}
+          <input type="text"
+            value="${it.type==="agf"?globalCfg.agfName:
+                    it.type==="mlf"?globalCfg.mlfName:it.name}"
+            oninput="${
+              it.type
+              ? `globalCfg.${it.type}Name=this.value;saveGlobal();buildCalc();buildSettings()`
+              : `it.name=this.value;save();buildCalc()`
+            }">
           <input type="number" step="0.01" value="${it.kg}"
             oninput="it.kg=this.valueAsNumber||0;save();buildCalc()">
         </div>
@@ -266,55 +236,11 @@ function buildSettings(){
   });
 }
 
-/* ===== LIVE-SYNC AGF / MLF ===== */
-function syncSpecialNames(){
-  document.querySelectorAll('[data-special="agf"]')
-    .forEach(e=>e.textContent = globalCfg.agfName);
-  document.querySelectorAll('[data-special="mlf"]')
-    .forEach(e=>e.textContent = globalCfg.mlfName);
-}
-
-/* ===== TASCHENRECHNER ===== */
-let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
-
-function press(v){
-  if(v==="C"){expr="";update();return;}
-  if(v==="="){
-    try{
-      const r=eval(expr);
-      history.unshift(expr+" = "+r);
-      history=history.slice(0,20);
-      localStorage.setItem("calcHist",JSON.stringify(history));
-      expr=""+r;
-    }catch{expr="";}
-    update();renderHist();return;
-  }
-  expr+=v;update();
-}
-function update(){document.getElementById("disp").innerText=expr||"0";}
-function renderHist(){hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
-
-function buildCalc2(){
-  calc2.innerHTML=`
-  <div class="calc-box">
-    <div id="disp" class="calc-display">0</div>
-    <div class="calc-grid">
-      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
-      .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
-        onclick="press('${v}')">${v}</button>`).join("")}
-    </div>
-    <div id="hist" class="calc-history"></div>
-  </div>`;
-  renderHist();
-}
-
-/* ===== SPEICHERN ===== */
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
 buildCalc();
 buildSettings();
-buildCalc2();
 </script>
 
 </body>
