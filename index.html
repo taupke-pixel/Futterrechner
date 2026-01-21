@@ -32,7 +32,12 @@ th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 
 /* Sortierung */
-.sort-btn{border:none;background:#eef1f4;padding:4px 6px;cursor:pointer}
+.sort-btn{
+  border:none;
+  background:#e0e0e0;
+  padding:4px 6px;
+  cursor:pointer;
+}
 .sort-active{background:#2f80ed;color:#fff}
 
 .sort-row{
@@ -228,14 +233,12 @@ function buildSettings(){
 
   <h3>AGF / MLF</h3>
   AGF Name <input value="${globalCfg.agfName}"
-    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc()"
-    onblur="buildSettings()"><br>
+    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc()"><br>
   kg/s <input type="number" step="0.01" value="${globalCfg.agfKg}"
     oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><br><br>
 
   MLF Name <input value="${globalCfg.mlfName}"
-    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc()"
-    onblur="buildSettings()"><br>
+    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc()"><br>
   kg/s <input type="number" step="0.01" value="${globalCfg.mlfKg}"
     oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc()"><hr>
   `;
@@ -251,10 +254,14 @@ function buildSettings(){
           <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
         </div>`:`<div></div>`}
         <div>
-          ${it.type
-            ? `<strong>${it.type==="agf"?globalCfg.agfName:globalCfg.mlfName}</strong>`
-            : `<input type="text" value="${it.name}"
-                oninput="it.name=this.value;save();buildCalc()">`}
+          <input type="text"
+            value="${it.type==='agf'?globalCfg.agfName:it.type==='mlf'?globalCfg.mlfName:it.name}"
+            oninput="
+              ${it.type==='agf'?'globalCfg.agfName=this.value;saveGlobal();':
+                it.type==='mlf'?'globalCfg.mlfName=this.value;saveGlobal();':
+                'it.name=this.value;'}
+              save();buildCalc();
+            ">
           <input type="number" step="0.01" value="${it.kg}"
             oninput="it.kg=this.valueAsNumber||0;save();buildCalc()">
         </div>
