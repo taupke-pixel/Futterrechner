@@ -7,128 +7,131 @@
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
-header{background:#2f3b45;color:#fff;padding:12px;text-align:center;font-size:20px}
+header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
 
 .tabs{display:flex}
-.tab{flex:1;padding:12px;text-align:center;background:#d5dbe0;cursor:pointer}
+.tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;cursor:pointer;font-size:18px}
 .tab.active{background:#2f3b45;color:#fff}
 
-.panel{padding:12px}
+.panel{padding:14px}
 .hidden{display:none}
 
-.category{border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.1)}
-.cat-header{padding:12px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between}
-.cat-body{background:#fff;padding:12px}
+/* Kategorien */
+.category{border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12);transition:.2s}
+.cat-header{padding:16px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between;font-size:20px}
+.cat-body{background:#fff;padding:14px}
 .category.collapsed .cat-body{display:none}
 
+/* Vollbild Kategorie */
+.category.fullscreen{
+  position:relative;
+  z-index:5;
+  box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
+
+/* Farben */
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
 
-table{width:100%;border-collapse:collapse}
-th,td{border-bottom:1px solid #ddd;padding:6px;text-align:right}
-th:first-child,td:first-child{text-align:left}
+/* Tabellen */
+table{width:100%;border-collapse:collapse;font-size:18px}
+th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
+th:first-child,td:first-child{text-align:left;font-weight:bold}
 
-.sort-row{
-  display:grid;
-  grid-template-columns:40px 1fr;
-  gap:8px;
-  margin-bottom:6px;
-}
-
+/* Summen */
 .total{
   background:#2f3b45;
   color:#fff;
-  padding:10px;
-  border-radius:8px;
-  margin-top:8px;
+  padding:14px;
+  border-radius:10px;
+  margin-top:10px;
   display:flex;
   justify-content:space-between;
-  align-items:center
+  align-items:center;
+  font-size:20px;
+  font-weight:bold
 }
 
+.inline-total-input{width:140px;font-size:18px}
+
+/* AGF / MLF */
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
+
+/* Sortierung */
+.sort-btn{
+  border:none;
+  background:#e0e0e0;
+  padding:6px 10px;
+  cursor:pointer;
+}
+.sort-active{background:#2f80ed;color:#fff}
+
+/* Taschenrechner */
+.calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.calc-display{background:#eef1f4;padding:14px;font-size:26px;text-align:right;border-radius:8px;margin-bottom:12px}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.calc-btn{padding:18px;font-size:20px;border:none;border-radius:10px;background:#d5dbe0}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+.calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
 </style>
 </head>
 
 <body>
 
-<header>🐄 Futterrechner — Stall Version</header>
+<header>🐄 Futterrechner — Stall Ultra</header>
 
 <div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
+<div id="calc2" class="panel hidden"></div>
 
 <script>
-
-/* ===== SAFE STORAGE ===== */
-function safeLoad(key, fallback){
-  try{
-    const d = JSON.parse(localStorage.getItem(key));
-    return d ?? fallback;
-  }catch{
-    return fallback;
-  }
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
-function safeSave(key, val){
-  localStorage.setItem(key, JSON.stringify(val));
-}
+let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
+  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
+};
 
-/* ===== GLOBAL CONFIG ===== */
-let globalCfg = safeLoad("gCfg", {
-  agfName:"AGF",
-  mlfName:"MLF",
-  agfKg:0.5,
-  mlfKg:0.5
-});
-
-/* ===== CATEGORIES ===== */
 const CATS=[
   {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
   {id:"bullen",name:"Bullen",cls:"cat-bullen"},
   {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
 ];
 
-/* ===== DEFAULT ITEMS ===== */
 function defItems(){
   let a=[];
-  for(let i=1;i<=8;i++) a.push({name:"Futter "+i,kg:0});
+  for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
   a.push({type:"agf",kg:0});
   a.push({type:"mlf",kg:0});
   return a;
 }
 
-/* ===== DATA ===== */
-let data = safeLoad("futter", {
+let data=JSON.parse(localStorage.getItem("futter"))||{
   kuehe:{anz:100,items:defItems(),collapsed:false},
   bullen:{anz:10,items:defItems(),collapsed:false},
   trocken:{anz:5,items:defItems(),collapsed:false}
-});
+};
 
-/* ===== TIME FORMAT ===== */
-function fmt(sec){
-  sec=Math.round(sec);
-  return Math.floor(sec/60)+" min "+(sec%60)+" s";
-}
+let sortMode=false;
 
-/* ===== SAVE ===== */
-function save(){
-  safeSave("futter", data);
-}
-function saveGlobal(){
-  safeSave("gCfg", globalCfg);
-}
+function save(){localStorage.setItem("futter",JSON.stringify(data))}
+function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
-/* ===== TABS ===== */
 function showTab(t){
-  ["calc","settings"].forEach(id=>{
-    document.getElementById(id).classList.toggle("hidden", id!==t);
+  ["calc","settings","calc2"].forEach(id=>{
+    document.getElementById(id).classList.toggle("hidden",id!==t);
   });
   document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
@@ -139,92 +142,135 @@ function buildCalc(){
   calc.innerHTML="";
 
   CATS.forEach(c=>{
-    let rows="";
-    let sum=0,lauf=0;
+    let sum=0,lauf=0,rows="";
 
     data[c.id].items.forEach(it=>{
-      if(it.kg<=0) return;
+      if(it.kg<=0)return;
 
-      let name = it.type==="agf"
-        ? globalCfg.agfName
-        : it.type==="mlf"
-        ? globalCfg.mlfName
-        : it.name;
+      let g=it.kg*data[c.id].anz;
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:it.name;
 
-      let g = it.kg * data[c.id].anz;
       let zeit="-";
+      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
+      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
 
-      if(it.type==="agf") zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
-      if(it.type==="mlf") zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
-
-      lauf+=g; sum+=g;
-
-      rows += `
-      <tr>
-        <td>${name}</td>
-        <td>${g.toFixed(1)}</td>
-        <td>${lauf.toFixed(1)}</td>
-        <td>${zeit}</td>
-      </tr>`;
+      lauf+=g;sum+=g;
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
-    calc.innerHTML += `
-    <div class="category ${data[c.id].collapsed?'collapsed':''}">
-      <div class="cat-header ${c.cls}"
-        onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed; save(); buildCalc();">
-        ${c.name}
-        <span>${data[c.id].collapsed?'▼':'▲'}</span>
+    calc.innerHTML+=`
+    <div class="category ${data[c.id].collapsed?'collapsed':''}" id="cat-${c.id}">
+      <div class="cat-header ${c.cls}" onclick="toggleCategory('${c.id}')">
+        ${c.name}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
-
       <div class="cat-body">
         Tiere:
         <input type="number" value="${data[c.id].anz}"
-          oninput="data.${c.id}.anz=this.valueAsNumber||0; save();"
-          onblur="buildCalc();">
+          oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
+          onblur="buildCalc()">
 
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
-          ${rows || "<tr><td colspan=4>–</td></tr>"}
+          ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
 
         <div class="total">
-          Gesamt: ${sum.toFixed(1)} kg
+          <span onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
         </div>
       </div>
     </div>`;
   });
 }
 
+/* ===== VOLLBILD LOGIK ===== */
+function toggleCategory(id){
+  let cat = data[id];
+  cat.collapsed = !cat.collapsed;
+
+  CATS.forEach(c=>{
+    if(c.id !== id){
+      data[c.id].collapsed = true;
+      document.getElementById("cat-"+c.id)?.classList.remove("fullscreen");
+    }
+  });
+
+  let el = document.getElementById("cat-"+id);
+  if(!cat.collapsed) el.classList.add("fullscreen");
+  else el.classList.remove("fullscreen");
+
+  save();
+  buildCalc();
+}
+
+/* ===== GESAMTKILO EDIT ===== */
+function enableTotalEdit(cat){
+  let total = document.querySelector(`#cat-${cat} .total span`);
+  let sum = 0;
+  data[cat].items.forEach(i=>sum+=i.kg*data[cat].anz);
+
+  total.innerHTML=`<input class="inline-total-input" type="number" value="${sum.toFixed(1)}"> kg`;
+
+  let input = total.querySelector("input");
+  input.focus();
+  input.onblur=()=>{
+    let newTotal=parseFloat(input.value)||0;
+    let perAnimal=0;
+    data[cat].items.forEach(i=>perAnimal+=i.kg);
+    if(perAnimal>0){
+      data[cat].anz=Math.round(newTotal/perAnimal);
+      save();
+      buildCalc();
+    }
+  }
+}
+
+/* ===== SORTIERUNG ===== */
+function moveItem(cat,i,dir){
+  let arr=data[cat].items;
+  let n=i+dir;
+  if(n<0||n>=arr.length)return;
+  [arr[i],arr[n]]=[arr[n],arr[i]];
+  save();buildSettings();buildCalc();
+}
+
 /* ===== EINSTELLUNGEN ===== */
 function buildSettings(){
-  settings.innerHTML = `
-  <h3>AGF / MLF</h3>
+  settings.innerHTML=`
+  <h3>Sortierung</h3>
+  <button class="${sortMode?'sort-active':''}" onclick="sortMode=!sortMode;buildSettings()">
+    ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
+  </button>
 
+  <hr>
+
+  <h3>AGF / MLF</h3>
   AGF Name 
-  <input value="${globalCfg.agfName}"
-    oninput="globalCfg.agfName=this.value; saveGlobal(); buildCalc(); buildSettings();"><br>
+  <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();"><br><br>
 
   MLF Name 
-  <input value="${globalCfg.mlfName}"
-    oninput="globalCfg.mlfName=this.value; saveGlobal(); buildCalc(); buildSettings();">
+  <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();">
 
   <hr>
   `;
 
   CATS.forEach(c=>{
-    settings.innerHTML += `<h3>${c.name}</h3>`;
+    settings.innerHTML+=`<h3>${c.name}</h3>`;
 
     data[c.id].items.forEach((it,i)=>{
-      let displayName =
-        it.type==="agf" ? globalCfg.agfName :
-        it.type==="mlf" ? globalCfg.mlfName :
-        it.name;
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:it.name;
 
-      settings.innerHTML += `
+      settings.innerHTML+=`
       <div class="sort-row">
-        <div></div>
         <div>
-          <input type="text" value="${displayName}"
+          ${sortMode?`
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>`:''}
+        </div>
+
+        <div>
+          <input type="text" value="${name}"
             oninput="
               if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
               else if('${it.type}'==='mlf'){ globalCfg.mlfName=this.value; saveGlobal(); }
@@ -240,10 +286,45 @@ function buildSettings(){
   });
 }
 
-/* ===== INIT ===== */
+/* ===== TASCHENRECHNER ===== */
+let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+function press(v){
+  if(v==="C"){expr="";update();return;}
+  if(v==="="){
+    try{
+      const r=eval(expr);
+      history.unshift(expr+" = "+r);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+r;
+    }catch{expr="";}
+    update();renderHist();return;
+  }
+  expr+=v;update();
+}
+
+function update(){document.getElementById("disp").innerText=expr||"0";}
+function renderHist(){document.getElementById("hist").innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
+
+function buildCalc2(){
+  calc2.innerHTML=`
+  <div class="calc-box">
+    <div id="disp" class="calc-display">0</div>
+    <div class="calc-grid">
+      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+        .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
+          onclick="press('${v}')">${v}</button>`).join("")}
+    </div>
+    <div id="hist" class="calc-history"></div>
+  </div>`;
+  renderHist();
+}
+
+/* ===== START ===== */
 buildCalc();
 buildSettings();
-
+buildCalc2();
 </script>
 </body>
 </html>
