@@ -22,13 +22,10 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-body{background:#fff;padding:14px}
 .category.collapsed .cat-body{display:none}
 
-/* VOLLBILD */
+/* Vollbild Kategorie */
 .category.fullscreen{
   position:fixed;
-  top:0;
-  left:0;
-  width:100vw;
-  height:100vh;
+  inset:0;
   margin:0;
   border-radius:0;
   z-index:999;
@@ -36,11 +33,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
   background:#fff;
 }
 
-.category.fullscreen .cat-body{
-  height:calc(100vh - 70px);
-  overflow:auto;
-}
-
+/* Overlay */
 .fullscreen-overlay{
   position:fixed;
   inset:0;
@@ -58,6 +51,29 @@ table{width:100%;border-collapse:collapse;font-size:18px}
 th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
 th:first-child,td:first-child{text-align:left;font-weight:bold}
 
+/* Sortierung */
+.sort-btn{
+  border:none;
+  background:#e0e0e0;
+  padding:6px;
+  cursor:pointer;
+  border-radius:6px;
+}
+.sort-active{background:#2f80ed;color:#fff}
+
+.sort-row{
+  display:grid;
+  grid-template-columns:50px 1fr;
+  gap:10px;
+  margin-bottom:8px;
+}
+
+.sort-arrows{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
 /* Summen */
 .total{
   background:#2f3b45;
@@ -72,7 +88,14 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
   font-weight:bold
 }
 
-.kilo-btn{padding:6px 12px;border-radius:6px;border:none;background:#ccc}
+.kilo-btn{
+  padding:8px 14px;
+  border-radius:8px;
+  border:none;
+  background:#ccc;
+  font-size:16px;
+  cursor:pointer;
+}
 .kilo-btn.active{background:#2f80ed;color:#fff}
 
 .inline-total-input{width:140px;font-size:18px}
@@ -80,6 +103,16 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 /* AGF / MLF */
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
+
+/* Taschenrechner */
+.calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.calc-display{background:#eef1f4;padding:14px;font-size:26px;text-align:right;border-radius:8px;margin-bottom:12px}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.calc-btn{padding:18px;font-size:20px;border:none;border-radius:10px;background:#d5dbe0}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+.calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
 </style>
 </head>
 
@@ -90,10 +123,12 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 <div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
+<div id="calc2" class="panel hidden"></div>
 
 <script>
 function fmt(sec){
@@ -125,90 +160,53 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
   trocken:{anz:5,items:defItems(),collapsed:false}
 };
 
+let sortMode=false;
 let kiloMode={};
 
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
+/* Tabs */
 function showTab(t){
-  ["calc","settings"].forEach(id=>{
+  ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
   });
   document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* ===== VOLLBILD ===== */
-function enterFullscreen(catId){
-  document.querySelectorAll(".category").forEach(el=>{
-    if(el.id !== "cat-"+catId){
-      el.classList.remove("fullscreen");
-    }
-  });
-
-  let el=document.getElementById("cat-"+catId);
-  el.classList.add("fullscreen");
-
-  let overlay=document.createElement("div");
-  overlay.className="fullscreen-overlay";
-  overlay.id="fs-overlay";
-  overlay.onclick=exitFullscreen;
-
-  document.body.appendChild(overlay);
-}
-
-function exitFullscreen(){
-  document.querySelectorAll(".category").forEach(el=>{
-    el.classList.remove("fullscreen");
-  });
-  document.getElementById("fs-overlay")?.remove();
-}
-
-/* ===== KILO BUTTON ===== */
-function toggleKilo(cat){
-  kiloMode[cat]=!kiloMode[cat];
-  document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
-}
-
-/* ===== GESAMT KG EDIT (FIXED) ===== */
+/* Fix Gesamt-Kilo Fokus */
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
-
-  const s=document.getElementById("total-"+cat);
+  let s=document.getElementById("total-"+cat);
   if(s.querySelector("input"))return;
 
-  const v=parseFloat(s.dataset.val)||0;
+  let v=parseFloat(s.dataset.val)||0;
+  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
 
-  s.innerHTML = `
-    <input id="total-input-${cat}" 
-           class="inline-total-input" 
-           type="number" 
-           value="${v}">
-    kg
-  `;
+  let i=s.querySelector("input");
+  i.focus();
 
-  const input = document.getElementById("total-input-"+cat);
-  input.focus();
-
-  input.addEventListener("keydown", e=>{
-    if(e.key==="Enter"){ input.blur(); }
+  i.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){ i.blur(); }
   });
 
-  input.addEventListener("blur", ()=>{
-    applyTotalKg(cat, parseFloat(input.value) || 0);
-  });
+  i.onblur=()=>{
+    applyTotalKg(cat,parseFloat(i.value)||0);
+  };
 }
 
 function applyTotalKg(cat,kg){
-  let p=0;
-  data[cat].items.forEach(i=>p+=i.kg);
-  if(p<=0)return;
-  data[cat].anz=Math.round(kg/p);
+  let sum=0;
+  data[cat].items.forEach(i=>sum+=i.kg);
+  if(sum<=0)return;
+
+  data[cat].anz=Math.round(kg/sum);
   save();
   buildCalc();
 }
 
-/* ===== RECHNER ===== */
+/* Rechner */
 function buildCalc(){
   calc.innerHTML="";
 
@@ -227,18 +225,13 @@ function buildCalc(){
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
 
       lauf+=g;sum+=g;
+
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}" id="cat-${c.id}">
-      <div class="cat-header ${c.cls}" onclick="
-        data.${c.id}.collapsed=!data.${c.id}.collapsed;
-        save();
-        buildCalc();
-        if(!data.${c.id}.collapsed){ enterFullscreen('${c.id}'); }
-        else { exitFullscreen(); }
-      ">
+      <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed;save();buildCalc();">
         ${c.name}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
 
@@ -254,61 +247,53 @@ function buildCalc(){
         </table>
 
         <div class="total">
-          <span id="total-${c.id}" data-val="${sum.toFixed(1)}"
-            onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
-
-          <button id="kilo-${c.id}" class="kilo-btn"
-            onclick="toggleKilo('${c.id}')">kilo</button>
+          <span id="total-${c.id}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${c.id}')">
+            Gesamt: ${sum.toFixed(1)} kg
+          </span>
+          <button id="kilo-${c.id}" class="kilo-btn ${kiloMode[c.id]?'active':''}" onclick="toggleKilo('${c.id}')">kilo</button>
         </div>
       </div>
     </div>`;
   });
 }
 
-/* ===== EINSTELLUNGEN ===== */
-function buildSettings(){
-  settings.innerHTML=`
-  <h3>AGF / MLF</h3>
+/* Taschenrechner */
+let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
-  AGF Name 
-  <input value="${globalCfg.agfName}"
-    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();"><br><br>
+function press(v){
+  if(v==="C"){expr="";update();return;}
+  if(v==="="){
+    try{
+      let r=eval(expr);
+      history.unshift(expr+" = "+r);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+r;
+    }catch{expr="";}
+    update();renderHist();return;
+  }
+  expr+=v;update();
+}
+function update(){document.getElementById("disp").innerText=expr||"0";}
+function renderHist(){hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
 
-  MLF Name 
-  <input value="${globalCfg.mlfName}"
-    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();">
-
-  <hr>
-  `;
-
-  CATS.forEach(c=>{
-    settings.innerHTML+=`<h3>${c.name}</h3>`;
-
-    data[c.id].items.forEach((it,i)=>{
-      let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
-
-      settings.innerHTML+=`
-      <div class="sort-row">
-        <div></div>
-        <div>
-          <input type="text" value="${name}"
-            oninput="
-              if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
-              else if('${it.type}'==='mlf'){ globalCfg.mlfName=this.value; saveGlobal(); }
-              else { data['${c.id}'].items[${i}].name=this.value; save(); }
-              buildCalc();
-            ">
-          <input type="number" value="${it.kg}"
-            oninput="data['${c.id}'].items[${i}].kg=this.valueAsNumber||0; save(); buildCalc();">
-        </div>
-      </div>`;
-    });
-  });
+function buildCalc2(){
+  calc2.innerHTML=`
+  <div class="calc-box">
+    <div id="disp" class="calc-display">0</div>
+    <div class="calc-grid">
+      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+        .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
+        onclick="press('${v}')">${v}</button>`).join("")}
+    </div>
+    <div id="hist" class="calc-history"></div>
+  </div>`;
+  renderHist();
 }
 
+/* Start */
 buildCalc();
-buildSettings();
+buildCalc2();
 </script>
 
 </body>
