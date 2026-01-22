@@ -37,7 +37,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .fullscreen-overlay{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.4);
+  background:rgba(0,0,0,.35);
   z-index:998;
 }
 
@@ -98,7 +98,10 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 }
 .kilo-btn.active{background:#2f80ed;color:#fff}
 
-.inline-total-input{width:140px;font-size:18px}
+.inline-total-input{
+  width:140px;
+  font-size:18px;
+}
 
 /* AGF / MLF */
 .agf{color:#b30000;font-weight:bold}
@@ -136,6 +139,7 @@ function fmt(sec){
   return Math.floor(sec/60)+" min "+(sec%60)+" s";
 }
 
+/* GLOBAL */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
 };
@@ -175,34 +179,39 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* Vollbild FIX */
+/* Vollbild (BUGFIX Overlay) */
 function enterFullscreen(id){
-  document.querySelectorAll(".category").forEach(el=>el.classList.remove("fullscreen"));
+  exitFullscreen();
+
+  document.querySelectorAll(".category").forEach(el=>{
+    el.classList.remove("fullscreen");
+  });
 
   let el=document.getElementById("cat-"+id);
-  el.classList.add("fullscreen");
+  if(!el) return;
 
-  let old=document.getElementById("fs-overlay");
-  if(old) old.remove();
+  el.classList.add("fullscreen");
 
   let overlay=document.createElement("div");
   overlay.className="fullscreen-overlay";
   overlay.id="fs-overlay";
-  overlay.onclick=exitFullscreen;
+
+  overlay.onclick=()=>{
+    exitFullscreen();
+    CATS.forEach(c=>data[c.id].collapsed=true);
+    save();
+    buildCalc();
+  };
 
   document.body.appendChild(overlay);
-  document.body.style.pointerEvents="auto";
 }
 
 function exitFullscreen(){
   document.querySelectorAll(".category").forEach(el=>{
     el.classList.remove("fullscreen");
   });
-
   let overlay=document.getElementById("fs-overlay");
   if(overlay) overlay.remove();
-
-  document.body.style.pointerEvents="auto";
 }
 
 /* Sortierung */
@@ -219,37 +228,45 @@ function moveItem(cat,i,dir){
   save();buildSettings();buildCalc();
 }
 
-/* Kilo */
+/* Kilo Button */
 function toggleKilo(cat){
   kiloMode[cat]=!kiloMode[cat];
-  document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
+  buildCalc();
 }
 
-/* Gesamt bearbeiten */
+/* Gesamt KG Edit FIX */
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
+
   let s=document.getElementById("total-"+cat);
-  if(s.querySelector("input"))return;
+  if(s.querySelector("input")) return;
 
   let v=parseFloat(s.dataset.val)||0;
-  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
 
-  let i=s.querySelector("input");
-  i.focus();
+  s.innerHTML=`<input class="inline-total-input" id="edit-${cat}" type="number" value="${v}" step="0.1"> kg`;
 
-  i.onkeydown=e=>{
-    if(e.key==="Enter") applyTotalKg(cat,parseFloat(i.value)||0);
-  };
+  let input=document.getElementById("edit-"+cat);
+  input.focus();
 
-  i.onblur=()=>applyTotalKg(cat,parseFloat(i.value)||0);
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      applyTotalKg(cat,parseFloat(input.value)||0);
+    }
+  });
+
+  input.addEventListener("blur",()=>{
+    applyTotalKg(cat,parseFloat(input.value)||0);
+  });
 }
 
 function applyTotalKg(cat,kg){
   let sum=0;
   data[cat].items.forEach(i=>sum+=i.kg);
   if(sum<=0)return;
+
   data[cat].anz=Math.round(kg/sum);
-  save();buildCalc();
+  save();
+  buildCalc();
 }
 
 /* Rechner */
@@ -261,8 +278,8 @@ function buildCalc(){
 
     data[c.id].items.forEach(it=>{
       if(it.kg<=0)return;
-      let g=it.kg*data[c.id].anz;
 
+      let g=it.kg*data[c.id].anz;
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
 
@@ -301,7 +318,10 @@ function buildCalc(){
           <span id="total-${c.id}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${c.id}')">
             Gesamt: ${sum.toFixed(1)} kg
           </span>
-          <button id="kilo-${c.id}" class="kilo-btn ${kiloMode[c.id]?'active':''}" onclick="toggleKilo('${c.id}')">kilo</button>
+
+          <button id="kilo-${c.id}" class="kilo-btn ${kiloMode[c.id]?'active':''}" onclick="toggleKilo('${c.id}')">
+            kilo
+          </button>
         </div>
       </div>
     </div>`;
@@ -376,6 +396,7 @@ function press(v){
   }
   expr+=v;update();
 }
+
 function update(){document.getElementById("disp").innerText=expr||"0";}
 function renderHist(){hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
 
