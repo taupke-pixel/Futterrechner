@@ -177,24 +177,21 @@ function showTab(t){
 
 /* Vollbild FIX */
 function enterFullscreen(id){
-
-  // Overlay sauber entfernen falls vorhanden
-  document.getElementById("fs-overlay")?.remove();
-
-  document.querySelectorAll(".category").forEach(el=>{
-    el.classList.remove("fullscreen");
-  });
+  document.querySelectorAll(".category").forEach(el=>el.classList.remove("fullscreen"));
 
   let el=document.getElementById("cat-"+id);
-  if(el) el.classList.add("fullscreen");
+  el.classList.add("fullscreen");
+
+  let old=document.getElementById("fs-overlay");
+  if(old) old.remove();
 
   let overlay=document.createElement("div");
   overlay.className="fullscreen-overlay";
   overlay.id="fs-overlay";
-
-  overlay.addEventListener("click", exitFullscreen);
+  overlay.onclick=exitFullscreen;
 
   document.body.appendChild(overlay);
+  document.body.style.pointerEvents="auto";
 }
 
 function exitFullscreen(){
@@ -204,6 +201,8 @@ function exitFullscreen(){
 
   let overlay=document.getElementById("fs-overlay");
   if(overlay) overlay.remove();
+
+  document.body.style.pointerEvents="auto";
 }
 
 /* Sortierung */
@@ -226,21 +225,20 @@ function toggleKilo(cat){
   document.getElementById("kilo-"+cat).classList.toggle("active",kiloMode[cat]);
 }
 
-/* Gesamt bearbeiten FIX */
+/* Gesamt bearbeiten */
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
-
   let s=document.getElementById("total-"+cat);
   if(s.querySelector("input"))return;
 
   let v=parseFloat(s.dataset.val)||0;
-  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}" step="0.1"> kg`;
+  s.innerHTML=`<input class="inline-total-input" type="number" value="${v}"> kg`;
 
   let i=s.querySelector("input");
   i.focus();
 
-  i.onkeydown=(e)=>{
-    if(e.key==="Enter"){ applyTotalKg(cat,parseFloat(i.value)||0); }
+  i.onkeydown=e=>{
+    if(e.key==="Enter") applyTotalKg(cat,parseFloat(i.value)||0);
   };
 
   i.onblur=()=>applyTotalKg(cat,parseFloat(i.value)||0);
@@ -250,7 +248,6 @@ function applyTotalKg(cat,kg){
   let sum=0;
   data[cat].items.forEach(i=>sum+=i.kg);
   if(sum<=0)return;
-
   data[cat].anz=Math.round(kg/sum);
   save();buildCalc();
 }
@@ -264,8 +261,8 @@ function buildCalc(){
 
     data[c.id].items.forEach(it=>{
       if(it.kg<=0)return;
-
       let g=it.kg*data[c.id].anz;
+
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
 
