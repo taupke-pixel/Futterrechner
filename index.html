@@ -22,7 +22,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-body{background:#fff;padding:14px}
 .category.collapsed .cat-body{display:none}
 
-/* Vollbild Kategorie */
+/* Vollbild Kategorie Modus */
 .category.fullscreen{
   position:relative;
   z-index:5;
@@ -59,15 +59,6 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
 
-/* Sortierung */
-.sort-btn{
-  border:none;
-  background:#e0e0e0;
-  padding:6px 10px;
-  cursor:pointer;
-}
-.sort-active{background:#2f80ed;color:#fff}
-
 /* Taschenrechner */
 .calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .calc-display{background:#eef1f4;padding:14px;font-size:26px;text-align:right;border-radius:8px;margin-bottom:12px}
@@ -87,12 +78,10 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 <div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
-  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
-<div id="calc2" class="panel hidden"></div>
 
 <script>
 function fmt(sec){
@@ -124,13 +113,11 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
   trocken:{anz:5,items:defItems(),collapsed:false}
 };
 
-let sortMode=false;
-
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
 function showTab(t){
-  ["calc","settings","calc2"].forEach(id=>{
+  ["calc","settings"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
   });
   document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
@@ -156,6 +143,7 @@ function buildCalc(){
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
 
       lauf+=g;sum+=g;
+
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
@@ -175,9 +163,7 @@ function buildCalc(){
           ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
 
-        <div class="total">
-          <span onclick="enableTotalEdit('${c.id}')">Gesamt: ${sum.toFixed(1)} kg</span>
-        </div>
+        <div class="total">Gesamt: ${sum.toFixed(1)} kg</div>
       </div>
     </div>`;
   });
@@ -196,60 +182,28 @@ function toggleCategory(id){
   });
 
   let el = document.getElementById("cat-"+id);
-  if(!cat.collapsed) el.classList.add("fullscreen");
-  else el.classList.remove("fullscreen");
+  if(!cat.collapsed){
+    el.classList.add("fullscreen");
+  } else {
+    el.classList.remove("fullscreen");
+  }
 
   save();
   buildCalc();
 }
 
-/* ===== GESAMTKILO EDIT ===== */
-function enableTotalEdit(cat){
-  let total = document.querySelector(`#cat-${cat} .total span`);
-  let sum = 0;
-  data[cat].items.forEach(i=>sum+=i.kg*data[cat].anz);
-
-  total.innerHTML=`<input class="inline-total-input" type="number" value="${sum.toFixed(1)}"> kg`;
-
-  let input = total.querySelector("input");
-  input.focus();
-  input.onblur=()=>{
-    let newTotal=parseFloat(input.value)||0;
-    let perAnimal=0;
-    data[cat].items.forEach(i=>perAnimal+=i.kg);
-    if(perAnimal>0){
-      data[cat].anz=Math.round(newTotal/perAnimal);
-      save();
-      buildCalc();
-    }
-  }
-}
-
-/* ===== SORTIERUNG ===== */
-function moveItem(cat,i,dir){
-  let arr=data[cat].items;
-  let n=i+dir;
-  if(n<0||n>=arr.length)return;
-  [arr[i],arr[n]]=[arr[n],arr[i]];
-  save();buildSettings();buildCalc();
-}
-
 /* ===== EINSTELLUNGEN ===== */
 function buildSettings(){
   settings.innerHTML=`
-  <h3>Sortierung</h3>
-  <button class="${sortMode?'sort-active':''}" onclick="sortMode=!sortMode;buildSettings()">
-    ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
-  </button>
-
-  <hr>
-
   <h3>AGF / MLF</h3>
+
   AGF Name 
-  <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();"><br><br>
+  <input value="${globalCfg.agfName}"
+    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();"><br><br>
 
   MLF Name 
-  <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();">
+  <input value="${globalCfg.mlfName}"
+    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();">
 
   <hr>
   `;
@@ -263,12 +217,7 @@ function buildSettings(){
 
       settings.innerHTML+=`
       <div class="sort-row">
-        <div>
-          ${sortMode?`
-          <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
-          <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>`:''}
-        </div>
-
+        <div></div>
         <div>
           <input type="text" value="${name}"
             oninput="
@@ -277,7 +226,6 @@ function buildSettings(){
               else { data['${c.id}'].items[${i}].name=this.value; save(); }
               buildCalc();
             ">
-
           <input type="number" value="${it.kg}"
             oninput="data['${c.id}'].items[${i}].kg=this.valueAsNumber||0; save(); buildCalc();">
         </div>
@@ -286,45 +234,8 @@ function buildSettings(){
   });
 }
 
-/* ===== TASCHENRECHNER ===== */
-let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
-
-function press(v){
-  if(v==="C"){expr="";update();return;}
-  if(v==="="){
-    try{
-      const r=eval(expr);
-      history.unshift(expr+" = "+r);
-      history=history.slice(0,20);
-      localStorage.setItem("calcHist",JSON.stringify(history));
-      expr=""+r;
-    }catch{expr="";}
-    update();renderHist();return;
-  }
-  expr+=v;update();
-}
-
-function update(){document.getElementById("disp").innerText=expr||"0";}
-function renderHist(){document.getElementById("hist").innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
-
-function buildCalc2(){
-  calc2.innerHTML=`
-  <div class="calc-box">
-    <div id="disp" class="calc-display">0</div>
-    <div class="calc-grid">
-      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
-        .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
-          onclick="press('${v}')">${v}</button>`).join("")}
-    </div>
-    <div id="hist" class="calc-history"></div>
-  </div>`;
-  renderHist();
-}
-
-/* ===== START ===== */
 buildCalc();
 buildSettings();
-buildCalc2();
 </script>
 </body>
 </html>
