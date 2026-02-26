@@ -2,14 +2,14 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Futterrechner</title>
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
 
-.tabs{display:flex;flex-wrap:wrap}
+.tabs{display:flex}
 .tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;cursor:pointer;font-size:18px}
 .tab.active{background:#2f3b45;color:#fff}
 
@@ -26,7 +26,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
-.cat-kaelber{background:#9b59b6}
+.cat-kaelber{background:#9b59b6} /* Kälber Violett */
 
 /* Tabellen */
 table{width:100%;border-collapse:collapse;font-size:18px}
@@ -99,58 +99,20 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .calc-btn.clear{background:#b30000;color:#fff}
 .calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
 
-/* Inline Edit */
-.editable{
-  cursor:text;
-  border-bottom:1px dashed #000;
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-}
-.editable span.stift{
-  font-size:16px;
-  color:#333;
-}
-
-/* ========================= */
-/* TABLET / DESKTOP RESPONSIVE */
-/* ========================= */
-@media screen and (min-width:768px) {
-
-  body{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-  }
-
-  header,
-  .tabs,
-  #calc,
-  #settings,
-  #calc2{
-    width:100%;
-    max-width:1100px;
-  }
-
-  /* Kategorie nebeneinander im Querformat */
-  @media (orientation: landscape) {
-    .panel{display:flex;flex-wrap:wrap;gap:12px}
-    .category{flex:1 1 calc(50% - 12px);}
-  }
-
-  .calc-box{
-    max-width:600px;
-    margin:auto;
-  }
-
-  table{
-    font-size:20px;
-  }
-
+/* Tablet / Mobile Anpassungen */
+@media (max-width:1024px){
+  .tab{font-size:16px;padding:12px}
+  .cat-header{font-size:18px;padding:12px;flex-direction:column;align-items:flex-start;gap:4px}
+  table, th, td{font-size:16px;padding:6px}
+  .sort-row{grid-template-columns:40px 1fr}
+  .kilo-btn{padding:6px 10px;font-size:14px}
+  .inline-total-input{width:100px;font-size:16px}
+  .calc-btn{padding:14px;font-size:18px}
+  .calc-display{font-size:22px;padding:12px}
 }
 </style>
-
 </head>
+
 <body>
 
 <header>🐄 Futterrechner — Stall Ultra</header>
@@ -174,7 +136,7 @@ function fmt(sec){
 /* GLOBAL */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
-  kueheName:"Kühe", bullenName:"Bullen", trockenName:"Trockensteher", kaelberName:"Kälber"
+  kueheName:"Kühe",bullenName:"Bullen",trockenName:"Trockensteher",kaelberName:"Kälber"
 };
 
 const CATS=[
@@ -237,23 +199,17 @@ function toggleKilo(cat){
 /* Gesamt KG Edit */
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
-
   let s=document.getElementById("total-"+cat);
   if(s.querySelector("input")) return;
-
   let v=parseFloat(s.dataset.val)||0;
-
   s.innerHTML=`<input class="inline-total-input" id="edit-${cat}" type="number" value="${v}" step="0.1"> kg`;
-
   let input=document.getElementById("edit-"+cat);
   input.focus();
-
   input.addEventListener("keydown",e=>{
     if(e.key==="Enter"){
       applyTotalKg(cat,parseFloat(input.value)||0);
     }
   });
-
   input.addEventListener("blur",()=>{
     applyTotalKg(cat,parseFloat(input.value)||0);
   });
@@ -263,7 +219,6 @@ function applyTotalKg(cat,kg){
   let sum=0;
   data[cat].items.forEach(i=>sum+=i.kg);
   if(sum<=0)return;
-
   data[cat].anz=Math.round(kg/sum);
   save();
   buildCalc();
@@ -272,42 +227,28 @@ function applyTotalKg(cat,kg){
 /* Rechner */
 function buildCalc(){
   calc.innerHTML="";
-
   CATS.forEach(c=>{
     let sum=0,lauf=0,rows="";
-
     data[c.id].items.forEach(it=>{
       if(it.kg<=0)return;
-
       let g=it.kg*data[c.id].anz;
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
-
       let zeit="-";
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
-
       lauf+=g;sum+=g;
-
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
-
     let displayName = globalCfg[c.id+"Name"];
-
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}">
-      <div class="cat-header ${c.cls}" onclick="
-        data.${c.id}.collapsed=!data.${c.id}.collapsed;
-        save();
-        buildCalc();
-      ">
+      <div class="cat-header ${c.cls}" onclick="data.${c.id}.collapsed=!data.${c.id}.collapsed; save(); buildCalc();">
         ${displayName}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
       <div class="cat-body">
         Tiere:
-        <input type="number" value="${data[c.id].anz}"
-          oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
-          onblur="buildCalc()">
+        <input type="number" value="${data[c.id].anz}" oninput="data.${c.id}.anz=this.valueAsNumber||0;save()" onblur="buildCalc()">
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
           ${rows||"<tr><td colspan=4>–</td></tr>"}
@@ -344,16 +285,11 @@ function buildSettings(){
   CATS.forEach(c=>{
     let catName = globalCfg[c.id+"Name"];
     settings.innerHTML+=`<h3 class="editable" id="edit-${c.id}">${catName}<span class="stift">✎</span></h3>`;
-    data[c.id].items.forEach((it,i)=>{ 
-      let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+    data[c.id].items.forEach((it,i)=>{
+      let name=it.type==="agf"?globalCfg.agfName:it.type==="mlf"?globalCfg.mlfName:it.name;
       settings.innerHTML+=`
       <div class="sort-row">
-        ${sortMode?`
-        <div class="sort-arrows">
-          <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
-          <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
-        </div>`:`<div></div>`}
+        ${sortMode?`<div class="sort-arrows"><button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button><button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button></div>`:`<div></div>`}
         <div>
           <input type="text" value="${name}" oninput="
             if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
@@ -366,6 +302,26 @@ function buildSettings(){
       </div>`;
     });
   });
+
+  // Kategorie Namen editierbar
+  CATS.forEach(c=>{
+    let el = document.getElementById("edit-"+c.id);
+    el.addEventListener("click",()=>{
+      let input = document.createElement("input");
+      input.type="text";
+      input.value = globalCfg[c.id+"Name"];
+      input.style.fontSize="18px";
+      input.onblur = ()=>{
+        globalCfg[c.id+"Name"] = input.value || globalCfg[c.id+"Name"];
+        saveGlobal();
+        buildSettings();
+        buildCalc();
+      };
+      input.onkeydown = (e)=>{if(e.key==="Enter"){input.blur();}};
+      el.replaceWith(input);
+      input.focus();
+    });
+  });
 }
 
 /* Taschenrechner */
@@ -374,10 +330,13 @@ let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 function press(v){
   if(v==="C"){expr="";update();return;}
   if(v==="="){
-    try{expr=""+eval(expr);}catch{expr="";}
-    history.unshift(expr);
-    history=history.slice(0,20);
-    localStorage.setItem("calcHist",JSON.stringify(history));
+    try{
+      let r=eval(expr);
+      history.unshift(expr+" = "+r);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+r;
+    }catch{expr="";}
     update();renderHist();return;
   }
   expr+=v;update();
