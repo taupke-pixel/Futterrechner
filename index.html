@@ -26,7 +26,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
-.cat-kaelber{background:#9b59b6} /* Kälber Violett */
+.cat-kaelber{background:#9b59b6}
 
 /* Tabellen */
 table{width:100%;border-collapse:collapse;font-size:18px}
@@ -110,6 +110,43 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .editable span.stift{
   font-size:16px;
   color:#333;
+}
+
+/* ========================= */
+/* TABLET SUPPORT ADDON */
+/* ========================= */
+@media screen and (min-width:768px){
+
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  header,
+  .tabs,
+  #calc,
+  #settings,
+  #calc2{
+    width:100%;
+    max-width:1000px;
+  }
+
+  .category{
+    width:100%;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  .calc-box{
+    max-width:600px;
+    margin:auto;
+  }
+
+  table{
+    font-size:20px;
+  }
+
 }
 </style>
 </head>
