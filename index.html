@@ -2,14 +2,14 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Futterrechner</title>
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
 
-.tabs{display:flex}
+.tabs{display:flex;flex-wrap:wrap}
 .tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;cursor:pointer;font-size:18px}
 .tab.active{background:#2f3b45;color:#fff}
 
@@ -113,9 +113,9 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 }
 
 /* ========================= */
-/* TABLET SUPPORT ADDON */
+/* TABLET / DESKTOP RESPONSIVE */
 /* ========================= */
-@media screen and (min-width:768px){
+@media screen and (min-width:768px) {
 
   body{
     display:flex;
@@ -129,13 +129,13 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
   #settings,
   #calc2{
     width:100%;
-    max-width:1000px;
+    max-width:1100px;
   }
 
-  .category{
-    width:100%;
-    margin-left:auto;
-    margin-right:auto;
+  /* Kategorie nebeneinander im Querformat */
+  @media (orientation: landscape) {
+    .panel{display:flex;flex-wrap:wrap;gap:12px}
+    .category{flex:1 1 calc(50% - 12px);}
   }
 
   .calc-box{
@@ -149,8 +149,8 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 
 }
 </style>
-</head>
 
+</head>
 <body>
 
 <header>🐄 Futterrechner — Stall Ultra</header>
@@ -292,7 +292,7 @@ function buildCalc(){
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
-    let displayName = globalCfg[c.id+"Name"]; // dynamischer Name
+    let displayName = globalCfg[c.id+"Name"];
 
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}">
@@ -303,23 +303,19 @@ function buildCalc(){
       ">
         ${displayName}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
-
       <div class="cat-body">
         Tiere:
         <input type="number" value="${data[c.id].anz}"
           oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
           onblur="buildCalc()">
-
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
           ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
-
         <div class="total">
           <span id="total-${c.id}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${c.id}')">
             Gesamt: ${sum.toFixed(1)} kg
           </span>
-
           <button id="kilo-${c.id}" class="kilo-btn ${kiloMode[c.id]?'active':''}" onclick="toggleKilo('${c.id}')">
             kilo
           </button>
@@ -329,35 +325,28 @@ function buildCalc(){
   });
 }
 
-/* Einstellungen mit Inline Edit + Stift */
+/* Einstellungen */
 function buildSettings(){
   settings.innerHTML=`
   <h3>Sortierung</h3>
   <button class="${sortMode?'sort-active':''}" onclick="toggleSort()">
     ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
   </button>
-
   <hr>
-
   <h3>AGF / MLF</h3>
-
   AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();"><br>
   kg/s <input type="number" value="${globalCfg.agfKg}" oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc();"><br><br>
-
   MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();"><br>
   kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc();">
-
   <hr>
   `;
 
   CATS.forEach(c=>{
     let catName = globalCfg[c.id+"Name"];
     settings.innerHTML+=`<h3 class="editable" id="edit-${c.id}">${catName}<span class="stift">✎</span></h3>`;
-
-    data[c.id].items.forEach((it,i)=>{
+    data[c.id].items.forEach((it,i)=>{ 
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
-
       settings.innerHTML+=`
       <div class="sort-row">
         ${sortMode?`
@@ -365,7 +354,6 @@ function buildSettings(){
           <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
           <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
         </div>`:`<div></div>`}
-
         <div>
           <input type="text" value="${name}" oninput="
             if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
@@ -373,34 +361,9 @@ function buildSettings(){
             else { data['${c.id}'].items[${i}].name=this.value; save(); }
             buildCalc();
           ">
-
           <input type="number" value="${it.kg}" oninput="data['${c.id}'].items[${i}].kg=this.valueAsNumber||0; save(); buildCalc();">
         </div>
       </div>`;
-    });
-  });
-
-  // Inline Edit Listener
-  CATS.forEach(c=>{
-    let el = document.getElementById("edit-"+c.id);
-    el.addEventListener("click",()=>{
-      let input = document.createElement("input");
-      input.type="text";
-      input.value = globalCfg[c.id+"Name"];
-      input.style.fontSize="18px";
-      input.onblur = ()=>{
-        globalCfg[c.id+"Name"] = input.value || globalCfg[c.id+"Name"];
-        saveGlobal();
-        buildSettings();
-        buildCalc();
-      };
-      input.onkeydown = (e)=>{
-        if(e.key==="Enter"){
-          input.blur();
-        }
-      };
-      el.replaceWith(input);
-      input.focus();
     });
   });
 }
@@ -411,13 +374,10 @@ let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 function press(v){
   if(v==="C"){expr="";update();return;}
   if(v==="="){
-    try{
-      let r=eval(expr);
-      history.unshift(expr+" = "+r);
-      history=history.slice(0,20);
-      localStorage.setItem("calcHist",JSON.stringify(history));
-      expr=""+r;
-    }catch{expr="";}
+    try{expr=""+eval(expr);}catch{expr="";}
+    history.unshift(expr);
+    history=history.slice(0,20);
+    localStorage.setItem("calcHist",JSON.stringify(history));
     update();renderHist();return;
   }
   expr+=v;update();
