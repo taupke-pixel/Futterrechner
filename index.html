@@ -26,7 +26,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
-.cat-kaelber{background:#e67e22} /* Kälber hinzugefügt */
+.cat-kaelber{background:#9b59b6} /* Kälber jetzt Violett */
 
 /* Tabellen */
 table{width:100%;border-collapse:collapse;font-size:18px}
@@ -130,7 +130,7 @@ const CATS=[
   {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
   {id:"bullen",name:"Bullen",cls:"cat-bullen"},
   {id:"trocken",name:"Trockensteher",cls:"cat-trocken"},
-  {id:"kaelber",name:"Kälber",cls:"cat-kaelber"} // Kälber hinzugefügt
+  {id:"kaelber",name:"Kälber",cls:"cat-kaelber"}
 ];
 
 function defItems(){
@@ -148,7 +148,6 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
   kaelber:{anz:20,items:defItems(),collapsed:false}
 };
 
-/* Speicher-Fix für Kälber falls alte Daten */
 if(!data.kaelber){
   data.kaelber={anz:20,items:defItems(),collapsed:false};
 }
