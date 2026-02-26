@@ -6,30 +6,55 @@
 <title>Futterrechner</title>
 
 <style>
-/* --- UNVERÄNDERTES CSS --- */
+/* ================= BASIS ================= */
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
 .tabs{display:flex}
-.tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;cursor:pointer;font-size:18px}
+.tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;font-size:18px}
 .tab.active{background:#2f3b45;color:#fff}
 .panel{padding:14px}
 .hidden{display:none}
+
+/* ================= KATEGORIEN ================= */
 .category{border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
-.cat-header{padding:16px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between;font-size:20px}
+.cat-header{padding:16px;color:#fff;font-weight:bold;display:flex;justify-content:space-between;font-size:20px}
 .cat-body{background:#fff;padding:14px}
 .category.collapsed .cat-body{display:none}
+
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
 .cat-kaelber{background:#9b59b6}
+
+/* ================= TABELLE ================= */
 table{width:100%;border-collapse:collapse;font-size:18px}
 th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
 th:first-child,td:first-child{text-align:left;font-weight:bold}
-.total{background:#2f3b45;color:#fff;padding:14px;border-radius:10px;margin-top:10px;display:flex;justify-content:space-between;font-size:20px;font-weight:bold}
+
+/* ================= SUMME ================= */
+.total{
+  background:#2f3b45;color:#fff;padding:14px;border-radius:10px;
+  margin-top:10px;display:flex;justify-content:space-between;
+  font-size:20px;font-weight:bold
+}
 .kilo-btn{padding:8px 14px;border-radius:8px;border:none;background:#ccc;font-size:16px}
 .kilo-btn.active{background:#2f80ed;color:#fff}
+
+.inline-total-input{width:140px;font-size:18px}
+
+/* ================= AGF / MLF ================= */
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
+
+/* ================= TASCHENRECHNER ================= */
+.calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px}
+.calc-display{background:#eef1f4;padding:14px;font-size:26px;text-align:right;border-radius:8px;margin-bottom:12px}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.calc-btn{padding:18px;font-size:20px;border:none;border-radius:10px;background:#d5dbe0}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+.calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
 </style>
 </head>
 
@@ -48,25 +73,26 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 <div id="calc2" class="panel hidden"></div>
 
 <script>
-/* ---------- TABLET-SICHERE BASIS ---------- */
-const calcEl = document.getElementById("calc");
-const settingsEl = document.getElementById("settings");
-const calc2El = document.getElementById("calc2");
+/* ================= HILFSFUNKTIONEN ================= */
+const $ = id => document.getElementById(id);
+const num = v => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
+const fmt = s => {
+  s=Math.round(s);
+  return Math.floor(s/60)+" min "+(s%60)+" s";
+};
 
-document.querySelectorAll(".tab").forEach(tab=>{
-  tab.addEventListener("click",()=>{
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    tab.classList.add("active");
+/* ================= TABS ================= */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
     ["calc","settings","calc2"].forEach(id=>{
-      document.getElementById(id).classList.toggle("hidden", id!==tab.dataset.tab);
+      $(id).classList.toggle("hidden", id!==t.dataset.tab);
     });
   });
 });
 
-function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
-function fmt(sec){sec=Math.round(sec);return Math.floor(sec/60)+" min "+(sec%60)+" s";}
-
-/* ---------- DATEN ---------- */
+/* ================= DATEN ================= */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
   kueheName:"Kühe", bullenName:"Bullen", trockenName:"Trockensteher", kaelberName:"Kälber"
@@ -94,19 +120,21 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
   kaelber:{anz:20,items:defItems(),collapsed:false}
 };
 
-function save(){localStorage.setItem("futter",JSON.stringify(data))}
-function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
+const save=()=>localStorage.setItem("futter",JSON.stringify(data));
+const saveGlobal=()=>localStorage.setItem("gCfg",JSON.stringify(globalCfg));
 
-/* ---------- RECHNER ---------- */
+/* ================= RECHNER ================= */
 function buildCalc(){
-  calcEl.innerHTML="";
+  const root=$("calc");
+  root.innerHTML="";
+
   CATS.forEach(c=>{
     let sum=0,lauf=0,rows="";
     data[c.id].items.forEach(it=>{
       if(num(it.kg)<=0)return;
-      let g=num(it.kg)*num(data[c.id].anz);
-      let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+      const g=num(it.kg)*num(data[c.id].anz);
+      const name=it.type==="agf"?globalCfg.agfName:
+                 it.type==="mlf"?globalCfg.mlfName:it.name;
       let zeit="-";
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
@@ -114,57 +142,72 @@ function buildCalc(){
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
-    calcEl.innerHTML+=`
+    root.insertAdjacentHTML("beforeend",`
     <div class="category ${data[c.id].collapsed?"collapsed":""}">
       <div class="cat-header ${c.cls}" data-cat="${c.id}">
         ${globalCfg[c.id+"Name"]}<span>${data[c.id].collapsed?"▼":"▲"}</span>
       </div>
       <div class="cat-body">
         Tiere:
-        <input type="number" value="${data[c.id].anz}">
+        <input type="number" value="${data[c.id].anz}" data-anz="${c.id}">
         <table>
           <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
           ${rows||"<tr><td colspan=4>–</td></tr>"}
         </table>
         <div class="total">Gesamt: ${sum.toFixed(1)} kg</div>
       </div>
-    </div>`;
+    </div>`);
   });
 
   document.querySelectorAll(".cat-header").forEach(h=>{
-    h.addEventListener("click",()=>{
-      let id=h.dataset.cat;
+    h.onclick=()=>{
+      const id=h.dataset.cat;
       data[id].collapsed=!data[id].collapsed;
       save();buildCalc();
-    });
+    };
+  });
+
+  document.querySelectorAll("input[data-anz]").forEach(i=>{
+    i.oninput=()=>{ data[i.dataset.anz].anz=num(i.value); save(); };
+    i.onblur=buildCalc;
   });
 }
 
-/* ---------- TASCHENRECHNER ---------- */
-let expr="";
-function buildCalc2(){
-  calc2El.innerHTML=`
-  <div class="calc-box">
-    <div id="disp" class="calc-display">0</div>
-    <div class="calc-grid">
-      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
-      .map(v=>`<button onclick="press('${v}')">${v}</button>`).join("")}
-    </div>
-  </div>`;
-}
+/* ================= TASCHENRECHNER ================= */
+let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
 function press(v){
   if(v==="C"){expr="";update();return;}
   if(v==="="){
-    try{expr=""+Function("return "+expr)();}
-    catch{expr="";}
-    update();return;
+    try{
+      const r=Function("return "+expr)();
+      history.unshift(expr+" = "+r);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+r;
+    }catch{expr="";}
+    update();renderHist();return;
   }
   expr+=v;update();
 }
-function update(){document.getElementById("disp").innerText=expr||"0";}
+function update(){ $("disp").innerText=expr||"0"; }
+function renderHist(){ $("hist").innerHTML=history.map(h=>"<div>"+h+"</div>").join(""); }
 
-/* ---------- START ---------- */
+function buildCalc2(){
+  $("calc2").innerHTML=`
+  <div class="calc-box">
+    <div id="disp" class="calc-display">0</div>
+    <div class="calc-grid">
+      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+      .map(v=>`<button class="calc-btn ${v==="="? "eq": "+-*/".includes(v)? "op": v==="C"? "clear":""}"
+      onclick="press('${v}')">${v}</button>`).join("")}
+    </div>
+    <div id="hist" class="calc-history"></div>
+  </div>`;
+  renderHist();
+}
+
+/* ================= START ================= */
 buildCalc();
 buildCalc2();
 </script>
