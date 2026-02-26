@@ -98,6 +98,19 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .calc-btn.eq{background:#27ae60;color:#fff}
 .calc-btn.clear{background:#b30000;color:#fff}
 .calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
+
+/* Inline Edit */
+.editable{
+  cursor:text;
+  border-bottom:1px dashed #000;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.editable span.stift{
+  font-size:16px;
+  color:#333;
+}
 </style>
 </head>
 
@@ -148,10 +161,6 @@ let data=JSON.parse(localStorage.getItem("futter"))||{
   trocken:{anz:5,items:defItems(),collapsed:false},
   kaelber:{anz:20,items:defItems(),collapsed:false}
 };
-
-if(!data.kaelber){
-  data.kaelber={anz:20,items:defItems(),collapsed:false};
-}
 
 let sortMode=false;
 let kiloMode={};
@@ -283,7 +292,7 @@ function buildCalc(){
   });
 }
 
-/* Einstellungen */
+/* Einstellungen mit Inline Edit + Stift */
 function buildSettings(){
   settings.innerHTML=`
   <h3>Sortierung</h3>
@@ -305,8 +314,8 @@ function buildSettings(){
   `;
 
   CATS.forEach(c=>{
-    let catName = globalCfg[c.id+"Name"]; // dynamischer Name
-    settings.innerHTML+=`<h3>${catName}</h3>`;
+    let catName = globalCfg[c.id+"Name"];
+    settings.innerHTML+=`<h3 class="editable" id="edit-${c.id}">${catName}<span class="stift">✎</span></h3>`;
 
     data[c.id].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
@@ -321,18 +330,40 @@ function buildSettings(){
         </div>`:`<div></div>`}
 
         <div>
-          <!-- Name ändern -->
-          <input type="text" value="${catName}" 
-            oninput="
-              globalCfg['${c.id}Name']=this.value; 
-              saveGlobal(); 
-              buildCalc(); 
-              buildSettings();
-            ">
+          <input type="text" value="${name}" oninput="
+            if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
+            else if('${it.type}'==='mlf'){ globalCfg.mlfName=this.value; saveGlobal(); }
+            else { data['${c.id}'].items[${i}].name=this.value; save(); }
+            buildCalc();
+          ">
 
           <input type="number" value="${it.kg}" oninput="data['${c.id}'].items[${i}].kg=this.valueAsNumber||0; save(); buildCalc();">
         </div>
       </div>`;
+    });
+  });
+
+  // Inline Edit Listener
+  CATS.forEach(c=>{
+    let el = document.getElementById("edit-"+c.id);
+    el.addEventListener("click",()=>{
+      let input = document.createElement("input");
+      input.type="text";
+      input.value = globalCfg[c.id+"Name"];
+      input.style.fontSize="18px";
+      input.onblur = ()=>{
+        globalCfg[c.id+"Name"] = input.value || globalCfg[c.id+"Name"];
+        saveGlobal();
+        buildSettings();
+        buildCalc();
+      };
+      input.onkeydown = (e)=>{
+        if(e.key==="Enter"){
+          input.blur();
+        }
+      };
+      el.replaceWith(input);
+      input.focus();
     });
   });
 }
