@@ -26,7 +26,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
-.cat-kaelber{background:#9b59b6} /* Kälber jetzt Violett */
+.cat-kaelber{background:#9b59b6} /* Kälber Violett */
 
 /* Tabellen */
 table{width:100%;border-collapse:collapse;font-size:18px}
@@ -123,14 +123,15 @@ function fmt(sec){
 
 /* GLOBAL */
 let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
-  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5
+  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
+  kueheName:"Kühe", bullenName:"Bullen", trockenName:"Trockensteher", kaelberName:"Kälber"
 };
 
 const CATS=[
-  {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
-  {id:"bullen",name:"Bullen",cls:"cat-bullen"},
-  {id:"trocken",name:"Trockensteher",cls:"cat-trocken"},
-  {id:"kaelber",name:"Kälber",cls:"cat-kaelber"}
+  {id:"kuehe",cls:"cat-kuehe"},
+  {id:"bullen",cls:"cat-bullen"},
+  {id:"trocken",cls:"cat-trocken"},
+  {id:"kaelber",cls:"cat-kaelber"}
 ];
 
 function defItems(){
@@ -245,6 +246,8 @@ function buildCalc(){
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
 
+    let displayName = globalCfg[c.id+"Name"]; // dynamischer Name
+
     calc.innerHTML+=`
     <div class="category ${data[c.id].collapsed?'collapsed':''}">
       <div class="cat-header ${c.cls}" onclick="
@@ -252,7 +255,7 @@ function buildCalc(){
         save();
         buildCalc();
       ">
-        ${c.name}<span>${data[c.id].collapsed?'▼':'▲'}</span>
+        ${displayName}<span>${data[c.id].collapsed?'▼':'▲'}</span>
       </div>
 
       <div class="cat-body">
@@ -302,7 +305,8 @@ function buildSettings(){
   `;
 
   CATS.forEach(c=>{
-    settings.innerHTML+=`<h3>${c.name}</h3>`;
+    let catName = globalCfg[c.id+"Name"]; // dynamischer Name
+    settings.innerHTML+=`<h3>${catName}</h3>`;
 
     data[c.id].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
@@ -317,12 +321,14 @@ function buildSettings(){
         </div>`:`<div></div>`}
 
         <div>
-          <input type="text" value="${name}" oninput="
-            if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
-            else if('${it.type}'==='mlf'){ globalCfg.mlfName=this.value; saveGlobal(); }
-            else { data['${c.id}'].items[${i}].name=this.value; save(); }
-            buildCalc();
-          ">
+          <!-- Name ändern -->
+          <input type="text" value="${catName}" 
+            oninput="
+              globalCfg['${c.id}Name']=this.value; 
+              saveGlobal(); 
+              buildCalc(); 
+              buildSettings();
+            ">
 
           <input type="number" value="${it.kg}" oninput="data['${c.id}'].items[${i}].kg=this.valueAsNumber||0; save(); buildCalc();">
         </div>
