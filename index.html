@@ -1,142 +1,412 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Futterrechner – Stall Ultra</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Futterrechner</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-    }
-    header {
-      background: #263238;
-      color: white;
-      padding: 12px;
-      text-align: center;
-      font-size: 18px;
-    }
-    .container {
-      padding: 16px;
-    }
-    .section {
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-    .blue { background: #e3f2fd; }
-    .green { background: #e8f5e9; }
-    .orange { background: #fff3e0; }
+<style>
+body{font-family:Arial;margin:0;background:#eef1f4}
+header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
 
-    .row {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px solid #ccc;
-    }
-    .row:last-child {
-      border-bottom: none;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border: none;
-      border-radius: 6px;
-      background: #1976d2;
-      color: white;
-    }
-    button:active {
-      background: #0d47a1;
-    }
-  </style>
+.tabs{display:flex}
+.tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;cursor:pointer;font-size:18px}
+.tab.active{background:#2f3b45;color:#fff}
+
+.panel{padding:14px}
+.hidden{display:none}
+
+/* Kategorien */
+.category{border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12);transition:.2s}
+.cat-header{padding:16px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between;font-size:20px}
+.cat-body{background:#fff;padding:14px}
+.category.collapsed .cat-body{display:none}
+
+/* Farben */
+.cat-kuehe{background:#2f80ed}
+.cat-bullen{background:#27ae60}
+.cat-trocken{background:#f2a900}
+.cat-kaelber{background:#9b59b6} /* Kälber Violett */
+
+/* Tabellen */
+table{width:100%;border-collapse:collapse;font-size:18px}
+th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
+th:first-child,td:first-child{text-align:left;font-weight:bold}
+
+/* Sortierung */
+.sort-btn{
+  border:none;
+  background:#e0e0e0;
+  padding:6px;
+  cursor:pointer;
+  border-radius:6px;
+}
+.sort-active{background:#2f80ed;color:#fff}
+
+.sort-row{
+  display:grid;
+  grid-template-columns:50px 1fr;
+  gap:10px;
+  margin-bottom:8px;
+}
+
+.sort-arrows{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+/* Summen */
+.total{
+  background:#2f3b45;
+  color:#fff;
+  padding:14px;
+  border-radius:10px;
+  margin-top:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:20px;
+  font-weight:bold
+}
+
+.kilo-btn{
+  padding:8px 14px;
+  border-radius:8px;
+  border:none;
+  background:#ccc;
+  font-size:16px;
+  cursor:pointer;
+}
+.kilo-btn.active{background:#2f80ed;color:#fff}
+
+.inline-total-input{
+  width:140px;
+  font-size:18px;
+}
+
+/* AGF / MLF */
+.agf{color:#b30000;font-weight:bold}
+.mlf{color:#003399;font-weight:bold}
+
+/* Taschenrechner */
+.calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.calc-display{background:#eef1f4;padding:14px;font-size:26px;text-align:right;border-radius:8px;margin-bottom:12px}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.calc-btn{padding:18px;font-size:20px;border:none;border-radius:10px;background:#d5dbe0}
+.calc-btn.op{background:#2f80ed;color:#fff}
+.calc-btn.eq{background:#27ae60;color:#fff}
+.calc-btn.clear{background:#b30000;color:#fff}
+.calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
+
+/* Inline Edit */
+.editable{
+  cursor:text;
+  border-bottom:1px dashed #000;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.editable span.stift{
+  font-size:16px;
+  color:#333;
+}
+</style>
 </head>
 
 <body>
 
-<header>Futterrechner – Stall Ultra</header>
+<header>🐄 Futterrechner — Stall Ultra</header>
 
-<div class="container">
-
-  <div class="section blue">
-    <h3>Rationsdaten</h3>
-    <div class="row"><span>Name</span><span id="name">Standardration</span></div>
-    <div class="row"><span>Energie</span><span id="energy">0 MJ</span></div>
-    <div class="row"><span>Protein</span><span id="protein">0 g</span></div>
-    <div class="row"><span>Rohfaser</span><span id="fiber">0 g</span></div>
-  </div>
-
-  <div class="section green">
-    <h3>Zutaten</h3>
-    <div id="ingredients">Keine Zutaten vorhanden</div>
-  </div>
-
-  <div class="section orange">
-    <h3>Status</h3>
-    <div>✔ App läuft</div>
-    <div>✔ Tablet-kompatibel</div>
-    <div>✔ Keine Fehler möglich</div>
-  </div>
-
-  <button onclick="addIngredient()">Zutat hinzufügen</button>
-
+<div class="tabs">
+  <div class="tab active" onclick="showTab('calc')">Rechner</div>
+  <div class="tab" onclick="showTab('settings')">Einstellungen</div>
+  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
 </div>
 
+<div id="calc" class="panel"></div>
+<div id="settings" class="panel hidden"></div>
+<div id="calc2" class="panel hidden"></div>
+
 <script>
-  /* ==========================
-     ABSOLUT SICHERE DATEN
-     ========================== */
-  const ration = {
-    name: "Standardration",
-    energy: 12,
-    protein: 850,
-    fiber: 320
-  };
+function fmt(sec){
+  sec=Math.round(sec);
+  return Math.floor(sec/60)+" min "+(sec%60)+" s";
+}
 
-  const zutaten = [];
+/* GLOBAL */
+let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
+  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
+  kueheName:"Kühe", bullenName:"Bullen", trockenName:"Trockensteher", kaelberName:"Kälber"
+};
 
-  /* ==========================
-     RENDER FUNKTION
-     ========================== */
-  function render() {
-    document.getElementById("name").textContent = ration.name || "-";
-    document.getElementById("energy").textContent = (ration.energy ?? 0) + " MJ";
-    document.getElementById("protein").textContent = (ration.protein ?? 0) + " g";
-    document.getElementById("fiber").textContent = (ration.fiber ?? 0) + " g";
+const CATS=[
+  {id:"kuehe",cls:"cat-kuehe"},
+  {id:"bullen",cls:"cat-bullen"},
+  {id:"trocken",cls:"cat-trocken"},
+  {id:"kaelber",cls:"cat-kaelber"}
+];
 
-    const list = document.getElementById("ingredients");
-    list.innerHTML = "";
+function defItems(){
+  let a=[];
+  for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
+  a.push({type:"agf",kg:0});
+  a.push({type:"mlf",kg:0});
+  return a;
+}
 
-    if (!Array.isArray(zutaten) || zutaten.length === 0) {
-      list.textContent = "Keine Zutaten vorhanden";
-      return;
+let data=JSON.parse(localStorage.getItem("futter"))||{
+  kuehe:{anz:100,items:defItems(),collapsed:false},
+  bullen:{anz:10,items:defItems(),collapsed:false},
+  trocken:{anz:5,items:defItems(),collapsed:false},
+  kaelber:{anz:20,items:defItems(),collapsed:false}
+};
+
+let sortMode=false;
+let kiloMode={};
+
+function save(){localStorage.setItem("futter",JSON.stringify(data))}
+function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
+
+/* Tabs */
+function showTab(t){
+  ["calc","settings","calc2"].forEach(id=>{
+    document.getElementById(id).classList.toggle("hidden",id!==t);
+  });
+  document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+  document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
+}
+
+/* Sortierung */
+function toggleSort(){
+  sortMode=!sortMode;
+  buildSettings();
+}
+
+function moveItem(cat,i,dir){
+  let a=data[cat].items;
+  let n=i+dir;
+  if(n<0||n>=a.length)return;
+  [a[i],a[n]]=[a[n],a[i]];
+  save();buildSettings();buildCalc();
+}
+
+/* Kilo Button */
+function toggleKilo(cat){
+  kiloMode[cat]=!kiloMode[cat];
+  buildCalc();
+}
+
+/* Gesamt KG Edit */
+function enableTotalEdit(cat){
+  if(!kiloMode[cat])return;
+
+  let s=document.getElementById("total-"+cat);
+  if(s.querySelector("input")) return;
+
+  let v=parseFloat(s.dataset.val)||0;
+
+  s.innerHTML=`<input class="inline-total-input" id="edit-${cat}" type="number" value="${v}" step="0.1"> kg`;
+
+  let input=document.getElementById("edit-"+cat);
+  input.focus();
+
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      applyTotalKg(cat,parseFloat(input.value)||0);
     }
+  });
 
-    zutaten.forEach(z => {
-      const div = document.createElement("div");
-      div.className = "row";
-      div.innerHTML = `<span>${z.name || "Unbekannt"}</span><span>${z.amount ?? 0} kg</span>`;
-      list.appendChild(div);
+  input.addEventListener("blur",()=>{
+    applyTotalKg(cat,parseFloat(input.value)||0);
+  });
+}
+
+function applyTotalKg(cat,kg){
+  let sum=0;
+  data[cat].items.forEach(i=>sum+=i.kg);
+  if(sum<=0)return;
+
+  data[cat].anz=Math.round(kg/sum);
+  save();
+  buildCalc();
+}
+
+/* Rechner */
+function buildCalc(){
+  calc.innerHTML="";
+
+  CATS.forEach(c=>{
+    let sum=0,lauf=0,rows="";
+
+    data[c.id].items.forEach(it=>{
+      if(it.kg<=0)return;
+
+      let g=it.kg*data[c.id].anz;
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:it.name;
+
+      let zeit="-";
+      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
+      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+
+      lauf+=g;sum+=g;
+
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
-  }
 
-  /* ==========================
-     BUTTON ACTION
-     ========================== */
-  function addIngredient() {
-    zutaten.push({
-      name: "Mais",
-      amount: 5
+    let displayName = globalCfg[c.id+"Name"]; // dynamischer Name
+
+    calc.innerHTML+=`
+    <div class="category ${data[c.id].collapsed?'collapsed':''}">
+      <div class="cat-header ${c.cls}" onclick="
+        data.${c.id}.collapsed=!data.${c.id}.collapsed;
+        save();
+        buildCalc();
+      ">
+        ${displayName}<span>${data[c.id].collapsed?'▼':'▲'}</span>
+      </div>
+
+      <div class="cat-body">
+        Tiere:
+        <input type="number" value="${data[c.id].anz}"
+          oninput="data.${c.id}.anz=this.valueAsNumber||0;save()"
+          onblur="buildCalc()">
+
+        <table>
+          <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+          ${rows||"<tr><td colspan=4>–</td></tr>"}
+        </table>
+
+        <div class="total">
+          <span id="total-${c.id}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${c.id}')">
+            Gesamt: ${sum.toFixed(1)} kg
+          </span>
+
+          <button id="kilo-${c.id}" class="kilo-btn ${kiloMode[c.id]?'active':''}" onclick="toggleKilo('${c.id}')">
+            kilo
+          </button>
+        </div>
+      </div>
+    </div>`;
+  });
+}
+
+/* Einstellungen mit Inline Edit + Stift */
+function buildSettings(){
+  settings.innerHTML=`
+  <h3>Sortierung</h3>
+  <button class="${sortMode?'sort-active':''}" onclick="toggleSort()">
+    ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
+  </button>
+
+  <hr>
+
+  <h3>AGF / MLF</h3>
+
+  AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();buildSettings();"><br>
+  kg/s <input type="number" value="${globalCfg.agfKg}" oninput="globalCfg.agfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc();"><br><br>
+
+  MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();buildSettings();"><br>
+  kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=this.valueAsNumber||0.01;saveGlobal();buildCalc();">
+
+  <hr>
+  `;
+
+  CATS.forEach(c=>{
+    let catName = globalCfg[c.id+"Name"];
+    settings.innerHTML+=`<h3 class="editable" id="edit-${c.id}">${catName}<span class="stift">✎</span></h3>`;
+
+    data[c.id].items.forEach((it,i)=>{
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:it.name;
+
+      settings.innerHTML+=`
+      <div class="sort-row">
+        ${sortMode?`
+        <div class="sort-arrows">
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},-1)">▲</button>
+          <button class="sort-btn" onclick="moveItem('${c.id}',${i},1)">▼</button>
+        </div>`:`<div></div>`}
+
+        <div>
+          <input type="text" value="${name}" oninput="
+            if('${it.type}'==='agf'){ globalCfg.agfName=this.value; saveGlobal(); }
+            else if('${it.type}'==='mlf'){ globalCfg.mlfName=this.value; saveGlobal(); }
+            else { data['${c.id}'].items[${i}].name=this.value; save(); }
+            buildCalc();
+          ">
+
+          <input type="number" value="${it.kg}" oninput="data['${c.id}'].items[${i}].kg=this.valueAsNumber||0; save(); buildCalc();">
+        </div>
+      </div>`;
     });
-    render();
-  }
+  });
 
-  /* ==========================
-     START
-     ========================== */
-  render();
+  // Inline Edit Listener
+  CATS.forEach(c=>{
+    let el = document.getElementById("edit-"+c.id);
+    el.addEventListener("click",()=>{
+      let input = document.createElement("input");
+      input.type="text";
+      input.value = globalCfg[c.id+"Name"];
+      input.style.fontSize="18px";
+      input.onblur = ()=>{
+        globalCfg[c.id+"Name"] = input.value || globalCfg[c.id+"Name"];
+        saveGlobal();
+        buildSettings();
+        buildCalc();
+      };
+      input.onkeydown = (e)=>{
+        if(e.key==="Enter"){
+          input.blur();
+        }
+      };
+      el.replaceWith(input);
+      input.focus();
+    });
+  });
+}
+
+/* Taschenrechner */
+let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+function press(v){
+  if(v==="C"){expr="";update();return;}
+  if(v==="="){
+    try{
+      let r=eval(expr);
+      history.unshift(expr+" = "+r);
+      history=history.slice(0,20);
+      localStorage.setItem("calcHist",JSON.stringify(history));
+      expr=""+r;
+    }catch{expr="";}
+    update();renderHist();return;
+  }
+  expr+=v;update();
+}
+
+function update(){document.getElementById("disp").innerText=expr||"0";}
+function renderHist(){hist.innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
+
+function buildCalc2(){
+  calc2.innerHTML=`
+  <div class="calc-box">
+    <div id="disp" class="calc-display">0</div>
+    <div class="calc-grid">
+      ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+        .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
+        onclick="press('${v}')">${v}</button>`).join("")}
+    </div>
+    <div id="hist" class="calc-history"></div>
+  </div>`;
+  renderHist();
+}
+
+/* Start */
+buildCalc();
+buildSettings();
+buildCalc2();
 </script>
 
 </body>
