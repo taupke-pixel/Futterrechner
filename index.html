@@ -26,6 +26,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-kuehe{background:#2f80ed}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
+.cat-kaelber{background:#e67e22} /* Kälber hinzugefügt */
 
 /* Tabellen */
 table{width:100%;border-collapse:collapse;font-size:18px}
@@ -128,7 +129,8 @@ let globalCfg=JSON.parse(localStorage.getItem("gCfg"))||{
 const CATS=[
   {id:"kuehe",name:"Kühe",cls:"cat-kuehe"},
   {id:"bullen",name:"Bullen",cls:"cat-bullen"},
-  {id:"trocken",name:"Trockensteher",cls:"cat-trocken"}
+  {id:"trocken",name:"Trockensteher",cls:"cat-trocken"},
+  {id:"kaelber",name:"Kälber",cls:"cat-kaelber"} // Kälber hinzugefügt
 ];
 
 function defItems(){
@@ -142,8 +144,14 @@ function defItems(){
 let data=JSON.parse(localStorage.getItem("futter"))||{
   kuehe:{anz:100,items:defItems(),collapsed:false},
   bullen:{anz:10,items:defItems(),collapsed:false},
-  trocken:{anz:5,items:defItems(),collapsed:false}
+  trocken:{anz:5,items:defItems(),collapsed:false},
+  kaelber:{anz:20,items:defItems(),collapsed:false}
 };
+
+/* Speicher-Fix für Kälber falls alte Daten */
+if(!data.kaelber){
+  data.kaelber={anz:20,items:defItems(),collapsed:false};
+}
 
 let sortMode=false;
 let kiloMode={};
@@ -180,7 +188,7 @@ function toggleKilo(cat){
   buildCalc();
 }
 
-/* Gesamt KG Edit FIX */
+/* Gesamt KG Edit */
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
 
