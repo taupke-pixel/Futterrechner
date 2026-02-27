@@ -64,7 +64,6 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
 function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%60)+" s"; }
 
-/* === DEFAULTS === */
 const defaultGlobal={
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
   kueheName:"Kühe",bullenName:"Bullen",
@@ -79,9 +78,7 @@ function defItems(){
   return a;
 }
 
-/* === SAFE LOAD === */
 let globalCfg={...defaultGlobal,...JSON.parse(localStorage.getItem("gCfg")||"{}")};
-
 let saved=JSON.parse(localStorage.getItem("futter")||"{}");
 function buildCat(def){ return {anz:def,items:defItems(),collapsed:false}; }
 
@@ -98,7 +95,6 @@ let kiloMode={};
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
-/* === TABS === */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
@@ -107,7 +103,6 @@ function showTab(t){
   document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* === SORT === */
 function toggleSort(){ sortMode=!sortMode; buildSettings(); }
 function moveItem(cat,i,dir){
   let a=data[cat].items;
@@ -117,10 +112,8 @@ function moveItem(cat,i,dir){
   save();buildSettings();buildCalc();
 }
 
-/* === KILO === */
 function toggleKilo(cat){ kiloMode[cat]=!kiloMode[cat]; buildCalc(); }
 
-/* === TOTAL EDIT === */
 function enableTotalEdit(cat){
   if(!kiloMode[cat])return;
   let s=document.getElementById("total-"+cat);
@@ -141,7 +134,6 @@ function applyTotalKg(cat,kg){
   save();buildCalc();
 }
 
-/* === RECHNER === */
 function buildCalc(){
   let el=document.getElementById("calc");
   el.innerHTML="";
@@ -184,7 +176,6 @@ function buildCalc(){
   });
 }
 
-/* === SETTINGS === */
 function buildSettings(){
   let s=document.getElementById("settings");
   s.innerHTML=`
@@ -225,10 +216,18 @@ function buildSettings(){
     let el=document.getElementById("edit-"+cat);
     el.onclick=()=>{
       let input=document.createElement("input");
+      input.type="text";
       input.value=globalCfg[cat+"Name"];
+      input.oninput=()=>{
+        globalCfg[cat+"Name"]=input.value;
+        saveGlobal();
+        buildCalc();
+      };
       input.onblur=()=>{
         globalCfg[cat+"Name"]=input.value||globalCfg[cat+"Name"];
-        saveGlobal();buildSettings();buildCalc();
+        saveGlobal();
+        buildSettings();
+        buildCalc();
       };
       el.replaceWith(input);
       input.focus();
@@ -236,7 +235,6 @@ function buildSettings(){
   });
 }
 
-/* === CALCULATOR === */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 function press(v){
   if(v==="C"){expr="";update();return;}
@@ -266,7 +264,6 @@ function buildCalc2(){
   renderHist();
 }
 
-/* START */
 buildCalc();
 buildSettings();
 buildCalc2();
