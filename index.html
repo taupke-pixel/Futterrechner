@@ -95,6 +95,26 @@ let kiloMode={};
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
+function editCategoryName(cat){
+  let el=document.getElementById("edit-"+cat);
+  let input=document.createElement("input");
+  input.type="text";
+  input.value=globalCfg[cat+"Name"];
+  input.oninput=function(){
+    globalCfg[cat+"Name"]=this.value;
+    saveGlobal();
+    buildCalc();
+  };
+  input.onblur=function(){
+    globalCfg[cat+"Name"]=this.value||globalCfg[cat+"Name"];
+    saveGlobal();
+    buildSettings();
+    buildCalc();
+  };
+  el.replaceWith(input);
+  input.focus();
+}
+
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
     document.getElementById(id).classList.toggle("hidden",id!==t);
@@ -191,7 +211,7 @@ function buildSettings(){
   `;
 
   ["kuehe","bullen","trocken","kaelber"].forEach(cat=>{
-    s.innerHTML+=`<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
+    s.innerHTML+=`<h3 class="editable" id="edit-${cat}" onclick="editCategoryName('${cat}')">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
@@ -212,26 +232,6 @@ function buildSettings(){
       <input type="number" value="${it.kg}" oninput="data['${cat}'].items[${i}].kg=num(this.value);save();buildCalc();">
       </div></div>`;
     });
-
-    let el=document.getElementById("edit-"+cat);
-    el.onclick=()=>{
-      let input=document.createElement("input");
-      input.type="text";
-      input.value=globalCfg[cat+"Name"];
-      input.oninput=()=>{
-        globalCfg[cat+"Name"]=input.value;
-        saveGlobal();
-        buildCalc();
-      };
-      input.onblur=()=>{
-        globalCfg[cat+"Name"]=input.value||globalCfg[cat+"Name"];
-        saveGlobal();
-        buildSettings();
-        buildCalc();
-      };
-      el.replaceWith(input);
-      input.focus();
-    };
   });
 }
 
