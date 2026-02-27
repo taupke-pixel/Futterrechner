@@ -193,9 +193,9 @@ function buildSettings(){
   ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
   </button><hr>
   <h3>AGF / MLF</h3>
-  AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();"><br>
+  AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();" onblur="buildSettings();"><br>
   kg/s <input type="number" value="${globalCfg.agfKg}" oninput="globalCfg.agfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><br><br>
-  MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();"><br>
+  MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();" onblur="buildSettings();"><br>
   kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
   `;
 
@@ -226,11 +226,6 @@ function buildSettings(){
     el.onclick=()=>{
       let input=document.createElement("input");
       input.value=globalCfg[cat+"Name"];
-      input.oninput=()=>{
-        globalCfg[cat+"Name"]=input.value;
-        saveGlobal();
-        buildCalc();
-      };
       input.onblur=()=>{
         globalCfg[cat+"Name"]=input.value||globalCfg[cat+"Name"];
         saveGlobal();buildSettings();buildCalc();
