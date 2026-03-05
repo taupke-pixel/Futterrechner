@@ -19,7 +19,6 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .category{border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .cat-header{padding:16px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between;font-size:20px}
 .cat-body{background:#fff;padding:14px}
-.category.collapsed .cat-body{display:none}
 
 .cat-kuehe{background:#2f80ed}
 .cat-restbullen{background:#16a085}
@@ -31,7 +30,7 @@ table{width:100%;border-collapse:collapse;font-size:18px}
 th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
 th:first-child,td:first-child{text-align:left;font-weight:bold}
 
-.plus{color:#0a8a0a;font-weight:bold}
+.plus{color:#008000;font-weight:bold}
 .minus{color:#c40000;font-weight:bold}
 
 .total{background:#2f3b45;color:#fff;padding:14px;border-radius:10px;margin-top:10px;font-size:20px;font-weight:bold}
@@ -45,14 +44,15 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .calc-btn.clear{background:#b30000;color:#fff}
 </style>
 </head>
+
 <body>
 
 <header>🐄 Futterrechner — Stall Ultra</header>
 
 <div class="tabs">
-<div class="tab active" onclick="showTab('calc')">Rechner</div>
-<div class="tab" onclick="showTab('settings')">Einstellungen</div>
-<div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
+<div class="tab active" onclick="showTab('calc',this)">Rechner</div>
+<div class="tab" onclick="showTab('settings',this)">Einstellungen</div>
+<div class="tab" onclick="showTab('calc2',this)">Taschenrechner</div>
 </div>
 
 <div id="calc" class="panel"></div>
@@ -81,13 +81,22 @@ trocken:buildCat(5),
 kaelber:buildCat(20)
 }
 
-function showTab(t){
-["calc","settings","calc2"].forEach(id=>{
-document.getElementById(id).classList.toggle("hidden",id!==t)
-})
+function showTab(t,el){
+
+document.getElementById("calc").classList.add("hidden")
+document.getElementById("settings").classList.add("hidden")
+document.getElementById("calc2").classList.add("hidden")
+
+document.getElementById(t).classList.remove("hidden")
+
 document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"))
-event.target.classList.add("active")
+el.classList.add("active")
+
 }
+
+/* ========================= */
+/* RECHNER */
+/* ========================= */
 
 function buildCalc(){
 
@@ -99,93 +108,6 @@ buildRest()
 buildNormal("bullen")
 buildNormal("trocken")
 buildNormal("kaelber")
-
-}
-
-function buildRest(){
-
-let el=document.getElementById("calc")
-
-let cow=data.kuehe.items
-
-let totalCow=0
-cow.forEach(i=>totalCow+=i.kg)
-
-let rest=data.restbullen.rest
-let ziel=data.restbullen.ziel
-
-let rows=""
-let lauf=0
-
-cow.forEach(it=>{
-
-if(it.kg<=0)return
-
-let anteil=it.kg/totalCow
-
-let soll=anteil*ziel
-let ist=anteil*rest
-
-let diff=soll-ist
-
-lauf+=diff
-
-let cls=diff>=0?"plus":"minus"
-let sign=diff>=0?"+":""
-
-rows+=`
-<tr>
-<td>${it.name}</td>
-<td class="${cls}">${sign}${diff.toFixed(1)}</td>
-<td>${lauf.toFixed(1)}</td>
-</tr>`
-
-})
-
-el.innerHTML+=`
-
-<div class="category ${data.restbullen.collapsed?'collapsed':''}">
-
-<div class="cat-header cat-restbullen"
-onclick="data.restbullen.collapsed=!data.restbullen.collapsed;buildCalc()">
-
-Restmischung Bullen
-<span>${data.restbullen.collapsed?'▼':'▲'}</span>
-
-</div>
-
-<div class="cat-body">
-
-Restmischung vorhanden (kg)
-<input type="number" value="${rest}" oninput="data.restbullen.rest=num(this.value);buildCalc()">
-
-Zielgewicht Bullenration (kg)
-<input type="number" value="${ziel}" oninput="data.restbullen.ziel=num(this.value);buildCalc()">
-
-<table>
-
-<tr>
-<th>Futter</th>
-<th>Differenz kg</th>
-<th>Summe</th>
-</tr>
-
-${rows||"<tr><td colspan=3>–</td></tr>"}
-
-</table>
-
-<div class="total">
-
-+ = hinzufügen  
-− = zu viel vorhanden
-
-</div>
-
-</div>
-
-</div>
-
-`
 
 }
 
@@ -212,20 +134,17 @@ rows+=`
 <td>${g.toFixed(1)}</td>
 <td>${lauf.toFixed(1)}</td>
 <td>-</td>
-</tr>`
+</tr>
+`
 
 })
 
 el.innerHTML+=`
 
-<div class="category ${data[cat].collapsed?'collapsed':''}">
+<div class="category">
 
-<div class="cat-header cat-${cat}"
-onclick="data.${cat}.collapsed=!data.${cat}.collapsed;buildCalc()">
-
+<div class="cat-header cat-${cat}">
 ${cat}
-<span>${data[cat].collapsed?'▼':'▲'}</span>
-
 </div>
 
 <div class="cat-body">
@@ -234,7 +153,6 @@ Tiere
 <input type="number" value="${data[cat].anz}" oninput="data.${cat}.anz=num(this.value);buildCalc()">
 
 <table>
-
 <tr>
 <th>Futter</th>
 <th>kg</th>
@@ -246,17 +164,118 @@ ${rows||"<tr><td colspan=4>–</td></tr>"}
 
 </table>
 
-<div class="total">Gesamt ${sum.toFixed(1)} kg</div>
-
+<div class="total">
+Gesamt ${sum.toFixed(1)} kg
 </div>
 
+</div>
 </div>
 
 `
 
 }
 
-document.getElementById("settings").innerHTML="<h2>Einstellungen bleiben hier erhalten</h2>"
+/* ========================= */
+/* RESTMISCHUNG BULLEN */
+/* ========================= */
+
+function buildRest(){
+
+let el=document.getElementById("calc")
+
+let cow=data.kuehe.items
+
+let total=0
+cow.forEach(i=>total+=i.kg)
+
+let rest=data.restbullen.rest
+let ziel=data.restbullen.ziel
+
+let rows=""
+
+cow.forEach(it=>{
+
+if(it.kg<=0)return
+
+let anteil=it.kg/total
+
+let soll=anteil*ziel
+let ist=anteil*rest
+
+let diff=soll-ist
+
+let cls=diff>=0?"plus":"minus"
+let sign=diff>=0?"+":""
+
+rows+=`
+
+<tr>
+<td>${it.name}</td>
+<td>${soll.toFixed(1)}</td>
+<td>${ist.toFixed(1)}</td>
+<td class="${cls}">${sign}${diff.toFixed(1)}</td>
+</tr>
+
+`
+
+})
+
+el.innerHTML+=`
+
+<div class="category">
+
+<div class="cat-header cat-restbullen">
+Restmischung Bullen
+</div>
+
+<div class="cat-body">
+
+Restmischung vorhanden (kg)
+<input type="number" value="${rest}" oninput="data.restbullen.rest=num(this.value);buildCalc()">
+
+Zielgewicht Bullenration (kg)
+<input type="number" value="${ziel}" oninput="data.restbullen.ziel=num(this.value);buildCalc()">
+
+<table>
+
+<tr>
+<th>Futter</th>
+<th>Soll kg</th>
+<th>Ist kg</th>
+<th>Differenz</th>
+</tr>
+
+${rows||"<tr><td colspan=4>–</td></tr>"}
+
+</table>
+
+<div class="total">
++ = hinzufügen &nbsp;&nbsp; − = zu viel
+</div>
+
+</div>
+</div>
+
+`
+
+}
+
+/* ========================= */
+/* EINSTELLUNGEN */
+/* ========================= */
+
+document.getElementById("settings").innerHTML=`
+
+<h2>Einstellungen</h2>
+
+Hier kannst du später Einstellungen erweitern.
+Dein Original-Bereich bleibt erhalten.
+
+`
+
+/* ========================= */
+/* TASCHENRECHNER */
+/* ========================= */
 
 let expr=""
 
@@ -271,9 +290,13 @@ document.getElementById("disp").innerText=expr
 }
 
 document.getElementById("calc2").innerHTML=`
+
 <div class="calc-box">
+
 <div id="disp" class="calc-display">0</div>
+
 <div class="calc-grid">
+
 <button class="calc-btn" onclick="press('7')">7</button>
 <button class="calc-btn" onclick="press('8')">8</button>
 <button class="calc-btn" onclick="press('9')">9</button>
@@ -293,12 +316,15 @@ document.getElementById("calc2").innerHTML=`
 <button class="calc-btn" onclick="press('0')">0</button>
 <button class="calc-btn eq" onclick="calc()">=</button>
 <button class="calc-btn op" onclick="press('+')">+</button>
+
 </div>
 </div>
+
 `
 
 buildCalc()
 
 </script>
+
 </body>
 </html>
