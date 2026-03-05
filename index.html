@@ -6,45 +6,150 @@
 <title>Futterrechner</title>
 
 <style>
+
 body{font-family:Arial;margin:0;background:#eef1f4}
-header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
+
+header{
+background:#2f3b45;
+color:#fff;
+padding:14px;
+text-align:center;
+font-size:22px
+}
 
 .tabs{display:flex}
-.tab{flex:1;padding:14px;text-align:center;background:#d5dbe0;cursor:pointer;font-size:18px}
-.tab.active{background:#2f3b45;color:#fff}
+
+.tab{
+flex:1;
+padding:14px;
+text-align:center;
+background:#d5dbe0;
+cursor:pointer;
+font-size:18px
+}
+
+.tab.active{
+background:#2f3b45;
+color:#fff
+}
 
 .panel{padding:14px}
+
 .hidden{display:none}
 
-.category{border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
-.cat-header{padding:16px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between;font-size:20px}
-.cat-body{background:#fff;padding:14px}
+.category{
+border-radius:14px;
+margin-bottom:18px;
+overflow:hidden;
+box-shadow:0 2px 8px rgba(0,0,0,.12)
+}
+
+.cat-header{
+padding:16px;
+color:#fff;
+font-weight:bold;
+cursor:pointer;
+display:flex;
+justify-content:space-between;
+font-size:20px
+}
+
+.cat-body{
+background:#fff;
+padding:14px
+}
+
+.category.collapsed .cat-body{display:none}
 
 .cat-kuehe{background:#2f80ed}
-.cat-restbullen{background:#16a085}
+.cat-restbullen{background:#1abc9c}
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
 .cat-kaelber{background:#9b59b6}
 
-table{width:100%;border-collapse:collapse;font-size:18px}
-th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
-th:first-child,td:first-child{text-align:left;font-weight:bold}
+table{
+width:100%;
+border-collapse:collapse;
+font-size:18px
+}
+
+th,td{
+border-bottom:1px solid #ddd;
+padding:10px;
+text-align:right
+}
+
+th:first-child,
+td:first-child{
+text-align:left;
+font-weight:bold
+}
+
+.total{
+background:#2f3b45;
+color:#fff;
+padding:14px;
+border-radius:10px;
+margin-top:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-size:20px;
+font-weight:bold
+}
 
 .plus{color:#008000;font-weight:bold}
 .minus{color:#c40000;font-weight:bold}
 
-.total{background:#2f3b45;color:#fff;padding:14px;border-radius:10px;margin-top:10px;font-size:20px;font-weight:bold}
+.calc-box{
+max-width:380px;
+margin:auto;
+background:#fff;
+padding:14px;
+border-radius:14px;
+box-shadow:0 2px 8px rgba(0,0,0,.15)
+}
 
-.calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px}
-.calc-display{background:#eef1f4;padding:14px;font-size:26px;text-align:right;margin-bottom:12px}
-.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.calc-btn{padding:18px;font-size:20px;border:none;border-radius:10px;background:#d5dbe0}
-.calc-btn.op{background:#2f80ed;color:#fff}
-.calc-btn.eq{background:#27ae60;color:#fff}
-.calc-btn.clear{background:#b30000;color:#fff}
+.calc-display{
+background:#eef1f4;
+padding:14px;
+font-size:26px;
+text-align:right;
+border-radius:8px;
+margin-bottom:12px
+}
+
+.calc-grid{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:10px
+}
+
+.calc-btn{
+padding:18px;
+font-size:20px;
+border:none;
+border-radius:10px;
+background:#d5dbe0
+}
+
+.calc-btn.op{
+background:#2f80ed;
+color:#fff
+}
+
+.calc-btn.eq{
+background:#27ae60;
+color:#fff
+}
+
+.calc-btn.clear{
+background:#b30000;
+color:#fff
+}
+
 </style>
 </head>
-
 <body>
 
 <header>🐄 Futterrechner — Stall Ultra</header>
@@ -61,62 +166,100 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 
 <script>
 
-function num(v){return isNaN(parseFloat(v))?0:parseFloat(v)}
+/* Hilfsfunktionen */
+
+function num(v){
+return isNaN(parseFloat(v))?0:parseFloat(v)
+}
+
+/* Default Daten */
 
 function defItems(){
+
 let a=[]
-for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0})
+
+for(let i=1;i<=8;i++){
+a.push({name:"Futter "+i,kg:0})
+}
+
 return a
+
 }
 
 function buildCat(def){
-return {anz:def,items:defItems(),collapsed:false}
+
+return{
+anz:def,
+items:defItems(),
+collapsed:false
 }
 
+}
+
+/* Daten */
+
 let data={
+
 kuehe:buildCat(100),
-restbullen:{rest:0,ziel:0,collapsed:false},
+
+restbullen:{
+rest:0,
+ziel:0,
+collapsed:false
+},
+
 bullen:buildCat(10),
 trocken:buildCat(5),
 kaelber:buildCat(20)
+
 }
 
-function showTab(t,el){
+/* Tabs */
 
-document.getElementById("calc").classList.add("hidden")
-document.getElementById("settings").classList.add("hidden")
-document.getElementById("calc2").classList.add("hidden")
+function showTab(tab,el){
 
-document.getElementById(t).classList.remove("hidden")
+["calc","settings","calc2"].forEach(id=>{
+document.getElementById(id).classList.add("hidden")
+})
+
+document.getElementById(tab).classList.remove("hidden")
 
 document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"))
+
 el.classList.add("active")
 
 }
 
-/* ========================= */
-/* RECHNER */
-/* ========================= */
+/* Rechner */
 
 function buildCalc(){
 
 let el=document.getElementById("calc")
+
 el.innerHTML=""
 
 buildNormal("kuehe")
+
 buildRest()
+
 buildNormal("bullen")
+
 buildNormal("trocken")
+
 buildNormal("kaelber")
 
 }
+
+/* Normale Kategorien */
 
 function buildNormal(cat){
 
 let el=document.getElementById("calc")
 
 let sum=0
+
 let lauf=0
+
 let rows=""
 
 data[cat].items.forEach(it=>{
@@ -126,15 +269,23 @@ if(it.kg<=0)return
 let g=it.kg*data[cat].anz
 
 lauf+=g
+
 sum+=g
 
 rows+=`
+
 <tr>
+
 <td>${it.name}</td>
+
 <td>${g.toFixed(1)}</td>
+
 <td>${lauf.toFixed(1)}</td>
+
 <td>-</td>
+
 </tr>
+
 `
 
 })
@@ -144,20 +295,33 @@ el.innerHTML+=`
 <div class="category">
 
 <div class="cat-header cat-${cat}">
+
 ${cat}
+
 </div>
 
 <div class="cat-body">
 
 Tiere
-<input type="number" value="${data[cat].anz}" oninput="data.${cat}.anz=num(this.value);buildCalc()">
+
+<input type="number"
+
+value="${data[cat].anz}"
+
+oninput="data.${cat}.anz=num(this.value);buildCalc()">
 
 <table>
+
 <tr>
+
 <th>Futter</th>
+
 <th>kg</th>
+
 <th>Summe</th>
+
 <th>Zeit</th>
+
 </tr>
 
 ${rows||"<tr><td colspan=4>–</td></tr>"}
@@ -165,19 +329,20 @@ ${rows||"<tr><td colspan=4>–</td></tr>"}
 </table>
 
 <div class="total">
+
 Gesamt ${sum.toFixed(1)} kg
+
 </div>
 
 </div>
+
 </div>
 
 `
 
 }
 
-/* ========================= */
-/* RESTMISCHUNG BULLEN */
-/* ========================= */
+/* Restmischung Bullen */
 
 function buildRest(){
 
@@ -186,9 +351,11 @@ let el=document.getElementById("calc")
 let cow=data.kuehe.items
 
 let total=0
+
 cow.forEach(i=>total+=i.kg)
 
 let rest=data.restbullen.rest
+
 let ziel=data.restbullen.ziel
 
 let rows=""
@@ -200,20 +367,27 @@ if(it.kg<=0)return
 let anteil=it.kg/total
 
 let soll=anteil*ziel
+
 let ist=anteil*rest
 
 let diff=soll-ist
 
 let cls=diff>=0?"plus":"minus"
+
 let sign=diff>=0?"+":""
 
 rows+=`
 
 <tr>
+
 <td>${it.name}</td>
+
 <td>${soll.toFixed(1)}</td>
+
 <td>${ist.toFixed(1)}</td>
+
 <td class="${cls}">${sign}${diff.toFixed(1)}</td>
+
 </tr>
 
 `
@@ -225,24 +399,41 @@ el.innerHTML+=`
 <div class="category">
 
 <div class="cat-header cat-restbullen">
+
 Restmischung Bullen
+
 </div>
 
 <div class="cat-body">
 
 Restmischung vorhanden (kg)
-<input type="number" value="${rest}" oninput="data.restbullen.rest=num(this.value);buildCalc()">
+
+<input type="number"
+
+value="${rest}"
+
+oninput="data.restbullen.rest=num(this.value);buildCalc()">
 
 Zielgewicht Bullenration (kg)
-<input type="number" value="${ziel}" oninput="data.restbullen.ziel=num(this.value);buildCalc()">
+
+<input type="number"
+
+value="${ziel}"
+
+oninput="data.restbullen.ziel=num(this.value);buildCalc()">
 
 <table>
 
 <tr>
+
 <th>Futter</th>
+
 <th>Soll kg</th>
+
 <th>Ist kg</th>
+
 <th>Differenz</th>
+
 </tr>
 
 ${rows||"<tr><td colspan=4>–</td></tr>"}
@@ -250,43 +441,61 @@ ${rows||"<tr><td colspan=4>–</td></tr>"}
 </table>
 
 <div class="total">
-+ = hinzufügen &nbsp;&nbsp; − = zu viel
+
++ hinzufügen
+
+&nbsp;&nbsp;
+
+− zu viel
+
 </div>
 
 </div>
+
 </div>
 
 `
 
 }
 
-/* ========================= */
-/* EINSTELLUNGEN */
-/* ========================= */
+/* Einstellungen */
 
 document.getElementById("settings").innerHTML=`
 
 <h2>Einstellungen</h2>
 
-Hier kannst du später Einstellungen erweitern.
-Dein Original-Bereich bleibt erhalten.
+Hier bleiben alle ursprünglichen Einstellungen erhalten.
 
 `
 
-/* ========================= */
-/* TASCHENRECHNER */
-/* ========================= */
+/* Taschenrechner */
 
 let expr=""
 
 function press(v){
+
 expr+=v
+
 document.getElementById("disp").innerText=expr
+
 }
 
 function calc(){
-try{expr=eval(expr).toString()}catch{expr=""}
+
+try{
+
+expr=eval(expr).toString()
+
+}
+
+catch{
+
+expr=""
+
+}
+
 document.getElementById("disp").innerText=expr
+
 }
 
 document.getElementById("calc2").innerHTML=`
@@ -298,26 +507,45 @@ document.getElementById("calc2").innerHTML=`
 <div class="calc-grid">
 
 <button class="calc-btn" onclick="press('7')">7</button>
+
 <button class="calc-btn" onclick="press('8')">8</button>
+
 <button class="calc-btn" onclick="press('9')">9</button>
+
 <button class="calc-btn op" onclick="press('/')">/</button>
 
 <button class="calc-btn" onclick="press('4')">4</button>
+
 <button class="calc-btn" onclick="press('5')">5</button>
+
 <button class="calc-btn" onclick="press('6')">6</button>
+
 <button class="calc-btn op" onclick="press('*')">*</button>
 
 <button class="calc-btn" onclick="press('1')">1</button>
+
 <button class="calc-btn" onclick="press('2')">2</button>
+
 <button class="calc-btn" onclick="press('3')">3</button>
+
 <button class="calc-btn op" onclick="press('-')">-</button>
 
-<button class="calc-btn clear" onclick="expr='';document.getElementById('disp').innerText='0'">C</button>
+<button class="calc-btn clear"
+
+onclick="expr='';document.getElementById('disp').innerText='0'">
+
+C
+
+</button>
+
 <button class="calc-btn" onclick="press('0')">0</button>
+
 <button class="calc-btn eq" onclick="calc()">=</button>
+
 <button class="calc-btn op" onclick="press('+')">+</button>
 
 </div>
+
 </div>
 
 `
