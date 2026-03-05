@@ -13,6 +13,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .tab.active{background:#2f3b45;color:#fff}
 .panel{padding:14px}
 .hidden{display:none}
+
 .category{border-radius:14px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .cat-header{padding:16px;color:#fff;font-weight:bold;cursor:pointer;display:flex;justify-content:space-between;font-size:20px}
 .cat-body{background:#fff;padding:14px}
@@ -28,7 +29,8 @@ table{width:100%;border-collapse:collapse;font-size:18px}
 th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
 th:first-child,td:first-child{text-align:left;font-weight:bold}
 
-.total{background:#2f3b45;color:#fff;padding:14px;border-radius:10px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:bold}
+.total{background:#2f3b45;color:#fff;padding:14px;border-radius:10px;margin-top:10px;display:flex;justify-content:space-between;font-size:20px;font-weight:bold}
+
 input{font-size:16px;padding:5px}
 </style>
 </head>
@@ -50,13 +52,17 @@ input{font-size:16px;padding:5px}
 
 function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
 
-const defaultGlobal={
-kueheName:"Kühe",
-restbullenName:"Restmischung Bullen",
-bullenName:"Bullen",
-trockenName:"Trockensteher",
-kaelberName:"Kälber"
-};
+/* Kategorien */
+
+const cats=[
+"kuehe",
+"restbullen",
+"bullen",
+"trocken",
+"kaelber"
+];
+
+/* Daten */
 
 function defItems(){
 let a=[];
@@ -64,43 +70,66 @@ for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
 return a;
 }
 
-let saved=JSON.parse(localStorage.getItem("futter")||"{}");
-
 function buildCat(def){
 return {anz:def,items:defItems(),collapsed:false};
 }
 
 let data={
-kuehe: saved.kuehe||buildCat(100),
-restbullen: saved.restbullen||{rest:0,ziel:0,collapsed:false},
-bullen: saved.bullen||buildCat(10),
-trocken: saved.trocken||buildCat(5),
-kaelber: saved.kaelber||buildCat(20)
+kuehe:buildCat(100),
+restbullen:{rest:0,ziel:0,collapsed:false},
+bullen:buildCat(10),
+trocken:buildCat(5),
+kaelber:buildCat(20)
 };
 
-function save(){
-localStorage.setItem("futter",JSON.stringify(data))
-}
+/* Tabs */
 
 function showTab(t){
-["calc","settings","calc2"].forEach(id=>{
-document.getElementById(id).classList.toggle("hidden",id!==t);
-});
+
+document.getElementById("calc").classList.add("hidden");
+document.getElementById("settings").classList.add("hidden");
+document.getElementById("calc2").classList.add("hidden");
+
+document.getElementById(t).classList.remove("hidden");
+
+document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+event.target.classList.add("active");
+
 }
+
+/* Rechner */
 
 function buildCalc(){
 
 let el=document.getElementById("calc");
 el.innerHTML="";
 
+/* Kühe */
+
 buildNormal("kuehe");
+
+/* Restmischung */
+
+buildRest();
+
+/* Rest */
+
+buildNormal("bullen");
+buildNormal("trocken");
+buildNormal("kaelber");
+
+}
+
+function buildRest(){
+
+let el=document.getElementById("calc");
 
 let cow=data.kuehe.items;
 
-let totalCow=0;
-cow.forEach(i=>totalCow+=i.kg);
+let total=0;
+cow.forEach(i=>total+=i.kg);
 
-let diff=Math.max(0,num(data.restbullen.ziel)-num(data.restbullen.rest));
+let diff=Math.max(0,data.restbullen.ziel-data.restbullen.rest);
 
 let rows="";
 let lauf=0;
@@ -109,7 +138,7 @@ cow.forEach(it=>{
 
 if(it.kg<=0)return;
 
-let anteil=it.kg/totalCow;
+let anteil=it.kg/total;
 
 let fehlt=anteil*diff;
 
@@ -126,9 +155,11 @@ rows+=`
 });
 
 el.innerHTML+=`
+
 <div class="category ${data.restbullen.collapsed?'collapsed':''}">
+
 <div class="cat-header cat-restbullen"
-onclick="data.restbullen.collapsed=!data.restbullen.collapsed;save();buildCalc();">
+onclick="data.restbullen.collapsed=!data.restbullen.collapsed;buildCalc();">
 
 Restmischung Bullen
 <span>${data.restbullen.collapsed?'▼':'▲'}</span>
@@ -140,14 +171,14 @@ Restmischung Bullen
 Restmischung vorhanden (kg)
 <input type="number"
 value="${data.restbullen.rest}"
-oninput="data.restbullen.rest=num(this.value);save();buildCalc()">
+oninput="data.restbullen.rest=num(this.value);buildCalc()">
 
 &nbsp;&nbsp;
 
 Zielgewicht Bullenration (kg)
 <input type="number"
 value="${data.restbullen.ziel}"
-oninput="data.restbullen.ziel=num(this.value);save();buildCalc()">
+oninput="data.restbullen.ziel=num(this.value);buildCalc()">
 
 <table>
 
@@ -162,18 +193,21 @@ ${rows||"<tr><td colspan=3>–</td></tr>"}
 </table>
 
 <div class="total">
-Noch zu mischen: ${diff.toFixed(2)} kg
+
+Noch zu mischen
+${diff.toFixed(2)} kg
+
 </div>
 
 </div>
+
 </div>
+
 `;
 
-buildNormal("bullen");
-buildNormal("trocken");
-buildNormal("kaelber");
-
 }
+
+/* Normale Kategorien */
 
 function buildNormal(cat){
 
@@ -204,12 +238,13 @@ rows+=`
 });
 
 el.innerHTML+=`
+
 <div class="category ${data[cat].collapsed?'collapsed':''}">
 
 <div class="cat-header cat-${cat}"
-onclick="data.${cat}.collapsed=!data.${cat}.collapsed;save();buildCalc();">
+onclick="data.${cat}.collapsed=!data.${cat}.collapsed;buildCalc();">
 
-${defaultGlobal[cat+"Name"]}
+${cat}
 
 <span>${data[cat].collapsed?'▼':'▲'}</span>
 
@@ -221,8 +256,7 @@ Tiere
 
 <input type="number"
 value="${data[cat].anz}"
-oninput="data.${cat}.anz=num(this.value);save()"
-onblur="buildCalc()">
+oninput="data.${cat}.anz=num(this.value);buildCalc()">
 
 <table>
 
@@ -238,14 +272,87 @@ ${rows||"<tr><td colspan=4>–</td></tr>"}
 </table>
 
 <div class="total">
-Gesamt: ${sum.toFixed(1)} kg
+
+Gesamt
+${sum.toFixed(1)} kg
+
 </div>
 
 </div>
+
 </div>
+
 `;
 
 }
+
+/* Einstellungen */
+
+document.getElementById("settings").innerHTML=`
+<h2>Einstellungen</h2>
+Hier bleiben deine alten Einstellungen erhalten.
+`;
+
+/* Taschenrechner */
+
+document.getElementById("calc2").innerHTML=`
+
+<div style="max-width:400px;margin:auto">
+
+<input id="display" style="width:100%;font-size:26px;text-align:right">
+
+<br><br>
+
+<button onclick="press('7')">7</button>
+<button onclick="press('8')">8</button>
+<button onclick="press('9')">9</button>
+<button onclick="press('/')">/</button>
+
+<br>
+
+<button onclick="press('4')">4</button>
+<button onclick="press('5')">5</button>
+<button onclick="press('6')">6</button>
+<button onclick="press('*')">*</button>
+
+<br>
+
+<button onclick="press('1')">1</button>
+<button onclick="press('2')">2</button>
+<button onclick="press('3')">3</button>
+<button onclick="press('-')">-</button>
+
+<br>
+
+<button onclick="press('0')">0</button>
+<button onclick="press('.')">.</button>
+<button onclick="calc()">=</button>
+<button onclick="press('+')">+</button>
+
+</div>
+`;
+
+function press(v){
+
+let d=document.getElementById("display");
+
+d.value+=v;
+
+}
+
+function calc(){
+
+let d=document.getElementById("display");
+
+try{
+d.value=eval(d.value);
+}catch{
+d.value="";
+}
+
+}
+
+/* Start */
 
 buildCalc();
 
