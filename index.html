@@ -146,6 +146,7 @@ function buildRestBullen(){
   let rows="";
 
   cow.forEach(it=>{
+    console.log(it);
     if(it.kg<=0)return;
     let anteil=it.kg/total;
     let soll=anteil*ziel;
