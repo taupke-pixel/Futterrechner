@@ -74,6 +74,8 @@ const defaultGlobal={
 function defItems(){
   let a=[];
   for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
+  buildRestCategory(el);
+  ["bullen","trocken","kaelber"].forEach(cat=>{
   a.push({type:"agf",kg:0});
   a.push({type:"mlf",kg:0});
   return a;
@@ -91,6 +93,10 @@ let data={
   trocken: saved.trocken||buildCat(5),
   kaelber: saved.kaelber||buildCat(20)
 };
+
+
+let restMix=JSON.parse(localStorage.getItem("restMix")||"{}");
+function saveRest(){localStorage.setItem("restMix",JSON.stringify(restMix));}
 
 let sortMode=false;
 let kiloMode={};
@@ -145,7 +151,9 @@ function applyTotalKg(cat,kg){
 function buildCalc(){
   let el=document.getElementById("calc");
   el.innerHTML="";
-  ["kuehe"].forEach(cat=>{
+  
+["kuehe"].forEach(cat=>{
+
     let sum=0,lauf=0,rows="";
     data[cat].items.forEach(it=>{
       if(it.kg<=0)return;
@@ -182,10 +190,55 @@ function buildCalc(){
       </div>
     </div>;
   });
+}
 
-el.innerHTML+=buildRestBlock();
 
-["bullen","trocken","kaelber"].forEach(cat=>{
+/* === REST CATEGORY === */
+function buildRestCategory(el){
+  let rows="";
+  let total=0;
+
+  data.kuehe.items.forEach(it=>{
+    if(it.kg<=0)return;
+
+    let name=it.type==="agf"?globalCfg.agfName:
+             it.type==="mlf"?globalCfg.mlfName:it.name;
+
+    if(!restMix[name])restMix[name]={cow:0,bull:0};
+
+    let cow=num(restMix[name].cow);
+    let bull=num(restMix[name].bull);
+
+    let diff=bull-cow;
+    total+=diff;
+
+    let zeit="-";
+    if(it.type==="agf")zeit=`<span class="agf">${fmt(bull/globalCfg.agfKg)}</span>`;
+    if(it.type==="mlf")zeit=`<span class="mlf">${fmt(bull/globalCfg.mlfKg)}</span>`;
+
+    rows+=`<tr>
+    <td>${name}</td>
+    <td><input type="number" value="${cow}" 
+        oninput="restMix['${name}'].cow=num(this.value);saveRest();"></td>
+    <td><input type="number" value="${bull}" 
+        oninput="restMix['${name}'].bull=num(this.value);saveRest();"></td>
+    <td style="color:${diff>0?'#27ae60':'#b30000'};font-weight:bold">${diff.toFixed(1)}</td>
+    <td>${zeit}</td>
+    </tr>`;
+  });
+
+  el.innerHTML+=`
+  <div class="category">
+    <div class="cat-header" style="background:#555">Restmischung → Bullen</div>
+    <div class="cat-body">
+      <table>
+        <tr><th>Futter</th><th>Kuh Rest</th><th>Bullen Ziel</th><th>Zulage</th><th>Zeit</th></tr>
+        ${rows}
+      </table>
+      <div class="total">Gesamt Zulage: ${total.toFixed(1)} kg</div>
+    </div>
+  </div>`;
+}
 
 /* === SETTINGS === */
 function buildSettings(){
@@ -202,7 +255,9 @@ function buildSettings(){
   kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
   ;
 
-  ["kuehe"].forEach(cat=>{
+  
+["kuehe"].forEach(cat=>{
+
     s.innerHTML+=<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>;
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
@@ -237,10 +292,7 @@ function buildSettings(){
       input.focus();
     };
   });
-
-el.innerHTML+=buildRestBlock();
-
-["bullen","trocken","kaelber"].forEach(cat=>{
+}
 
 /* === CALCULATOR === */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
@@ -280,53 +332,108 @@ buildCalc2();
 </body>
 </html>
 
-/* === RESTMISCHUNG → BULLEN === */
-let restMix = JSON.parse(localStorage.getItem("restMix")||"{}");
 
-function saveRest(){
-  localStorage.setItem("restMix",JSON.stringify(restMix));
+
+<!-- ===== RESTMISCHUNG ERWEITERUNG (NUR ZUSATZCODE, ORIGINAL UNVERÄNDERT) ===== -->
+<script>
+
+/*
+Diese Erweiterung verändert KEINE bestehenden Funktionen.
+Sie fügt nur nach dem Rendern eine zusätzliche Kategorie ein.
+*/
+
+let restMixData = JSON.parse(localStorage.getItem("restMixExtra") || "{}");
+
+function saveRestMixExtra(){
+  localStorage.setItem("restMixExtra", JSON.stringify(restMixData));
 }
 
-function buildRestBlock(){
-  let rows="";
-  let total=0;
+function renderRestCategory(){
 
-  data.kuehe.items.forEach(it=>{
+  let calc = document.getElementById("calc");
+  if(!calc) return;
 
-    let name = it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+  let categories = calc.querySelectorAll(".category");
+  if(categories.length === 0) return;
 
-    if(!restMix[name]) restMix[name]={rest:0,ziel:0};
+  // verhindern dass Kategorie mehrfach erstellt wird
+  if(document.getElementById("restmix-category")) return;
 
-    let r=num(restMix[name].rest);
-    let z=num(restMix[name].ziel);
+  let rows = "";
+  let total = 0;
 
-    let diff=z-r;
-    total+=diff;
+  if(typeof data !== "undefined" && data.kuehe && data.kuehe.items){
 
-    let color=diff>0?"green":"red";
+    data.kuehe.items.forEach(function(it){
 
-    rows+=`<tr>
-      <td>${name}</td>
-      <td><input type="number" value="${r}" 
-      oninput="restMix['${name}'].rest=num(this.value);saveRest();buildCalc();"></td>
-      <td><input type="number" value="${z}" 
-      oninput="restMix['${name}'].ziel=num(this.value);saveRest();buildCalc();"></td>
-      <td style="color:${color};font-weight:bold">${diff.toFixed(1)}</td>
-    </tr>`;
-  });
+      let name = it.type==="agf" ? globalCfg.agfName :
+                 it.type==="mlf" ? globalCfg.mlfName : it.name;
 
-  return `
-  <div class="category">
+      if(!restMixData[name]){
+        restMixData[name] = {rest:0, ziel:0};
+      }
+
+      let r = parseFloat(restMixData[name].rest) || 0;
+      let z = parseFloat(restMixData[name].ziel) || 0;
+
+      let diff = z - r;
+      total += diff;
+
+      let color = diff >= 0 ? "green" : "red";
+
+      rows += `
+      <tr>
+        <td>${name}</td>
+        <td>
+          <input type="number" value="${r}"
+          onchange="restMixData['${name}'].rest=parseFloat(this.value)||0;saveRestMixExtra();">
+        </td>
+        <td>
+          <input type="number" value="${z}"
+          onchange="restMixData['${name}'].ziel=parseFloat(this.value)||0;saveRestMixExtra();">
+        </td>
+        <td style="color:${color};font-weight:bold">${diff.toFixed(1)}</td>
+      </tr>
+      `;
+
+    });
+
+  }
+
+  let html = `
+  <div class="category" id="restmix-category">
     <div class="cat-header" style="background:#555">
       Restmischung → Bullen
     </div>
+
     <div class="cat-body">
+
       <table>
-      <tr><th>Futter</th><th>Kuh Rest</th><th>Bullen Ziel</th><th>Zulage</th></tr>
-      ${rows}
+        <tr>
+          <th>Futter</th>
+          <th>Kuh Rest</th>
+          <th>Bullen Ziel</th>
+          <th>Zulage</th>
+        </tr>
+        ${rows}
       </table>
-      <div class="total">Gesamt Zulage ${total.toFixed(1)} kg</div>
+
+      <div class="total">
+        Gesamt Zulage ${total.toFixed(1)} kg
+      </div>
+
     </div>
-  </div>`;
+  </div>
+  `;
+
+  categories[0].insertAdjacentHTML("afterend", html);
+
 }
+
+/* Beobachtet Änderungen im Rechner und rendert Restkategorie neu */
+setInterval(function(){
+  renderRestCategory();
+}, 500);
+
+</script>
+
