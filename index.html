@@ -151,9 +151,9 @@ cow.forEach(it=>{
 
   if(it.kg<=0) return;
 
-  // AGF / MLF nur wenn bei Bullen vorhanden
+  // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
   if(it.type==="agf" || it.type==="mlf"){
-    let exists = bull.some(b=>b.type===it.type);
+    let exists = bull.some(b => b.type===it.type && b.kg>0);
     if(!exists) return;
   }
 
