@@ -145,24 +145,42 @@ function buildRestBullen(){
 
   let rows="";
 
-  cow.forEach(it=>{
-    console.log(it.type);
-    if(it.kg<=0)return;
-    let anteil=it.kg/total;
-    let soll=anteil*ziel;
-    let ist=anteil*rest;
-    let diff=soll-ist;
-    let cls=diff>=0?"plus":"minus";
-    let sign=diff>=0?"+":"";
+let bull = data.bullen.items;
 
-    rows+=`
-    <tr>
-      <td>${it.name||""}</td>
-      <td>${ist.toFixed(1)}</td>
-      <td>${soll.toFixed(1)}</td>
-      <td class="${cls}">${sign}${diff.toFixed(1)}</td>
-    </tr>`;
+cow.forEach(it=>{
+
+  if(it.kg<=0) return;
+
+  // prüfen ob dieses Futter auch bei Bullen existiert
+  let existsInBulls = bull.some(b=>{
+    if(it.type && b.type) return it.type === b.type;
+    if(!it.type && !b.type) return b.name === it.name;
+    return false;
   });
+
+  if(!existsInBulls) return;
+
+  let anteil = it.kg / total;
+  let soll = anteil * ziel;
+  let ist = anteil * rest;
+  let diff = soll - ist;
+
+  let cls = diff >= 0 ? "plus" : "minus";
+  let sign = diff >= 0 ? "+" : "";
+
+  let name =
+      it.type === "agf" ? globalCfg.agfName :
+      it.type === "mlf" ? globalCfg.mlfName :
+      it.name;
+
+  rows += `
+  <tr>
+    <td>${name}</td>
+    <td>${ist.toFixed(1)}</td>
+    <td>${soll.toFixed(1)}</td>
+    <td class="${cls}">${sign}${diff.toFixed(1)}</td>
+  </tr>`;
+});
 
   el.innerHTML+=`
   <div class="category ${data.restbullen.collapsed?'collapsed':''}">
