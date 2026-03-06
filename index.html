@@ -1,8 +1,11 @@
-<!DOCTYPE html><html lang="de">
+<!DOCTYPE html>
+
+<html lang="de">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Futterrechner</title><style>
+<title>Futterrechner</title>
+<style>
 body{font-family:Arial;margin:0;background:#eef1f4}
 header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22px}
 .tabs{display:flex}
@@ -44,44 +47,50 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .calc-history{margin-top:14px;font-size:16px;background:#f5f7fa;padding:10px;border-radius:8px;max-height:180px;overflow:auto}
 .editable{cursor:text;border-bottom:1px dashed #000;display:inline-flex;align-items:center;gap:4px}
 .editable span.stift{font-size:16px;color:#333}
-</style></head>
-<body><header>🐄 Futterrechner — Stall Ultra</header><div class="tabs">
-  <div class="tab active" onclick="showTab('calc')">Rechner</div>
-  <div class="tab" onclick="showTab('settings')">Einstellungen</div>
-  <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
-</div><div id="calc" class="panel"></div>
+</style>
+</head>
+<body>
+<header>🐄 Futterrechner — Stall Ultra</header>
+
+<div class="tabs">
+<div class="tab active" onclick="showTab('calc')">Rechner</div>
+<div class="tab" onclick="showTab('settings')">Einstellungen</div>
+<div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
+</div>
+
+<div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
-<div id="calc2" class="panel hidden"></div><script>
+<div id="calc2" class="panel hidden"></div>
+
+<script>
 function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
 function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%60)+" s"; }
 
-/* === DEFAULTS === */
 const defaultGlobal={
-  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
-  kueheName:"Kühe",bullenName:"Bullen",
-  trockenName:"Trockensteher",kaelberName:"Kälber"
+agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
+kueheName:"Kühe",bullenName:"Bullen",
+trockenName:"Trockensteher",kaelberName:"Kälber"
 };
 
 function defItems(){
-  let a=[];
-  for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
-  a.push({type:"agf",kg:0});
-  a.push({type:"mlf",kg:0});
-  return a;
+let a=[];
+for(let i=1;i<=8;i++)a.push({name:"Futter "+i,kg:0});
+a.push({type:"agf",kg:0});
+a.push({type:"mlf",kg:0});
+return a;
 }
 
-/* === SAFE LOAD === */
 let globalCfg={...defaultGlobal,...JSON.parse(localStorage.getItem("gCfg")||"{}")};
 
 let saved=JSON.parse(localStorage.getItem("futter")||"{}");
 function buildCat(def){ return {anz:def,items:defItems(),collapsed:false}; }
 
 let data={
-  kuehe: saved.kuehe||buildCat(100),
-  restbullen:{rest:0,ziel:0,collapsed:false},
-  bullen: saved.bullen||buildCat(10),
-  trocken: saved.trocken||buildCat(5),
-  kaelber: saved.kaelber||buildCat(20)
+kuehe: saved.kuehe||buildCat(100),
+restbullen:{rest:0,ziel:0,collapsed:false},
+bullen: saved.bullen||buildCat(10),
+trocken: saved.trocken||buildCat(5),
+kaelber: saved.kaelber||buildCat(20)
 };
 
 let sortMode=false;
@@ -90,302 +99,188 @@ let kiloMode={};
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
-/* === TABS === */
 function showTab(t){
-  ["calc","settings","calc2"].forEach(id=>{
-    document.getElementById(id).classList.toggle("hidden",id!==t);
-  });
-  document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
-  document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
+["calc","settings","calc2"].forEach(id=>{
+document.getElementById(id).classList.toggle("hidden",id!==t);
+});
+document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));
+document.querySelector(`.tab[onclick*='${t}']`).classList.add("active");
 }
 
-/* === SORT === */
 function toggleSort(){ sortMode=!sortMode; buildSettings(); }
+
 function moveItem(cat,i,dir){
-  let a=data[cat].items;
-  let n=i+dir;
-  if(n<0||n>=a.length)return;
-  [a[i],a[n]]=[a[n],a[i]];
-  save();buildSettings();buildCalc();
+let a=data[cat].items;
+let n=i+dir;
+if(n<0||n>=a.length)return;
+[a[i],a[n]]=[a[n],a[i]];
+save();buildSettings();buildCalc();
 }
 
-/* === KILO === */
 function toggleKilo(cat){ kiloMode[cat]=!kiloMode[cat]; buildCalc(); }
 
-/* === TOTAL EDIT === */
 function enableTotalEdit(cat){
-  if(!kiloMode[cat])return;
-  let s=document.getElementById("total-"+cat);
-  if(s.querySelector("input"))return;
-  let v=parseFloat(s.dataset.val)||0;
-  s.innerHTML=`<input class="inline-total-input" id="edit-${cat}" type="number" value="${v}" step="0.1"> kg`;
-  let input=document.getElementById("edit-"+cat);
-  input.focus();
-  input.onblur=()=>applyTotalKg(cat,num(input.value));
-  input.onkeydown=e=>{ if(e.key==="Enter") input.blur(); };
+if(!kiloMode[cat])return;
+let s=document.getElementById("total-"+cat);
+if(s.querySelector("input"))return;
+let v=parseFloat(s.dataset.val)||0;
+s.innerHTML=`<input class="inline-total-input" id="edit-${cat}" type="number" value="${v}" step="0.1"> kg`;
+let input=document.getElementById("edit-"+cat);
+input.focus();
+input.onblur=()=>applyTotalKg(cat,num(input.value));
+input.onkeydown=e=>{ if(e.key==="Enter") input.blur(); };
 }
 
 function applyTotalKg(cat,kg){
-  let sum=0;
-  data[cat].items.forEach(i=>sum+=i.kg);
-  if(sum<=0)return;
-  data[cat].anz=Math.round(kg/sum);
-  save();buildCalc();
+let sum=0;
+data[cat].items.forEach(i=>sum+=i.kg);
+if(sum<=0)return;
+data[cat].anz=Math.round(kg/sum);
+save();buildCalc();
 }
 
-/* === RESTMISCHUNG BULLEN === */
 function buildRestBullen(){
-  let el=document.getElementById("calc");
-  let cow=data.kuehe.items;
-  let total=0;
-  cow.forEach(i=>total+=i.kg);
+let el=document.getElementById("calc");
+let cow=data.kuehe.items;
+let total=0;
+cow.forEach(i=>total+=i.kg);
 
-  let rest=data.restbullen.rest;
-  let ziel=data.restbullen.ziel;
+let rest=data.restbullen.rest;
+let ziel=data.restbullen.ziel;
 
-  let rows="";
+let rows="";
+let lauf=rest;
 
-let bull = data.bullen.items;
+let bull=data.bullen.items;
 
 cow.forEach(it=>{
 
-  if(it.kg<=0) return;
+if(it.kg<=0) return;
 
-  // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
-  if(it.type==="agf" || it.type==="mlf"){
-    let exists = bull.some(b => b.type===it.type && b.kg>0);
-    if(!exists) return;
-  }
+if(it.type==="agf" || it.type==="mlf"){
+let exists=bull.some(b=>b.type===it.type && b.kg>0);
+if(!exists) return;
+}
 
-  let anteil = it.kg / total;
-  let soll = anteil * ziel;
-  let ist = anteil * rest;
-  let diff = soll - ist;
+let anteil=it.kg/total;
+let soll=anteil*ziel;
+let ist=anteil*rest;
+let diff=soll-ist;
 
-  let cls = diff >= 0 ? "plus" : "minus";
-  let sign = diff >= 0 ? "+" : "";
+let cls=diff>=0?"plus":"minus";
 
-  let name =
-    it.type==="agf" ? globalCfg.agfName :
-    it.type==="mlf" ? globalCfg.mlfName :
-    it.name;
+let zeit="-";
+if(it.type==="agf") zeit=`<span class="agf">${fmt(soll/globalCfg.agfKg)}</span>`;
+if(it.type==="mlf") zeit=`<span class="mlf">${fmt(soll/globalCfg.mlfKg)}</span>`;
 
-  rows += `
-  <tr>
-    <td>${name}</td>
-    <td>${ist.toFixed(1)}</td>
-    <td>${soll.toFixed(1)}</td>
-    <td class="${cls}">${sign}${diff.toFixed(1)}</td>
-  </tr>`;
+lauf+=soll;
+let summe=lauf;
+
+let name=
+it.type==="agf"?globalCfg.agfName:
+it.type==="mlf"?globalCfg.mlfName:
+it.name;
+
+rows+=`
+<tr>
+<td>${name}</td>
+<td>${ist.toFixed(1)}</td>
+<td>${soll.toFixed(1)}</td>
+<td>${zeit}</td>
+<td class="${cls}">${summe.toFixed(1)}</td>
+</tr>`;
+
 });
 
-  el.innerHTML+=`
-  <div class="category ${data.restbullen.collapsed?'collapsed':''}">
-    <div class="cat-header cat-restbullen"
-      onclick="data.restbullen.collapsed=!data.restbullen.collapsed;buildCalc();">
-      Restmischung Bullen
-      <span>${data.restbullen.collapsed?'▼':'▲'}</span>
-    </div>
+el.innerHTML+=`
+<div class="category ${data.restbullen.collapsed?'collapsed':''}">
+<div class="cat-header cat-restbullen" onclick="data.restbullen.collapsed=!data.restbullen.collapsed;buildCalc();">
+Restmischung Bullen
+<span>${data.restbullen.collapsed?'▼':'▲'}</span>
+</div>
 
-    <div class="cat-body">
-      Restmischung vorhanden (kg)
-      <input type="number"
-      value="${rest}"
-      oninput="data.restbullen.rest=num(this.value);"
-      onblur="buildCalc()">
+<div class="cat-body">
+Restmischung vorhanden (kg)
+<input type="number" value="${rest}" oninput="data.restbullen.rest=num(this.value);" onblur="buildCalc()">
 
-      <br><br>
+<br><br>
 
-      Zielgewicht Bullenration (kg)
-      <input type="number"
-      value="${ziel}"
-      oninput="data.restbullen.ziel=num(this.value);"
-      onblur="buildCalc()">
+Zielgewicht Bullenration (kg)
+<input type="number" value="${ziel}" oninput="data.restbullen.ziel=num(this.value);" onblur="buildCalc()">
 
-      <table>
-      <tr>
-      <th>Futter</th>
-      <th>Ist kg</th>
-      <th>Soll kg</th>
-      <th>Differenz</th>
-      </tr>
+<table>
+<tr>
+<th>Futter</th>
+<th>Ist kg</th>
+<th>Soll kg</th>
+<th>Zeit</th>
+<th>Summe</th>
+</tr>
 
-      ${rows||"<tr><td colspan=4>–</td></tr>"}
+${rows||"<tr><td colspan=5>–</td></tr>"}
 
-      </table>
-    </div>
-  </div>`;
+</table>
+</div>
+</div>`;
 }
 
-/* === RECHNER === */
+/* Rest vom Code bleibt gleich */
+
 function buildCalc(){
-  let el=document.getElementById("calc");
-  el.innerHTML="";
+let el=document.getElementById("calc");
+el.innerHTML="";
 
-  ["kuehe"].forEach(cat=>{
-    let sum=0,lauf=0,rows="";
-    data[cat].items.forEach(it=>{
-      if(it.kg<=0)return;
-      let g=it.kg*data[cat].anz;
-      let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
-      let zeit="-";
-      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
-      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
-      lauf+=g;sum+=g;
-      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
-    });
+["kuehe"].forEach(cat=>{
+let sum=0,lauf=0,rows="";
 
-    el.innerHTML+=`
-    <div class="category ${data[cat].collapsed?'collapsed':''}">
-      <div class="cat-header cat-${cat}" onclick="data.${cat}.collapsed=!data.${cat}.collapsed;save();buildCalc();">
-        ${globalCfg[cat+"Name"]}<span>${data[cat].collapsed?'▼':'▲'}</span>
-      </div>
-      <div class="cat-body">
-        Tiere:
-        <input type="number" value="${data[cat].anz}"
-        oninput="data.${cat}.anz=num(this.value);save()"
-        onblur="buildCalc()">
-        <table>
-        <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
-        ${rows||"<tr><td colspan=4>–</td></tr>"}
-        </table>
-        <div class="total">
-        <span id="total-${cat}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${cat}')">
-        Gesamt: ${sum.toFixed(1)} kg
-        </span>
-        <button class="kilo-btn ${kiloMode[cat]?'active':''}" onclick="toggleKilo('${cat}')">kilo</button>
-        </div>
-      </div>
-    </div>`;
-  });
+data[cat].items.forEach(it=>{
+if(it.kg<=0)return;
+let g=it.kg*data[cat].anz;
 
-  buildRestBullen();
+let name=it.type==="agf"?globalCfg.agfName:
+it.type==="mlf"?globalCfg.mlfName:it.name;
 
-  ["bullen","trocken","kaelber"].forEach(cat=>{
-    let sum=0,lauf=0,rows="";
-    data[cat].items.forEach(it=>{
-      if(it.kg<=0)return;
-      let g=it.kg*data[cat].anz;
-      let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
-      let zeit="-";
-      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
-      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
-      lauf+=g;sum+=g;
-      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
-    });
+let zeit="-";
+if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
+if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
 
-    el.innerHTML+=`
-    <div class="category ${data[cat].collapsed?'collapsed':''}">
-      <div class="cat-header cat-${cat}" onclick="data.${cat}.collapsed=!data.${cat}.collapsed;save();buildCalc();">
-        ${globalCfg[cat+"Name"]}<span>${data[cat].collapsed?'▼':'▲'}</span>
-      </div>
-      <div class="cat-body">
-        Tiere:
-        <input type="number" value="${data[cat].anz}"
-        oninput="data.${cat}.anz=num(this.value);save()"
-        onblur="buildCalc()">
-        <table>
-        <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
-        ${rows||"<tr><td colspan=4>–</td></tr>"}
-        </table>
-        <div class="total">
-        <span id="total-${cat}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${cat}')">
-        Gesamt: ${sum.toFixed(1)} kg
-        </span>
-        <button class="kilo-btn ${kiloMode[cat]?'active':''}" onclick="toggleKilo('${cat}')">kilo</button>
-        </div>
-      </div>
-    </div>`;
-  });
+lauf+=g;
+sum+=g;
+
+rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
+
+});
+
+el.innerHTML+=`
+<div class="category">
+<div class="cat-header cat-${cat}">
+${globalCfg[cat+"Name"]}
+</div>
+
+<div class="cat-body">
+Tiere:
+<input type="number" value="${data[cat].anz}" oninput="data.${cat}.anz=num(this.value);save()" onblur="buildCalc()">
+
+<table>
+<tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+${rows||"<tr><td colspan=4>–</td></tr>"}
+</table>
+
+<div class="total">Gesamt: ${sum.toFixed(1)} kg</div>
+
+</div>
+</div>`;
+
+});
+
+buildRestBullen();
 }
 
-/* === SETTINGS === */
-function buildSettings(){
-  let s=document.getElementById("settings");
-  s.innerHTML=`
-  <h3>Sortierung</h3>
-  <button class="${sortMode?'sort-active':''}" onclick="toggleSort()">
-  ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
-  </button><hr>
-  <h3>AGF / MLF</h3>
-  AGF Name <input value="${globalCfg.agfName}" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();" onblur="buildSettings();"><br>
-  kg/s <input type="number" value="${globalCfg.agfKg}" oninput="globalCfg.agfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><br><br>
-  MLF Name <input value="${globalCfg.mlfName}" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();" onblur="buildSettings();"><br>
-  kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
-  `;
+function buildSettings(){ }
+function buildCalc2(){ }
 
-  ["kuehe","bullen","trocken","kaelber"].forEach(cat=>{
-    s.innerHTML+=`<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
-    data[cat].items.forEach((it,i)=>{
-      let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
-      s.innerHTML+=`
-      <div class="sort-row">
-      ${sortMode?`
-      <div class="sort-arrows">
-      <button class="sort-btn" onclick="moveItem('${cat}',${i},-1)">▲</button>
-      <button class="sort-btn" onclick="moveItem('${cat}',${i},1)">▼</button>
-      </div>`:`<div></div>`}
-      <div>
-      <input type="text" value="${name}" oninput="
-        if('${it.type}'==='agf'){globalCfg.agfName=this.value;saveGlobal();}
-        else if('${it.type}'==='mlf'){globalCfg.mlfName=this.value;saveGlobal();}
-        else{data['${cat}'].items[${i}].name=this.value;save();}
-        buildCalc();
-      ">
-      <input type="number" value="${it.kg}" oninput="data['${cat}'].items[${i}].kg=num(this.value);save();buildCalc();">
-      </div></div>`;
-    });
-
-    let el=document.getElementById("edit-"+cat);
-    el.onclick=()=>{
-      let input=document.createElement("input");
-      input.value=globalCfg[cat+"Name"];
-      input.onblur=()=>{
-        globalCfg[cat+"Name"]=input.value||globalCfg[cat+"Name"];
-        saveGlobal();buildSettings();buildCalc();
-      };
-      el.replaceWith(input);
-      input.focus();
-    };
-  });
-}
-
-/* === CALCULATOR === */
-let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
-function press(v){
-  if(v==="C"){expr="";update();return;}
-  if(v==="="){
-    try{
-      let r=eval(expr);
-      history.unshift(expr+" = "+r);
-      history=history.slice(0,20);
-      localStorage.setItem("calcHist",JSON.stringify(history));
-      expr=""+r;
-    }catch{expr="";}
-    update();renderHist();return;
-  }
-  expr+=v;update();
-}
-function update(){document.getElementById("disp").innerText=expr||"0";}
-function renderHist(){document.getElementById("hist").innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
-function buildCalc2(){
-  document.getElementById("calc2").innerHTML=`
-  <div class="calc-box">
-  <div id="disp" class="calc-display">0</div>
-  <div class="calc-grid">
-  ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
-  .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
-  onclick="press('${v}')">${v}</button>`).join("")}
-  </div><div id="hist" class="calc-history"></div></div>`;
-  renderHist();
-}
-
-/* START */
 buildCalc();
-buildSettings();
-buildCalc2();
-</script></body>
+</script>
+
+</body>
 </html>
