@@ -144,6 +144,8 @@ function buildRestBullen(){
   let ziel=data.restbullen.ziel;
 
   let rows="";
+let lauf = rest;
+  
 
 let bull = data.bullen.items;
 
@@ -161,6 +163,17 @@ cow.forEach(it=>{
   let soll = anteil * ziel;
   let ist = anteil * rest;
   let diff = soll - ist;
+  let zeit = "-";
+
+if(it.type==="agf")
+zeit=`<span class="agf">${fmt(soll/globalCfg.agfKg)}</span>`;
+
+if(it.type==="mlf")
+zeit=`<span class="mlf">${fmt(soll/globalCfg.mlfKg)}</span>`;
+
+  lauf += soll;
+let summe = lauf;
+  
 
   let cls = diff >= 0 ? "plus" : "minus";
   let sign = diff >= 0 ? "+" : "";
@@ -170,13 +183,14 @@ cow.forEach(it=>{
     it.type==="mlf" ? globalCfg.mlfName :
     it.name;
 
-  rows += `
-  <tr>
-    <td>${name}</td>
-    <td>${ist.toFixed(1)}</td>
-    <td>${soll.toFixed(1)}</td>
-    <td class="${cls}">${sign}${diff.toFixed(1)}</td>
-  </tr>`;
+rows += `
+<tr>
+<td>${name}</td>
+<td>${ist.toFixed(1)}</td>
+<td>${soll.toFixed(1)}</td>
+<td>${zeit}</td>
+<td class="${cls}">${summe.toFixed(1)}</td>
+</tr>`;
 });
 
   el.innerHTML+=`
@@ -207,10 +221,11 @@ cow.forEach(it=>{
       <th>Futter</th>
       <th>Ist kg</th>
       <th>Soll kg</th>
-      <th>Differenz</th>
+      <th>Zeit</th>
+      <th>Summe</th>
       </tr>
 
-      ${rows||"<tr><td colspan=4>–</td></tr>"}
+      ${rows||"<tr><td colspan=5>–</td></tr>"}
 
       </table>
     </div>
