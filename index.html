@@ -210,6 +210,18 @@ rows += `
 
       <br><br>
 
+Bullen (Anzahl)
+<input type="number"
+value="${data.bullen.anz}"
+oninput="
+let proBulle=0;
+data.bullen.items.forEach(i=>proBulle+=i.kg);
+data.restbullen.ziel = num(this.value)*proBulle;
+buildCalc();
+">
+
+      
+
       Zielgewicht Bullenration (kg)
       <input type="number"
       value="${ziel}"
