@@ -78,7 +78,7 @@ function buildCat(def){ return {anz:def,items:defItems(),collapsed:false}; }
 
 let data={
   kuehe: saved.kuehe||buildCat(100),
-  restbullen:{rest:0,ziel:0,collapsed:false},
+ restbullen:{rest:0,ziel:0,anz:0,collapsed:false},
   bullen: saved.bullen||buildCat(10),
   trocken: saved.trocken||buildCat(5),
   kaelber: saved.kaelber||buildCat(20)
@@ -221,11 +221,12 @@ rows += `
 
       Bullen (Anzahl)
 <input type="number"
-value="${data.bullen.anz}"
+value="${data.restbullen.anz}"
 oninput="
 let proBulle=0;
 data.bullen.items.forEach(i=>proBulle+=i.kg);
-data.restbullen.ziel = num(this.value)*proBulle;
+data.restbullen.anz = num(this.value);
+data.restbullen.ziel = data.restbullen.anz * proBulle;
 buildCalc();
 ">
 
