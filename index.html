@@ -222,7 +222,7 @@ rows += `
       Bullen (Anzahl)
 <input type="number"
 value="${data.restbullen.anz}"
-oninput="
+onblur="
 let proBulle=0;
 data.bullen.items.forEach(i=>proBulle+=i.kg);
 data.restbullen.anz = num(this.value);
