@@ -217,16 +217,21 @@ rows += `
       oninput="data.restbullen.ziel=num(this.value);"
       onblur="buildCalc()">
 
-      <br><br>
+<br><br>
 
-      Bullen (Anzahl)
+Bullen (Anzahl)
 <input type="number"
 value="${data.restbullen.anz}"
 onblur="
-let proBulle=0;
-data.bullen.items.forEach(i=>proBulle+=i.kg);
 data.restbullen.anz = num(this.value);
+
+let proBulle = 0;
+data.bullen.items.forEach(i=>{
+  if(i.kg>0) proBulle += i.kg;
+});
+
 data.restbullen.ziel = data.restbullen.anz * proBulle;
+
 buildCalc();
 ">
 
