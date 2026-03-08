@@ -159,11 +159,20 @@ cow.forEach(it=>{
     if(!exists) return;
   }
 
-  let anteil = it.kg / total;
-  let soll = anteil * ziel;
-  let ist = anteil * rest;
-  let diff = soll - ist;
-  let zeit = "-";
+let bullItem = bull.find(b=>{
+  if(it.type && b.type) return it.type===b.type;
+  return b.name===it.name;
+});
+
+let soll = bullItem ? bullItem.kg * data.restbullen.anz : 0;
+
+let anteil = it.kg / total;
+let ist = anteil * rest;
+
+let diff = soll - ist;
+
+let zeit = "-";
+  
 
 if(it.type==="agf")
 zeit=`<span class="agf">${fmt(soll/globalCfg.agfKg)}</span>`;
