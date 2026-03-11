@@ -164,7 +164,9 @@ let bullItem = bull.find(b=>{
   return b.name===it.name;
 });
 
-let soll = bullItem ? bullItem.kg * data.restbullen.anz : 0;
+let soll = bullItem
+  ? bullItem.kg * (data.restbullen.anz || ziel / (bullItem.kg||1))
+  : 0;
 
 let anteil = it.kg / total;
 let ist = anteil * rest;
