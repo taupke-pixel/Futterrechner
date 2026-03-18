@@ -175,12 +175,12 @@ let diff = soll - ist;
 
 let zeit = "-";
   
-
 if(it.type==="agf")
-zeit=`<span class="agf">${fmt(soll/globalCfg.agfKg)}</span>`;
+zeit=`<span class="agf">${fmt(Math.abs(diff)/globalCfg.agfKg)}</span>`;
 
 if(it.type==="mlf")
-zeit=`<span class="mlf">${fmt(soll/globalCfg.mlfKg)}</span>`;
+zeit=`<span class="mlf">${fmt(Math.abs(diff)/globalCfg.mlfKg)}</span>`;
+
 
   lauf += diff;
 let summe = lauf;
