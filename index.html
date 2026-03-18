@@ -400,8 +400,17 @@ function buildSettings(){
 
 /* === CALCULATOR === */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
+
+
 function press(v){
   if(v==="C"){expr="";update();return;}
+
+  if(v==="⌫"){
+    expr = expr.slice(0,-1);
+    update();
+    return;
+  }
+
   if(v==="="){
     try{
       let r=eval(expr);
@@ -412,8 +421,12 @@ function press(v){
     }catch{expr="";}
     update();renderHist();return;
   }
-  expr+=v;update();
+
+  expr+=v;
+  update();
 }
+
+  
 function update(){document.getElementById("disp").innerText=expr||"0";}
 function renderHist(){document.getElementById("hist").innerHTML=history.map(h=>"<div>"+h+"</div>").join("");}
 function buildCalc2(){
@@ -421,7 +434,7 @@ function buildCalc2(){
   <div class="calc-box">
   <div id="disp" class="calc-display">0</div>
   <div class="calc-grid">
-  ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0","=","+"]
+  ${["7","8","9","/","4","5","6","*","1","2","3","-","C","0",".","⌫","=","+"]
   .map(v=>`<button class="calc-btn ${v=="="? "eq": "+-*/".includes(v)? "op": v=="C"? "clear": ""}"
   onclick="press('${v}')">${v}</button>`).join("")}
   </div><div id="hist" class="calc-history"></div></div>`;
