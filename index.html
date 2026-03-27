@@ -660,6 +660,38 @@ async function checkAccess(){
 
   return true;
 }
+
+async function anfrageSenden(){
+  ...
+}
+
+// 🔥 HIER EINFÜGEN (direkt darüber)
+async function anfrageSenden(){
+  // dein kompletter Code bleibt so wie er ist
+}
+
+async function checkAccess(){
+  console.log("checkAccess startet");
+
+  try{
+    const doc = await db.collection("zugriffe").doc(deviceID).get();
+
+    if(!doc.exists || doc.data().status !== "erlaubt"){
+      console.log("kein Zugriff → Formular");
+      showRequestForm();
+      return false;
+    }
+
+    console.log("Zugriff erlaubt");
+    return true;
+
+  } catch(e){
+    console.log("FEHLER:", e);
+    showRequestForm();
+    return false;
+  }
+}
+
 /* START */
 checkAccess().then(ok=>{
   if(ok){
