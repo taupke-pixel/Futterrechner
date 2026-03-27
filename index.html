@@ -370,9 +370,17 @@ function buildSettings(){
   kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
   `;
 
-  ["kuehe","faersen","restbullen","bullen","trocken","kaelber"].forEach(cat=>{
+  s.innerHTML+=`
+<h3 class="editable" id="edit-restbullen">
+${globalCfg.restbullenName}<span class="stift">✎</span>
+</h3>
+`;
+
+  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(cat=>{
     s.innerHTML+=`<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
-    if(!data[cat].items) return;
+
+
+    
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
@@ -406,6 +414,19 @@ function buildSettings(){
       input.focus();
     };
   });
+let elRest=document.getElementById("edit-restbullen");
+elRest.onclick=()=>{
+  let input=document.createElement("input");
+  input.value=globalCfg.restbullenName;
+  input.onblur=()=>{
+    globalCfg.restbullenName=input.value||globalCfg.restbullenName;
+    saveGlobal();
+    buildSettings();
+    buildCalc();
+  };
+  elRest.replaceWith(input);
+  input.focus();
+};  
 }
 
 /* === CALCULATOR === */
