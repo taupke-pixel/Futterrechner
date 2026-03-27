@@ -62,6 +62,7 @@ const defaultGlobal={
   kueheName:"Kühe",
   faersenName:"Färsen",
   bullenName:"Bullen",
+  restbullenName:"Restmischung Bullen",   
   trockenName:"Trockensteher",
   kaelberName:"Kälber"
 };
@@ -216,7 +217,7 @@ rows += `
   <div class="category ${data.restbullen.collapsed?'collapsed':''}">
     <div class="cat-header cat-restbullen"
       onclick="data.restbullen.collapsed=!data.restbullen.collapsed;buildCalc();">
-      Restmischung Bullen
+      ${globalCfg.restbullenName}
       <span>${data.restbullen.collapsed?'▼':'▲'}</span>
     </div>
 
@@ -369,8 +370,9 @@ function buildSettings(){
   kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
   `;
 
-  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(cat=>{
+  ["kuehe","faersen","restbullen","bullen","trocken","kaelber"].forEach(cat=>{
     s.innerHTML+=`<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
+    if(!data[cat].items) return;
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
                it.type==="mlf"?globalCfg.mlfName:it.name;
