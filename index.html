@@ -271,12 +271,14 @@ buildCalc();
   </div>`;
 }
 
-/* === RECHNER === */
+//rechner//
+
 function buildCalc(){
   let el=document.getElementById("calc");
   el.innerHTML="";
 
- ["kuehe","faersen"].forEach(cat=>{
+  // 👉 Kühe + Färsen
+  ["kuehe","faersen"].forEach(cat=>{
     let sum=0,lauf=0,rows="";
     data[cat].items.forEach(it=>{
       if(it.kg<=0)return;
@@ -314,9 +316,50 @@ function buildCalc(){
     </div>`;
   });
 
+  // 👉 Bullen (ALLEINE)
+  ["bullen"].forEach(cat=>{
+    let sum=0,lauf=0,rows="";
+    data[cat].items.forEach(it=>{
+      if(it.kg<=0)return;
+      let g=it.kg*data[cat].anz;
+      let name=it.type==="agf"?globalCfg.agfName:
+               it.type==="mlf"?globalCfg.mlfName:it.name;
+      let zeit="-";
+      if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
+      if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+      lauf+=g;sum+=g;
+      rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
+    });
+
+    el.innerHTML+=`
+    <div class="category ${data[cat].collapsed?'collapsed':''}">
+      <div class="cat-header cat-${cat}" onclick="data.${cat}.collapsed=!data.${cat}.collapsed;save();buildCalc();">
+        ${globalCfg[cat+"Name"]}<span>${data[cat].collapsed?'▼':'▲'}</span>
+      </div>
+      <div class="cat-body">
+        Tiere:
+        <input type="number" value="${data[cat].anz}"
+        oninput="data.${cat}.anz=num(this.value);save()"
+        onblur="buildCalc()">
+        <table>
+        <tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>
+        ${rows||"<tr><td colspan=4>–</td></tr>"}
+        </table>
+        <div class="total">
+        <span id="total-${cat}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${cat}')">
+        Gesamt: ${sum.toFixed(1)} kg
+        </span>
+        <button class="kilo-btn ${kiloMode[cat]?'active':''}" onclick="toggleKilo('${cat}')">kilo</button>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // 👉 RESTMISCHUNG JETZT RICHTIG UNTER BULLEN
   buildRestBullen();
 
-  ["bullen","trocken","kaelber"].forEach(cat=>{
+  // 👉 Restliche Kategorien
+  ["trocken","kaelber"].forEach(cat=>{
     let sum=0,lauf=0,rows="";
     data[cat].items.forEach(it=>{
       if(it.kg<=0)return;
@@ -354,6 +397,19 @@ function buildCalc(){
     </div>`;
   });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+  
 
 /* === SETTINGS === */
 
