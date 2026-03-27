@@ -630,12 +630,23 @@ async function anfrageSenden(){
     return;
   }
 
+  async function anfrageSenden(){
+  let vorname = document.getElementById("vorname").value;
+  let nachname = document.getElementById("nachname").value;
+  let email = document.getElementById("email").value;
+  let zustimmung = document.getElementById("zustimmung").checked;
+
+  if(!vorname || !nachname || !email){
+    alert("Bitte alles ausfüllen");
+    return;
+  }
+
   if(!zustimmung){
     alert("Bitte Zustimmung bestätigen");
     return;
   }
 
- await db.collection("anfragen").add({
+  await db.collection("anfragen").add({
     vorname, nachname, email,
     status:"offen",
     deviceID
