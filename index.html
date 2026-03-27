@@ -91,18 +91,7 @@ emailjs.init("S_qot_zXh-fLxzolj");
 const deviceID = localStorage.getItem("deviceID") || Math.random().toString(36).substr(2, 9);
 localStorage.setItem("deviceID", deviceID);
 
-// Zugriff prüfen
-async function checkAccess(){
-  const doc = await db.collection("zugriffe").doc(deviceID).get();
-
-  if(!doc.exists || doc.data().status !== "erlaubt"){
-    showRequestForm();
-    return false;
-  }
-
-  return true;
-}
-
+  
 // 👇 DEIN ORIGINAL CODE
 function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
 function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%60)+" s"; }
