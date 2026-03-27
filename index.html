@@ -615,22 +615,12 @@ function buildCalc2(){
 }
 
 // 🔐 Zugriff Funktionen
+
 function showRequestForm(){
   document.getElementById("accessBlock").style.display="flex";
 }
 
 async function anfrageSenden(){
-  let vorname = document.getElementById("vorname").value;
-  let nachname = document.getElementById("nachname").value;
-  let email = document.getElementById("email").value;
-  let zustimmung = document.getElementById("zustimmung").checked;
-
-  if(!vorname || !nachname || !email){
-    alert("Bitte alles ausfüllen");
-    return;
-  }
-
-  async function anfrageSenden(){
   let vorname = document.getElementById("vorname").value;
   let nachname = document.getElementById("nachname").value;
   let email = document.getElementById("email").value;
@@ -660,25 +650,6 @@ async function anfrageSenden(){
   });
 
   alert("Anfrage gesendet");
-}
-async function checkAccess(){
-  const doc = await db.collection("zugriffe").doc(deviceID).get();
-
-  if(!doc.exists || doc.data().status !== "erlaubt"){
-    showRequestForm();
-    return false;
-  }
-
-  return true;
-}
-
-async function anfrageSenden(){
- 
-}
-
-// 🔥 HIER EINFÜGEN (direkt darüber)
-async function anfrageSenden(){
-  // dein kompletter Code bleibt so wie er ist
 }
 
 async function checkAccess(){
