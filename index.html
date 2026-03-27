@@ -629,20 +629,25 @@ async function anfrageSenden(){
     return;
   }
 
-  await db.collection("anfragen").add({
-    vorname, nachname, email,
-    status:"offen",
-    deviceID
-  });
+const docRef = await db.collection("anfragen").add({
+  vorname, nachname, email,
+  status:"offen",
+  deviceID
+});
 
-  emailjs.send("service_6z9m3x9", "template_e598pub", {
-    name: vorname+" "+nachname,
-    email: email,
-    approve_link: "LINK",
-    deny_link: "LINK"
-  });
+// 🔗 Links erstellen
+let approveLink = "https://taupke-pixel.github.io/futterrechner/?approve=" + docRef.id;
+let denyLink = "https://taupke-pixel.github.io/futterrechner/?deny=" + docRef.id;
 
-  alert("Anfrage gesendet");
+// 📧 Mail senden
+emailjs.send("service_6z9m3x9", "template_e598pub", {
+  name: vorname+" "+nachname,
+  email: email,
+  approve_link: approveLink,
+  deny_link: denyLink
+});
+
+alert("Anfrage gesendet");
 }
 
 async function checkAccess(){
