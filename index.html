@@ -128,7 +128,7 @@ function defItems(){
 }
 
 /* === SAFE LOAD === */
-let globalCfg={...defaultGlobal,...JSON.parse(localStorage.getItem("gCfg")||"{}")};
+let globalCfg={defaultGlobal,JSON.parse(localStorage.getItem("gCfg")||"{}")};
 
 let saved=JSON.parse(localStorage.getItem("futter")||"{}");
 function buildCat(def){ return {anz:def,items:defItems(),collapsed:false}; }
@@ -662,7 +662,7 @@ async function checkAccess(){
 }
 
 async function anfrageSenden(){
-  ...
+ 
 }
 
 // 🔥 HIER EINFÜGEN (direkt darüber)
