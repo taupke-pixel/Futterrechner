@@ -376,7 +376,8 @@ ${globalCfg.restbullenName}<span class="stift">✎</span>
 </h3>
 `;
 
-  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(cat=>{
+["kuehe","faersen","bullen","trocken","kaelber"].forEach((cat)=>{
+  let currentCat = cat;
     s.innerHTML+=`<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
 
 
@@ -402,12 +403,12 @@ ${globalCfg.restbullenName}<span class="stift">✎</span>
       </div></div>`;
     });
 
-    let el=document.getElementById("edit-"+cat);
+   let el=document.getElementById("edit-"+currentCat);
     el.onclick=()=>{
       let input=document.createElement("input");
-      input.value=globalCfg[cat+"Name"];
+   input.value=globalCfg[currentCat+"Name"];
       input.onblur=()=>{
-        globalCfg[cat+"Name"]=input.value||globalCfg[cat+"Name"];
+    globalCfg[currentCat+"Name"]=input.value||globalCfg[currentCat+"Name"];
         saveGlobal();buildSettings();buildCalc();
       };
       el.replaceWith(input);
