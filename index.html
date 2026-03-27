@@ -19,6 +19,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .cat-bullen{background:#27ae60}
 .cat-trocken{background:#f2a900}
 .cat-kaelber{background:#9b59b6}
+.cat-faersen{background:#6c8ebf;}
 table{width:100%;border-collapse:collapse;font-size:18px}
 th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
 th:first-child,td:first-child{text-align:left;font-weight:bold}
@@ -58,8 +59,11 @@ function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%6
 /* === DEFAULTS === */
 const defaultGlobal={
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
-  kueheName:"Kühe",bullenName:"Bullen",
-  trockenName:"Trockensteher",kaelberName:"Kälber"
+  kueheName:"Kühe",
+  faersenName:"Färsen",
+  bullenName:"Bullen",
+  trockenName:"Trockensteher",
+  kaelberName:"Kälber"
 };
 
 function defItems(){
@@ -78,12 +82,16 @@ function buildCat(def){ return {anz:def,items:defItems(),collapsed:false}; }
 
 let data={
   kuehe: saved.kuehe||buildCat(100),
- restbullen:{rest:0,ziel:0,anz:0,collapsed:false},
+
+  faersen: saved.faersen||buildCat(30),
+
+  restbullen:{rest:0,ziel:0,anz:0,collapsed:false},
+
   bullen: saved.bullen||buildCat(10),
   trocken: saved.trocken||buildCat(5),
   kaelber: saved.kaelber||buildCat(20)
 };
-
+  
 let sortMode=false;
 let kiloMode={};
 
@@ -267,7 +275,7 @@ function buildCalc(){
   let el=document.getElementById("calc");
   el.innerHTML="";
 
-  ["kuehe"].forEach(cat=>{
+ ["kuehe","faersen"].forEach(cat=>{
     let sum=0,lauf=0,rows="";
     data[cat].items.forEach(it=>{
       if(it.kg<=0)return;
@@ -361,7 +369,7 @@ function buildSettings(){
   kg/s <input type="number" value="${globalCfg.mlfKg}" oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
   `;
 
-  ["kuehe","bullen","trocken","kaelber"].forEach(cat=>{
+  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(cat=>{
     s.innerHTML+=`<h3 class="editable" id="edit-${cat}">${globalCfg[cat+"Name"]}<span class="stift">✎</span></h3>`;
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
