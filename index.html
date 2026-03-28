@@ -96,7 +96,6 @@ localStorage.setItem("deviceID", deviceID);
 // 👇 DEIN ORIGINAL CODE
 function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
 function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%60)+" s"; }
-function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%60)+" s"; }
 
 /* === DEFAULTS === */
 const defaultGlobal={
@@ -631,28 +630,27 @@ async function anfrageSenden(){
     return;
   }
 
+  // 🔥 speichern
   const docRef = await db.collection("anfragen").add({
     vorname, nachname, email,
     status:"offen",
     deviceID
   });
+
+  // 🔗 Links erstellen (JETZT RICHTIG!)
+  let approveLink = "https://taupke-pixel.github.io/futterrechner/?approve=" + docRef.id;
+  let denyLink = "https://taupke-pixel.github.io/futterrechner/?deny=" + docRef.id;
+
+  // 📧 Mail senden
+  emailjs.send("service_6z9m3x9", "template_e598pub", {
+    name: vorname+" "+nachname,
+    email: email,
+    approve_link: approveLink,
+    deny_link: denyLink
+  });
+
+  alert("Anfrage gesendet");
 }
-
-// 🔗 Links erstellen
-let approveLink = "https://taupke-pixel.github.io/futterrechner/?approve=" + docRef.id;
-let denyLink = "https://taupke-pixel.github.io/futterrechner/?deny=" + docRef.id;
-
-// 📧 Mail senden
-emailjs.send("service_6z9m3x9", "template_e598pub", {
-  name: vorname+" "+nachname,
-  email: email,
-  approve_link: approveLink,
-  deny_link: denyLink
-});
-
-alert("Anfrage gesendet");
-
-} 
 
 async function checkAccess(){
   console.log("checkAccess startet");
