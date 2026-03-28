@@ -614,12 +614,14 @@ function showRequestForm(){
 }
 
 async function anfrageSenden(){
-  let vorname = document.getElementById("vorname").value;
-  let nachname = document.getElementById("nachname").value;
-  let email = document.getElementById("email").value;
+  let vorname = document.getElementById("vorname").value.trim();
+  let nachname = document.getElementById("nachname").value.trim();
+  let email = document.getElementById("email").value.trim();
   let zustimmung = document.getElementById("zustimmung").checked;
 
-  if(!vorname || !nachname || !email){
+  console.log("DEBUG:", vorname, nachname, email);
+
+  if(vorname === "" || nachname === "" || email === ""){
     alert("Bitte alles ausfüllen");
     return;
   }
@@ -629,11 +631,12 @@ async function anfrageSenden(){
     return;
   }
 
-const docRef = await db.collection("anfragen").add({
-  vorname, nachname, email,
-  status:"offen",
-  deviceID
-});
+  const docRef = await db.collection("anfragen").add({
+    vorname, nachname, email,
+    status:"offen",
+    deviceID
+  });
+}
 
 // 🔗 Links erstellen
 let approveLink = "https://taupke-pixel.github.io/futterrechner/?approve=" + docRef.id;
