@@ -85,7 +85,35 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const urlParams = new URLSearchParams(window.location.search);
+const approveID = urlParams.get("approve");
+const denyID = urlParams.get("deny");
 
+async function handleApproval(){
+  if(approveID){
+    await db.collection("anfragen").doc(approveID).update({
+      status: "erlaubt"
+    });
+
+    // Zugriff speichern
+    const req = await db.collection("anfragen").doc(approveID).get();
+    const deviceID = req.data().deviceID;
+
+    await db.collection("zugriffe").doc(deviceID).set({
+      status: "erlaubt"
+    });
+
+    alert("Zugriff erlaubt!");
+  }
+
+  if(denyID){
+    await db.collection("anfragen").doc(denyID).update({
+      status: "abgelehnt"
+    });
+
+    alert("Zugriff abgelehnt!");
+  }
+}
 emailjs.init("d0IUYI7pT5TJM46BC");
 
 // Geräte-ID
@@ -675,7 +703,40 @@ async function checkAccess(){
 }
 
 /* START */
-checkAccess().then(ok=>{
+async function handleApproval(){
+  if(approveID){
+    // Anfrage auf erlaubt setzen
+    await db.collection("anfragen").doc(approveID).update({
+      status: "erlaubt"
+    });
+
+    // Anfrage holen (für deviceID)
+    const req = await db.collection("anfragen").doc(approveID).get();
+    const deviceID = req.data().deviceID;
+
+    // Zugriff freischalten
+    await db.collection("zugriffe").doc(deviceID).set({
+      status: "erlaubt"
+    });
+
+    alert("Zugriff erlaubt!");
+
+    // optional sauber weiterleiten
+    window.location.href = "https://taupke-pixel.github.io/futterrechner/";
+  }
+
+  if(denyID){
+    await db.collection("anfragen").doc(denyID).update({
+      status: "abgelehnt"
+    });
+
+    alert("Zugriff abgelehnt!");
+
+    window.location.href = "https://taupke-pixel.github.io/futterrechner/";
+  }
+}
+  
+  checkAccess().then(ok=>{
   if(ok){
     buildCalc();
     buildSettings();
