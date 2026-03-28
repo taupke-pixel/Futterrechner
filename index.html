@@ -736,17 +736,6 @@ async function handleApproval(){
   }
 }
 
-  if(denyID){
-    await db.collection("anfragen").doc(denyID).update({
-      status: "abgelehnt"
-    });
-
-    alert("Zugriff abgelehnt!");
-
-    window.location.href = "https://taupke-pixel.github.io/Futterrechner/";
-  }
-}
-  
   handleApproval().then(()=>{
   checkAccess().then(ok=>{
     if(ok){
