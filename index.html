@@ -704,25 +704,25 @@ async function checkAccess(){
 
 /* START */
 async function handleApproval(){
+  console.log("APPROVE ID:", approveID);
+
   if(approveID){
-    // Anfrage auf erlaubt setzen
+    console.log("Freigabe erkannt");
+
     await db.collection("anfragen").doc(approveID).update({
       status: "erlaubt"
     });
 
-    // Anfrage holen (für deviceID)
     const req = await db.collection("anfragen").doc(approveID).get();
-    const deviceID = req.data().deviceID;
+    const devID = req.data().deviceID;
 
-    // Zugriff freischalten
-    await db.collection("zugriffe").doc(deviceID).set({
+    await db.collection("zugriffe").doc(devID).set({
       status: "erlaubt"
     });
 
     alert("Zugriff erlaubt!");
 
-    // optional sauber weiterleiten
-    window.location.href = "https://taupke-pixel.github.io/futterrechner/";
+    window.location.href = "https://taupke-pixel.github.io/Futterrechner/";
   }
 
   if(denyID){
@@ -732,17 +732,31 @@ async function handleApproval(){
 
     alert("Zugriff abgelehnt!");
 
-    window.location.href = "https://taupke-pixel.github.io/futterrechner/";
+    window.location.href = "https://taupke-pixel.github.io/Futterrechner/";
+  }
+}
+
+  if(denyID){
+    await db.collection("anfragen").doc(denyID).update({
+      status: "abgelehnt"
+    });
+
+    alert("Zugriff abgelehnt!");
+
+    window.location.href = "https://taupke-pixel.github.io/Futterrechner/";
   }
 }
   
+  handleApproval().then(()=>{
   checkAccess().then(ok=>{
-  if(ok){
-    buildCalc();
-    buildSettings();
-    buildCalc2();
-  }
+    if(ok){
+      buildCalc();
+      buildSettings();
+      buildCalc2();
+    }
+  });
 });
+  
 </script>
 
 <div id="accessBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:center;">
