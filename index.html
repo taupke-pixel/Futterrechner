@@ -675,11 +675,31 @@ buildCalc();
       <th>Summe</th>
       </tr>
 
-      ${rows||"<tr><td colspan=5>–</td></tr>"}
+        ${rows||"<tr><td colspan=5>–</td></tr>"}
 
       </table>
+
+<div class="total">
+
+<button
+
+class="save-btn
+${alreadySavedToday('bullen')?'saved':''}"
+
+${alreadySavedToday('bullen')?'disabled':''}
+
+onclick="saveHistory('bullen')">
+
+${alreadySavedToday('bullen')
+?'Gespeichert'
+:'Speichern'}
+
+</button>
+
+</div>
+
     </div>
-  </div>`;
+  </div>`; 
 }
 function hideWarning(produkt){
 
