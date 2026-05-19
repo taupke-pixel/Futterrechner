@@ -254,7 +254,9 @@ function formatDateInput(v){
 
 /* === DEFAULTS === */
 const defaultGlobal={
-  agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
+  agfName:"AGF",mlfName:"MLF",
+    bundesland:"Niedersachsen",
+  agfKg:0.5,mlfKg:0.5,
   kueheName:"Kühe",
   faersenName:"Färsen",
   bullenName:"Bullen",
@@ -952,7 +954,97 @@ ${alreadySavedToday(cat)?
   <button class="${sortMode?'sort-active':''}" onclick="toggleSort()">
   ${sortMode?'Sortieren beenden':'Sortieren aktivieren'}
   </button><hr>
+<h3>Bundesland</h3>
 
+<select
+onchange="
+globalCfg.bundesland=this.value;
+saveGlobal();
+">
+
+<option value="Baden-Württemberg"
+${globalCfg.bundesland==="Baden-Württemberg"?"selected":""}>
+Baden-Württemberg
+</option>
+
+<option value="Bayern"
+${globalCfg.bundesland==="Bayern"?"selected":""}>
+Bayern
+</option>
+
+<option value="Berlin"
+${globalCfg.bundesland==="Berlin"?"selected":""}>
+Berlin
+</option>
+
+<option value="Brandenburg"
+${globalCfg.bundesland==="Brandenburg"?"selected":""}>
+Brandenburg
+</option>
+
+<option value="Bremen"
+${globalCfg.bundesland==="Bremen"?"selected":""}>
+Bremen
+</option>
+
+<option value="Hamburg"
+${globalCfg.bundesland==="Hamburg"?"selected":""}>
+Hamburg
+</option>
+
+<option value="Hessen"
+${globalCfg.bundesland==="Hessen"?"selected":""}>
+Hessen
+</option>
+
+<option value="Mecklenburg-Vorpommern"
+${globalCfg.bundesland==="Mecklenburg-Vorpommern"?"selected":""}>
+Mecklenburg-Vorpommern
+</option>
+
+<option value="Niedersachsen"
+${globalCfg.bundesland==="Niedersachsen"?"selected":""}>
+Niedersachsen
+</option>
+
+<option value="Nordrhein-Westfalen"
+${globalCfg.bundesland==="Nordrhein-Westfalen"?"selected":""}>
+Nordrhein-Westfalen
+</option>
+
+<option value="Rheinland-Pfalz"
+${globalCfg.bundesland==="Rheinland-Pfalz"?"selected":""}>
+Rheinland-Pfalz
+</option>
+
+<option value="Saarland"
+${globalCfg.bundesland==="Saarland"?"selected":""}>
+Saarland
+</option>
+
+<option value="Sachsen"
+${globalCfg.bundesland==="Sachsen"?"selected":""}>
+Sachsen
+</option>
+
+<option value="Sachsen-Anhalt"
+${globalCfg.bundesland==="Sachsen-Anhalt"?"selected":""}>
+Sachsen-Anhalt
+</option>
+
+<option value="Schleswig-Holstein"
+${globalCfg.bundesland==="Schleswig-Holstein"?"selected":""}>
+Schleswig-Holstein
+</option>
+
+<option value="Thüringen"
+${globalCfg.bundesland==="Thüringen"?"selected":""}>
+Thüringen
+</option>
+
+</select>
+
+<hr>
   <h3>AGF / MLF</h3>
   AGF Name <input value="${globalCfg.agfName}" 
     oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();" 
