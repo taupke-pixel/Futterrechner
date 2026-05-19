@@ -1097,9 +1097,11 @@ function buildHistory(){
 
       Gesamt: ${e.gesamt.toFixed(1)} kg<br>
 
-      AGF: ${e.agf.toFixed(1)} kg<br>
+     ${globalCfg.agfName}:
+${e.agf.toFixed(1)} kg<br>
 
-      MLF: ${e.mlf.toFixed(1)} kg<br>
+${globalCfg.mlfName}:
+${e.mlf.toFixed(1)} kg<br>
 
       </div>
 
@@ -1182,9 +1184,13 @@ function buildHistory(){
 
       <select id="liefer-produkt">
 
-        <option value="agf">AGF</option>
+<option value="agf">
+${globalCfg.agfName}
+</option>
 
-        <option value="mlf">MLF</option>
+<option value="mlf">
+${globalCfg.mlfName}
+</option>
 
       </select>
 
@@ -1222,7 +1228,7 @@ function buildHistory(){
 
     <div class="cat-body">
 
-    AGF Orange
+    ${globalCfg.agfName} Orange
 
     <input
     type="number"
@@ -1233,7 +1239,7 @@ function buildHistory(){
     buildHistory();
     buildCalc();">
 
-    AGF Rot
+   ${globalCfg.agfName} Rot
 
     <input
     type="number"
@@ -1246,7 +1252,7 @@ function buildHistory(){
 
     <br><br>
 
-    MLF Orange
+   ${globalCfg.mlfName} Orange
 
     <input
     type="number"
@@ -1257,7 +1263,7 @@ function buildHistory(){
     buildHistory();
     buildCalc();">
 
-    MLF Rot
+   ${globalCfg.mlfName} Rot
 
     <input
     type="number"
