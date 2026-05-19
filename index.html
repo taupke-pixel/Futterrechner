@@ -1018,7 +1018,30 @@ ${alreadySavedToday(cat)?
   };
 }
 function addLieferung(){
+  
+function deleteLieferung(id){
 
+  let eintrag =
+  lieferungen.find(l=>l.id===id);
+
+  if(!eintrag) return;
+
+  lagerData[eintrag.produkt].bestand -=
+  eintrag.menge;
+
+  lieferungen =
+  lieferungen.filter(l=>l.id!==id);
+
+  saveLieferungen();
+
+  saveLagerStorage();
+
+  buildHistory();
+
+  buildCalc();
+
+  alert("Lieferung gelöscht");
+}
   let produkt =
   document.getElementById("liefer-produkt").value;
 
@@ -1326,7 +1349,53 @@ ${globalCfg.mlfName}
     </div>
 
   </div>
+<br>
 
+${lieferungen.map(l=>`
+
+<div class="history-item"
+
+style="
+padding:14px;
+margin-bottom:10px;
+background:#f8fafc;
+border-radius:10px;
+">
+
+<div style="
+font-size:20px;
+font-weight:bold;
+margin-bottom:8px;
+">
+
+${l.produkt==="agf"
+?globalCfg.agfName
+:globalCfg.mlfName}
+
+</div>
+
+Datum:
+${l.datum}
+
+<br>
+
+Menge:
+${l.menge.toFixed(1)} kg
+<br><br>
+
+<button
+
+class="save-btn"
+
+onclick="deleteLieferung('${l.id}')">
+
+Löschen
+
+</button>
+
+</div>
+
+`).join("")}
 
   <div class="history-box ${historyCollapsed.verlauf?'collapsed':''}">
 
