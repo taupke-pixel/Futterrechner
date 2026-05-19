@@ -954,7 +954,216 @@ function buildCalc(){
     input.focus();
   };
 }
+function buildHistory(){
 
+  let h = document.getElementById("history");
+
+  let agfRest = calcResttage("agf");
+
+  let mlfRest = calcResttage("mlf");
+
+  h.innerHTML = `
+
+  <div class="history-box ${historyCollapsed.tageslog?'collapsed':''}">
+
+    <div class="history-header"
+
+    onclick="historyCollapsed.tageslog=!historyCollapsed.tageslog;buildHistory();">
+
+    Tageslog
+
+    </div>
+
+    <div class="cat-body">
+
+    ${historyData.map(e=>`
+
+      <div class="history-item">
+
+      <b>${e.datum}</b><br>
+
+      ${globalCfg[e.kategorie+"Name"] || e.kategorie}<br>
+
+      Tiere: ${e.tiere}<br>
+
+      Gesamt: ${e.gesamt.toFixed(1)} kg<br>
+
+      AGF: ${e.agf.toFixed(1)} kg<br>
+
+      MLF: ${e.mlf.toFixed(1)} kg<br>
+
+      </div>
+
+    `).join("")}
+
+    </div>
+
+  </div>
+
+
+  <div class="history-box ${historyCollapsed.lager?'collapsed':''}">
+
+    <div class="history-header"
+
+    onclick="historyCollapsed.lager=!historyCollapsed.lager;buildHistory();">
+
+    Lagerbestand
+
+    </div>
+
+    <div class="cat-body">
+
+      <div class="lager-card">
+
+      <b>AGF</b><br>
+
+      Bestand:
+      ${lagerData.agf.bestand.toFixed(1)} kg<br>
+
+      Ø Verbrauch:
+      ${calcAverage("agf").toFixed(1)} kg/Tag<br>
+
+      <span class="${getWarnClass("agf")}">
+
+      Reicht noch ca.
+      ${agfRest.toFixed(1)} Tage
+
+      </span>
+
+      </div>
+
+
+      <div class="lager-card">
+
+      <b>MLF</b><br>
+
+      Bestand:
+      ${lagerData.mlf.bestand.toFixed(1)} kg<br>
+
+      Ø Verbrauch:
+      ${calcAverage("mlf").toFixed(1)} kg/Tag<br>
+
+      <span class="${getWarnClass("mlf")}">
+
+      Reicht noch ca.
+      ${mlfRest.toFixed(1)} Tage
+
+      </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <div class="history-box ${historyCollapsed.lieferungen?'collapsed':''}">
+
+    <div class="history-header"
+
+    onclick="historyCollapsed.lieferungen=!historyCollapsed.lieferungen;buildHistory();">
+
+    Lieferungen
+
+    </div>
+
+    <div class="cat-body">
+
+      <div class="delivery-form">
+
+      <select id="liefer-produkt">
+
+        <option value="agf">AGF</option>
+
+        <option value="mlf">MLF</option>
+
+      </select>
+
+      <input type="date" id="liefer-datum">
+
+      <input
+      type="number"
+      id="liefer-menge"
+      placeholder="Menge in kg">
+
+      <button
+      class="save-btn"
+      onclick="addLieferung()">
+
+      Lieferung speichern
+
+      </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <div class="history-box ${historyCollapsed.verlauf?'collapsed':''}">
+
+    <div class="history-header"
+
+    onclick="historyCollapsed.verlauf=!historyCollapsed.verlauf;buildHistory();">
+
+    Warnstufen
+
+    </div>
+
+    <div class="cat-body">
+
+    AGF Orange
+
+    <input
+    type="number"
+    value="${lagerData.agf.orange}"
+
+    oninput="lagerData.agf.orange=num(this.value);
+    saveLagerStorage();
+    buildHistory();
+    buildCalc();">
+
+    AGF Rot
+
+    <input
+    type="number"
+    value="${lagerData.agf.rot}"
+
+    oninput="lagerData.agf.rot=num(this.value);
+    saveLagerStorage();
+    buildHistory();
+    buildCalc();">
+
+    <br><br>
+
+    MLF Orange
+
+    <input
+    type="number"
+    value="${lagerData.mlf.orange}"
+
+    oninput="lagerData.mlf.orange=num(this.value);
+    saveLagerStorage();
+    buildHistory();
+    buildCalc();">
+
+    MLF Rot
+
+    <input
+    type="number"
+    value="${lagerData.mlf.rot}"
+
+    oninput="lagerData.mlf.rot=num(this.value);
+    saveLagerStorage();
+    buildHistory();
+    buildCalc();">
+
+    </div>
+
+  </div>`;
+}
+  
 /* === CALCULATOR === */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
