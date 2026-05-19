@@ -541,10 +541,211 @@ function calcResttage(produkt){
   return tage;
 }
 
+function getEasterSunday(year){
 
+  let f = Math.floor,
+  G = year % 19,
+  C = f(year / 100),
+  H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30,
+  I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11)),
+  J = (year + f(year / 4) + I + 2 - C + f(C / 4)) % 7,
+  L = I - J,
+  month = 3 + f((L + 40) / 44),
+  day = L + 28 - 31 * f(month / 4);
+
+  return new Date(year, month - 1, day);
+}
+
+function formatHolidayDate(date){
+
+  let tag =
+  String(date.getDate()).padStart(2,"0");
+
+  let monat =
+  String(date.getMonth()+1).padStart(2,"0");
+
+  return `${tag}.${monat}`;
+}
+
+function getFeiertage(year,bundesland){
+
+  let easter =
+  getEasterSunday(year);
+
+  let feiertage = [
+
+    "01.01",
+    "01.05",
+    "03.10",
+    "25.12",
+    "26.12"
+
+  ];
+
+  function addDays(base,days){
+
+    let d = new Date(base);
+
+    d.setDate(d.getDate()+days);
+
+    return formatHolidayDate(d);
+  }
+
+  feiertage.push(addDays(easter,-2)); // Karfreitag
+  feiertage.push(addDays(easter,1));  // Ostermontag
+  feiertage.push(addDays(easter,39)); // Himmelfahrt
+  feiertage.push(addDays(easter,50)); // Pfingstmontag
+
+  if([
+    "Bayern",
+    "Baden-Württemberg",
+    "Hessen",
+    "Nordrhein-Westfalen",
+    "Rheinland-Pfalz",
+    "Saarland"
+  ].includes(bundesland)){
+
+    feiertage.push(addDays(easter,60)); // Fronleichnam
+  }
+
+  return feiertage;
+}
+
+function isFeiertag(date){
+
+  let jahr =
+  date.getFullYear();
+
+  let heute =
+  formatHolidayDate(date);
+
+  let feiertage =
+  getFeiertage(
+    jahr,
+    globalCfg.bundesland
+  );
+
+  return feiertage.includes(heute);
+}
+
+function isWochenende(date){
+  
+
+  let tag = date.getDay();
+
+  return tag===0 || tag===6;
+}
+  function isArbeitstag(date){
+
+  if(isWochenende(date))
+    return false;
+
+  if(isFeiertag(date))
+    return false;
+
+  return true;
+}
+
+function addArbeitstage(starttage,arbeitstage){
+
+  
+  let d = new Date(starttage);
+
+  let count = 0;
+
+  while(count < arbeitstage){
+
+    d.setDate(d.getDate()+1);
+
+    if(isArbeitstag(d)){
+      count++;
+    }
+  }
+
+  return d;
+}
+
+  function getLeerDatum(produkt){
+  let avg =
+  calcAverage(produkt);
+
+  if(avg<=0)
+    return null;
+
+  let tage =
+  calcResttage(produkt);
+
+  let d =
+  new Date();
+
+  d.setDate(
+    d.getDate() +
+    Math.floor(tage)
+  );
+
+  return d;
+}
+
+  function getBestellDatum(produkt){
+
+  let leer =
+  getLeerDatum(produkt);
+
+  if(!leer)
+    return null;
+
+  let lieferzeit =
+  lagerData[produkt].lieferzeit || 0;
+
+  let d =
+  new Date(leer);
+
+  let count = 0;
+
+  while(count < lieferzeit){
+
+    d.setDate(d.getDate()-1);
+
+    if(isArbeitstag(d)){
+      count++;
+    }
+  }
+
+  return d;
+}
+
+  function formatDatum(date){
+
+  if(!date)
+    return "-";
+
+  return date.toLocaleDateString(
+    "de-DE",
+    {
+      weekday:"long",
+      day:"2-digit",
+      month:"2-digit",
+      year:"numeric"
+    }
+  );
+}
 function getWarnClass(produkt){
 
-  let tage = calcResttage(produkt);
+  let tage =
+  calcResttage(produkt);
+
+  let leer =
+  getLeerDatum(produkt);
+
+  if(
+    leer &&
+    (
+      isWochenende(leer) ||
+      isFeiertag(leer)
+    )
+  ){
+    return "warn-red";
+  }
 
   if(tage <= lagerData[produkt].rot)
     return "warn-red";
@@ -554,7 +755,6 @@ function getWarnClass(produkt){
 
   return "warn-green";
 }
-
 /* === RESTMISCHUNG BULLEN === */
 function buildRestBullen(){
   let el=document.getElementById("calc");
@@ -1435,13 +1635,24 @@ Löschen
 
       <span class="${getWarnClass("agf")}">
 
-    ${agfRest<=0
+   ${agfRest<=0
 
 ?"Bestand leer"
 
 :`Reicht noch ca.
 ${agfRest.toFixed(1)} Tage`
+
 }
+
+<br><br>
+
+Bestellen bis:
+
+<br>
+
+${formatDatum(
+  getBestellDatum("agf")
+)}
 
       </span>
 
@@ -1460,13 +1671,24 @@ ${agfRest.toFixed(1)} Tage`
 
       <span class="${getWarnClass("mlf")}">
 
-     ${mlfRest<=0
+  ${mlfRest<=0
 
 ?"Bestand leer"
 
 :`Reicht noch ca.
 ${mlfRest.toFixed(1)} Tage`
+
 }
+
+<br><br>
+
+Bestellen bis:
+
+<br>
+
+${formatDatum(
+  getBestellDatum("mlf")
+)}
 
       </span>
 
