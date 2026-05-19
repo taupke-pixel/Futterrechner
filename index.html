@@ -1312,9 +1312,11 @@ async function handleApproval(){
   handleApproval().then(()=>{
   checkAccess().then(ok=>{
     if(ok){
+      
       buildCalc();
       buildSettings();
       buildCalc2();
+    buildHistory();
     }
   });
 });
