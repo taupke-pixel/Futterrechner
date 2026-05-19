@@ -954,6 +954,52 @@ function buildCalc(){
     input.focus();
   };
 }
+function addLieferung(){
+
+  let produkt =
+  document.getElementById("liefer-produkt").value;
+
+  let datum =
+  document.getElementById("liefer-datum").value;
+
+  let menge =
+  num(document.getElementById("liefer-menge").value);
+
+  if(menge<=0){
+
+    alert("Menge fehlt");
+
+    return;
+  }
+
+  let eintrag = {
+
+    id:
+    Date.now()+
+    Math.random().toString(36).substr(2,5),
+
+    produkt:produkt,
+
+    datum:formatDateInput(datum),
+
+    menge:menge
+  };
+
+  lieferungen.unshift(eintrag);
+
+  lagerData[produkt].bestand += menge;
+
+  saveLieferungen();
+
+  saveLagerStorage();
+
+  buildHistory();
+
+  buildCalc();
+
+  alert("Lieferung gespeichert");
+}
+  
 function buildHistory(){
 
   let h = document.getElementById("history");
