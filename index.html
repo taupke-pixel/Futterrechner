@@ -1087,27 +1087,79 @@ function buildHistory(){
 
     ${historyData.map(e=>`
 
-      <div class="history-item">
+      <div class="history-item"
 
-      <b>${e.datum}</b><br>
+style="
+padding:16px;
+margin-bottom:12px;
+border-radius:10px;
+background:#f8fafc;
+">
 
-    ${globalCfg[e.kategorie+"Name"] || e.kategorie}<br><br>
+<div
+style="
+font-size:24px;
+font-weight:bold;
+margin-bottom:6px;
+">
 
-${e.futter.map(f=>`
+${globalCfg[e.kategorie+"Name"] || e.kategorie}
 
-${f.name}: ${f.kg.toFixed(1)} kg<br>
+</div>
 
-`).join("")}
+<div
+style="
+font-size:18px;
+font-weight:bold;
+margin-bottom:12px;
+">
+
+${e.datum}
+
+</div>
+
+<div style="margin-bottom:10px;">
+
+${e.futter && e.futter.length ?
+
+e.futter.map(f=>`
+
+<div style="
+display:flex;
+justify-content:space-between;
+padding:4px 0;
+border-bottom:1px solid #ddd;
+">
+
+<span>${f.name}</span>
+
+<span>${f.kg.toFixed(1)} kg</span>
+
+</div>
+
+`).join("")
+
+:
+
+"Keine Einzelwerte gespeichert"
+
+}
+
+</div>
+
+<div style="margin-top:10px;font-weight:bold;">
+
+Tiere:
+${e.tiere}
 
 <br>
-
-Tiere: ${e.tiere}<br>
 
 Gesamt:
 ${e.gesamt.toFixed(1)} kg
 
-      </div>
+</div>
 
+</div>
     `).join("")}
 
     </div>
