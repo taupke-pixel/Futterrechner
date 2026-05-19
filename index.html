@@ -711,6 +711,7 @@ function buildWarnings(){
 function buildCalc(){
   let el=document.getElementById("calc");
   el.innerHTML="";
+  el.innerHTML += buildWarnings();
 
   // 👉 Kühe + Färsen
   ["kuehe","faersen"].forEach(cat=>{
