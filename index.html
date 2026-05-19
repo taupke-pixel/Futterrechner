@@ -1019,29 +1019,6 @@ ${alreadySavedToday(cat)?
 }
 function addLieferung(){
   
-function deleteLieferung(id){
-
-  let eintrag =
-  lieferungen.find(l=>l.id===id);
-
-  if(!eintrag) return;
-
-  lagerData[eintrag.produkt].bestand -=
-  eintrag.menge;
-
-  lieferungen =
-  lieferungen.filter(l=>l.id!==id);
-
-  saveLieferungen();
-
-  saveLagerStorage();
-
-  buildHistory();
-
-  buildCalc();
-
-  alert("Lieferung gelöscht");
-}
   let produkt =
   document.getElementById("liefer-produkt").value;
 
@@ -1084,6 +1061,29 @@ function deleteLieferung(id){
   buildCalc();
 
   alert("Lieferung gespeichert");
+}
+  function deleteLieferung(id){
+
+  let eintrag =
+  lieferungen.find(l=>l.id===id);
+
+  if(!eintrag) return;
+
+  lagerData[eintrag.produkt].bestand -=
+  eintrag.menge;
+
+  lieferungen =
+  lieferungen.filter(l=>l.id!==id);
+
+  saveLieferungen();
+
+  saveLagerStorage();
+
+  buildHistory();
+
+  buildCalc();
+
+  alert("Lieferung gelöscht");
 }
   
 function buildHistory(){
