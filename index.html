@@ -741,21 +741,7 @@ function buildCalc(){
   el.innerHTML="";
   el.innerHTML += buildWarnings();
 
-  historyWarnClass = "";
-
-if(
-  getWarnClass("agf")==="warn-red" ||
-  getWarnClass("mlf")==="warn-red"
-){
-  historyWarnClass = "tab-red";
-}
-else if(
-  getWarnClass("agf")==="warn-orange" ||
-  getWarnClass("mlf")==="warn-orange"
-){
-  historyWarnClass = "tab-orange";
-}
-
+  
   // 👉 Kühe + Färsen
   ["kuehe","faersen"].forEach(cat=>{
     let sum=0,lauf=0,rows="";
