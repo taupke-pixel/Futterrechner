@@ -515,6 +515,19 @@ function calcResttage(produkt){
 
   if(avg<=0) return 999;
 
+  let tage =
+  lagerData[produkt].bestand / avg;
+
+  if(tage < 0)
+    return 0;
+
+  return tage;
+}
+
+  let avg = calcAverage(produkt);
+
+  if(avg<=0) return 999;
+
   return lagerData[produkt].bestand / avg;
 }
 
@@ -1300,8 +1313,13 @@ Löschen
 
       <span class="${getWarnClass("agf")}">
 
-      Reicht noch ca.
-      ${agfRest.toFixed(1)} Tage
+    ${agfRest<=0
+
+?"Bestand leer"
+
+:`Reicht noch ca.
+${agfRest.toFixed(1)} Tage`
+}
 
       </span>
 
@@ -1320,8 +1338,13 @@ Löschen
 
       <span class="${getWarnClass("mlf")}">
 
-      Reicht noch ca.
-      ${mlfRest.toFixed(1)} Tage
+     ${mlfRest<=0
+
+?"Bestand leer"
+
+:`Reicht noch ca.
+${mlfRest.toFixed(1)} Tage`
+}
 
       </span>
 
