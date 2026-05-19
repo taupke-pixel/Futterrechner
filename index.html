@@ -1062,11 +1062,7 @@ function addLieferung(){
 
   alert("Lieferung gespeichert");
 }
-  function deleteLieferung(id){
-
-    function deleteHistory(id){
-
-  function deleteLieferung(id){
+function deleteLieferung(id){
 
   let eintrag =
   lieferungen.find(l=>l.id===id);
@@ -1088,6 +1084,33 @@ function addLieferung(){
   buildCalc();
 
   alert("Lieferung gelöscht");
+}
+
+function deleteHistory(id){
+
+  let eintrag =
+  historyData.find(h=>h.id===id);
+
+  if(!eintrag) return;
+
+  lagerData.agf.bestand +=
+  eintrag.agf || 0;
+
+  lagerData.mlf.bestand +=
+  eintrag.mlf || 0;
+
+  historyData =
+  historyData.filter(h=>h.id!==id);
+
+  saveHistoryStorage();
+
+  saveLagerStorage();
+
+  buildHistory();
+
+  buildCalc();
+
+  alert("Tageslog gelöscht");
 }
   let eintrag =
   lieferungen.find(l=>l.id===id);
