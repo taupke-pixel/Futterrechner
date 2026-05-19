@@ -213,6 +213,30 @@ localStorage.setItem("deviceID", deviceID);
 function num(v){ return isNaN(parseFloat(v)) ? 0 : parseFloat(v); }
 function fmt(sec){ sec=Math.round(sec); return Math.floor(sec/60)+" min "+(sec%60)+" s"; }
 
+  function getToday(){
+
+  let d = new Date();
+
+  let tag = String(d.getDate()).padStart(2,"0");
+  let monat = String(d.getMonth()+1).padStart(2,"0");
+  let jahr = d.getFullYear();
+
+  return `${tag}.${monat}.${jahr}`;
+}
+
+function formatDateInput(v){
+
+  if(!v) return getToday();
+
+  let d = new Date(v);
+
+  let tag = String(d.getDate()).padStart(2,"0");
+  let monat = String(d.getMonth()+1).padStart(2,"0");
+  let jahr = d.getFullYear();
+
+  return `${tag}.${monat}.${jahr}`;
+}
+
 /* === DEFAULTS === */
 const defaultGlobal={
   agfName:"AGF",mlfName:"MLF",agfKg:0.5,mlfKg:0.5,
