@@ -1066,21 +1066,20 @@ function addLieferung(){
 
     function deleteHistory(id){
 
+  function deleteLieferung(id){
+
   let eintrag =
-  historyData.find(h=>h.id===id);
+  lieferungen.find(l=>l.id===id);
 
   if(!eintrag) return;
 
-  lagerData.agf.bestand +=
-  eintrag.agf || 0;
+  lagerData[eintrag.produkt].bestand -=
+  eintrag.menge;
 
-  lagerData.mlf.bestand +=
-  eintrag.mlf || 0;
+  lieferungen =
+  lieferungen.filter(l=>l.id!==id);
 
-  historyData =
-  historyData.filter(h=>h.id!==id);
-
-  saveHistoryStorage();
+  saveLieferungen();
 
   saveLagerStorage();
 
@@ -1088,9 +1087,8 @@ function addLieferung(){
 
   buildCalc();
 
-  alert("Tageslog gelöscht");
+  alert("Lieferung gelöscht");
 }
-
   let eintrag =
   lieferungen.find(l=>l.id===id);
 
