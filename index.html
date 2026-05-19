@@ -659,7 +659,53 @@ buildCalc();
     </div>
   </div>`;
 }
+function hideWarning(produkt){
 
+  hiddenWarnings[produkt] = getToday();
+
+  saveHiddenWarnings();
+
+  buildCalc();
+}
+
+function buildWarnings(){
+
+  let html = "";
+
+  ["agf","mlf"].forEach(produkt=>{
+
+    let resttage = calcResttage(produkt);
+
+    if(resttage > lagerData[produkt].rot)
+      return;
+
+    if(hiddenWarnings[produkt] === getToday())
+      return;
+
+    let text = produkt.toUpperCase();
+
+    html += `
+
+    <div class="warning-banner">
+
+      <div>
+      ⚠ ${text} reicht nur noch ca.
+      ${resttage.toFixed(1)} Tage
+      </div>
+
+      <button
+      onclick="hideWarning('${produkt}')">
+
+      Ausblenden
+
+      </button>
+
+    </div>`;
+  });
+
+  return html;
+}
+  
 //rechner//
 
 function buildCalc(){
