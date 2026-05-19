@@ -1064,6 +1064,33 @@ function addLieferung(){
 }
   function deleteLieferung(id){
 
+    function deleteHistory(id){
+
+  let eintrag =
+  historyData.find(h=>h.id===id);
+
+  if(!eintrag) return;
+
+  lagerData.agf.bestand +=
+  eintrag.agf || 0;
+
+  lagerData.mlf.bestand +=
+  eintrag.mlf || 0;
+
+  historyData =
+  historyData.filter(h=>h.id!==id);
+
+  saveHistoryStorage();
+
+  saveLagerStorage();
+
+  buildHistory();
+
+  buildCalc();
+
+  alert("Tageslog gelöscht");
+}
+
   let eintrag =
   lieferungen.find(l=>l.id===id);
 
@@ -1229,6 +1256,18 @@ function buildHistory(){
 
         Gesamt:
         ${e.gesamt.toFixed(1)} kg
+
+        <br><br>
+
+<button
+
+class="save-btn"
+
+onclick="deleteHistory('${e.id}')">
+
+Löschen
+
+</button>
 
         </div>
 
