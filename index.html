@@ -1091,17 +1091,20 @@ function buildHistory(){
 
       <b>${e.datum}</b><br>
 
-      ${globalCfg[e.kategorie+"Name"] || e.kategorie}<br>
+    ${globalCfg[e.kategorie+"Name"] || e.kategorie}<br><br>
 
-      Tiere: ${e.tiere}<br>
+${e.futter.map(f=>`
 
-      Gesamt: ${e.gesamt.toFixed(1)} kg<br>
+${f.name}: ${f.kg.toFixed(1)} kg<br>
 
-     ${globalCfg.agfName}:
-${e.agf.toFixed(1)} kg<br>
+`).join("")}
 
-${globalCfg.mlfName}:
-${e.mlf.toFixed(1)} kg<br>
+<br>
+
+Tiere: ${e.tiere}<br>
+
+Gesamt:
+${e.gesamt.toFixed(1)} kg
 
       </div>
 
