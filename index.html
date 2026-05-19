@@ -1275,7 +1275,7 @@ function buildHistory(){
 
         }
 
-        </div>
+         </div>
 
         <div style="
         margin-top:12px;
@@ -1540,8 +1540,42 @@ Löschen
     </div>
 
   </div>`;
+  updateHistoryTabColor();
+
 }
-  
+
+function updateHistoryTabColor(){
+
+  let tab =
+  document.getElementById("history-tab");
+
+  if(!tab) return;
+
+  tab.classList.remove(
+    "tab-red",
+    "tab-orange"
+  );
+
+  let agf =
+  getWarnClass("agf");
+
+  let mlf =
+  getWarnClass("mlf");
+
+  if(
+    agf==="warn-red" ||
+    mlf==="warn-red"
+  ){
+    tab.classList.add("tab-red");
+  }
+
+  else if(
+    agf==="warn-orange" ||
+    mlf==="warn-orange"
+  ){
+    tab.classList.add("tab-orange");
+  }
+}
 /* === CALCULATOR === */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
@@ -1696,6 +1730,7 @@ async function handleApproval(){
       buildSettings();
       buildCalc2();
     buildHistory();
+      updateHistoryTabColor();
     }
   });
 });
