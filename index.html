@@ -401,7 +401,137 @@ function applyTotalKg(cat,kg){
   data[cat].anz=Math.round(kg/sum);
   save();buildCalc();
 }
+function saveHistory(cat){
 
+  if(alreadySavedToday(cat)){
+    alert("Heute bereits gespeichert");
+    return;
+  }
+
+  let heute = getToday();
+
+  let eintrag = {
+
+    id: Date.now()+Math.random().toString(36).substr(2,5),
+
+    datum: heute,
+
+    kategorie: cat,
+
+    tiere: data[cat].anz,
+
+    gesamt:0,
+
+    agf:0,
+
+    mlf:0,
+
+    futter:[]
+  };
+
+  data[cat].items.forEach(it=>{
+
+    if(it.kg<=0) return;
+
+    let ges = it.kg * data[cat].anz;
+
+    let name =
+
+      it.type==="agf" ? globalCfg.agfName :
+
+      it.type==="mlf" ? globalCfg.mlfName :
+
+      it.name;
+
+    eintrag.futter.push({
+
+      name:name,
+      kg:ges
+
+    });
+
+    eintrag.gesamt += ges;
+
+    if(it.type==="agf"){
+
+      eintrag.agf += ges;
+
+      lagerData.agf.bestand -= ges;
+    }
+
+    if(it.type==="mlf"){
+
+      eintrag.mlf += ges;
+
+      lagerData.mlf.bestand -= ges;
+    }
+
+  });
+
+  historyData.unshift(eintrag);
+
+  saveHistoryStorage();
+
+  saveLagerStorage();
+
+  buildCalc();
+
+  buildHistory();
+
+  alert("Gespeichert");
+}
+  function calcAverage(produkt){
+
+  let total = 0;
+
+  let tage = 0;
+
+  historyData.forEach(h=>{
+
+    if(produkt==="agf" && h.agf>0){
+
+      total += h.agf;
+
+      tage++;
+    }
+
+    if(produkt==="mlf" && h.mlf>0){
+
+      total += h.mlf;
+
+      tage++;
+    }
+
+  });
+
+  if(tage<=0) return 0;
+
+  return total / tage;
+}
+
+function calcResttage(produkt){
+
+  let avg = calcAverage(produkt);
+
+  if(avg<=0) return 999;
+
+  return lagerData[produkt].bestand / avg;
+}
+
+function getWarnClass(produkt){
+
+  let tage = calcResttage(produkt);
+
+  if(tage <= lagerData[produkt].rot)
+    return "warn-red";
+
+  if(tage <= lagerData[produkt].orange)
+    return "warn-orange";
+
+  return "warn-green";
+}
+
+function buildRestBullen(){
 /* === RESTMISCHUNG BULLEN === */
 function buildRestBullen(){
   let el=document.getElementById("calc");
