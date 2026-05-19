@@ -347,7 +347,18 @@ function saveHiddenWarnings(){
     JSON.stringify(hiddenWarnings)
   );
 }
+function alreadySavedToday(cat){
 
+  let heute = getToday();
+
+  return historyData.some(e=>
+
+    e.datum===heute &&
+    e.kategorie===cat
+
+  );
+}
+  
 /* === TABS === */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
