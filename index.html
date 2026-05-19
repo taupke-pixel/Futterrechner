@@ -296,6 +296,34 @@ let historyCollapsed = {
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
 
+  function saveHistoryStorage(){
+  localStorage.setItem(
+    "history",
+    JSON.stringify(historyData)
+  );
+}
+
+function saveLagerStorage(){
+  localStorage.setItem(
+    "lager",
+    JSON.stringify(lagerData)
+  );
+}
+
+function saveLieferungen(){
+  localStorage.setItem(
+    "lieferungen",
+    JSON.stringify(lieferungen)
+  );
+}
+
+function saveHiddenWarnings(){
+  localStorage.setItem(
+    "hiddenWarnings",
+    JSON.stringify(hiddenWarnings)
+  );
+}
+
 /* === TABS === */
 function showTab(t){
   ["calc","settings","calc2"].forEach(id=>{
