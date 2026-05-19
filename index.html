@@ -539,12 +539,6 @@ function calcResttage(produkt){
   return tage;
 }
 
-  let avg = calcAverage(produkt);
-
-  if(avg<=0) return 999;
-
-  return lagerData[produkt].bestand / avg;
-}
 
 function getWarnClass(produkt){
 
@@ -1462,6 +1456,8 @@ Löschen
 </div>
 
 `).join("")}
+
+</div>
 
 <div class="history-box ${historyCollapsed.verlauf?'collapsed':''}">
 
