@@ -1073,98 +1073,155 @@ function buildHistory(){
 
   h.innerHTML = `
 
-  <div class="history-box ${historyCollapsed.tageslog?'collapsed':''}">
+<div class="history-box ${historyCollapsed.tageslog?'collapsed':''}">
 
-    <div class="history-header"
+  <div class="history-header"
 
-    onclick="historyCollapsed.tageslog=!historyCollapsed.tageslog;buildHistory();">
+  onclick="historyCollapsed.tageslog=
+  !historyCollapsed.tageslog;
 
-    Tageslog
+  buildHistory();">
 
-    </div>
-
-    <div class="cat-body">
-
-    ${historyData.map(e=>`
-
-      <div class="history-item"
-
-style="
-padding:16px;
-margin-bottom:12px;
-border-radius:10px;
-background:#f8fafc;
-">
-
-<div
-style="
-font-size:24px;
-font-weight:bold;
-margin-bottom:6px;
-">
-
-${globalCfg[e.kategorie+"Name"] || e.kategorie}
-
-</div>
-
-<div
-style="
-font-size:18px;
-font-weight:bold;
-margin-bottom:12px;
-">
-
-${e.datum}
-
-</div>
-
-<div style="margin-bottom:10px;">
-
-${e.futter && e.futter.length ?
-
-e.futter.map(f=>`
-
-<div style="
-display:flex;
-justify-content:space-between;
-padding:4px 0;
-border-bottom:1px solid #ddd;
-">
-
-<span>${f.name}</span>
-
-<span>${f.kg.toFixed(1)} kg</span>
-
-</div>
-
-`).join("")
-
-:
-
-"Keine Einzelwerte gespeichert"
-
-}
-
-</div>
-
-<div style="margin-top:10px;font-weight:bold;">
-
-Tiere:
-${e.tiere}
-
-<br>
-
-Gesamt:
-${e.gesamt.toFixed(1)} kg
-
-</div>
-
-</div>
-    `).join("")}
-
-    </div>
+  Tageslog
 
   </div>
+
+  <div class="cat-body">
+
+  ${Object.entries(
+
+    historyData.reduce((acc,e)=>{
+
+      if(!acc[e.datum])
+        acc[e.datum]=[];
+
+      acc[e.datum].push(e);
+
+      return acc;
+
+    },{})
+
+  ).map(([datum,eintraege],index)=>`
+
+    <div
+    style="
+    margin-bottom:20px;
+    border-radius:12px;
+    overflow:hidden;
+    border:1px solid #d5dbe0;
+    ">
+
+      <div
+
+      onclick="
+      let el=this.nextElementSibling;
+
+      el.style.display=
+      el.style.display==='none'
+      ?'block'
+      :'none';
+      "
+
+      style="
+      background:#2f3b45;
+      color:white;
+      padding:14px;
+      font-size:22px;
+      font-weight:bold;
+      cursor:pointer;
+      ">
+
+      ${index===0?'▼':'▶'}
+      ${datum}
+
+      </div>
+
+      <div
+      style="
+      display:${index===0?'block':'none'};
+      background:#fff;
+      padding:14px;
+      ">
+
+      ${eintraege.map(e=>`
+
+        <div class="history-item"
+
+        style="
+        padding:16px;
+        margin-bottom:14px;
+        border-radius:10px;
+        background:#f8fafc;
+        ">
+
+        <div
+        style="
+        font-size:24px;
+        font-weight:bold;
+        margin-bottom:12px;
+        ">
+
+        ${globalCfg[e.kategorie+"Name"] || e.kategorie}
+
+        </div>
+
+        <div style="margin-bottom:10px;">
+
+        ${e.futter && e.futter.length ?
+
+        e.futter.map(f=>`
+
+        <div style="
+        display:flex;
+        justify-content:space-between;
+        padding:5px 0;
+        border-bottom:1px solid #ddd;
+        ">
+
+        <span>${f.name}</span>
+
+        <span>${f.kg.toFixed(1)} kg</span>
+
+        </div>
+
+        `).join("")
+
+        :
+
+        "Keine Einzelwerte gespeichert"
+
+        }
+
+        </div>
+
+        <div style="
+        margin-top:12px;
+        font-weight:bold;
+        ">
+
+        Tiere:
+        ${e.tiere}
+
+        <br>
+
+        Gesamt:
+        ${e.gesamt.toFixed(1)} kg
+
+        </div>
+
+        </div>
+
+      `).join("")}
+
+      </div>
+
+    </div>
+
+  `).join("")}
+
+  </div>
+
+</div>
 
 
   <div class="history-box ${historyCollapsed.lager?'collapsed':''}">
