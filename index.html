@@ -1811,10 +1811,15 @@ Löschen
     type="number"
     value="${lagerData.agf.orange}"
 
-    oninput="lagerData.agf.orange=num(this.value);
-    saveLagerStorage();
-    buildHistory();
-    buildCalc();">
+    oninput="
+lagerData.agf.orange=num(this.value);
+saveLagerStorage();
+"
+
+onblur="
+buildHistory();
+buildCalc();
+"
 
    ${globalCfg.agfName} Rot
 
@@ -1822,10 +1827,15 @@ Löschen
     type="number"
     value="${lagerData.agf.rot}"
 
-    oninput="lagerData.agf.rot=num(this.value);
-    saveLagerStorage();
-    buildHistory();
-    buildCalc();">
+   oninput="
+lagerData.agf.rot=num(this.value);
+saveLagerStorage();
+"
+
+onblur="
+buildHistory();
+buildCalc();
+"
 
     <br><br>
 
@@ -1835,10 +1845,15 @@ Löschen
     type="number"
     value="${lagerData.mlf.orange}"
 
-    oninput="lagerData.mlf.orange=num(this.value);
-    saveLagerStorage();
-    buildHistory();
-    buildCalc();">
+    oninput="
+lagerData.mlf.orange=num(this.value);
+saveLagerStorage();
+"
+
+onblur="
+buildHistory();
+buildCalc();
+"
 
    ${globalCfg.mlfName} Rot
 
@@ -1846,11 +1861,15 @@ Löschen
     type="number"
     value="${lagerData.mlf.rot}"
 
-    oninput="lagerData.mlf.rot=num(this.value);
-    saveLagerStorage();
-    buildHistory();
-    buildCalc();">
+   oninput="
+lagerData.mlf.rot=num(this.value);
+saveLagerStorage();
+"
 
+onblur="
+buildHistory();
+buildCalc();
+"
     </div>
 
   </div>`;
