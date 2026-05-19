@@ -1823,11 +1823,11 @@ buildCalc();
 
    ${globalCfg.agfName} Rot
 
-    <input
-    type="number"
-    value="${lagerData.agf.rot}"
+ <input
+type="number"
+value="${lagerData.agf.rot}"
 
-   oninput="
+oninput="
 lagerData.agf.rot=num(this.value);
 saveLagerStorage();
 "
@@ -1835,7 +1835,7 @@ saveLagerStorage();
 onblur="
 buildHistory();
 buildCalc();
-"
+">
 
     <br><br>
 
@@ -1857,11 +1857,11 @@ buildCalc();
 
    ${globalCfg.mlfName} Rot
 
-    <input
-    type="number"
-    value="${lagerData.mlf.rot}"
+ <input
+type="number"
+value="${lagerData.mlf.rot}"
 
-   oninput="
+oninput="
 lagerData.mlf.rot=num(this.value);
 saveLagerStorage();
 "
@@ -1869,7 +1869,7 @@ saveLagerStorage();
 onblur="
 buildHistory();
 buildCalc();
-"
+">
     </div>
 
   </div>`;
