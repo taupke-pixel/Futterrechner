@@ -746,7 +746,30 @@ function buildCalc(){
         <span id="total-${cat}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${cat}')">
         Gesamt: ${sum.toFixed(1)} kg
         </span>
-        <button class="kilo-btn ${kiloMode[cat]?'active':''}" onclick="toggleKilo('${cat}')">kilo</button>
+
+       <button class="kilo-btn ${kiloMode[cat]?'active':''}"
+onclick="toggleKilo('${cat}')">
+
+kilo
+
+</button>
+
+<button
+
+class="save-btn
+${alreadySavedToday(cat)?'saved':''}"
+
+${alreadySavedToday(cat)?'disabled':''}
+
+onclick="saveHistory('${cat}')">
+
+${alreadySavedToday(cat)?
+'Gespeichert':
+'Speichern'}
+
+</button>
+       
+        
         </div>
       </div>
     </div>`;
@@ -785,7 +808,27 @@ function buildCalc(){
         <span id="total-${cat}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${cat}')">
         Gesamt: ${sum.toFixed(1)} kg
         </span>
-        <button class="kilo-btn ${kiloMode[cat]?'active':''}" onclick="toggleKilo('${cat}')">kilo</button>
+      <button class="kilo-btn ${kiloMode[cat]?'active':''}"
+onclick="toggleKilo('${cat}')">
+
+kilo
+
+</button>
+
+<button
+
+class="save-btn
+${alreadySavedToday(cat)?'saved':''}"
+
+${alreadySavedToday(cat)?'disabled':''}
+
+onclick="saveHistory('${cat}')">
+
+${alreadySavedToday(cat)?
+'Gespeichert':
+'Speichern'}
+
+</button>
         </div>
       </div>
     </div>`;
@@ -827,7 +870,27 @@ function buildCalc(){
         <span id="total-${cat}" data-val="${sum.toFixed(1)}" onclick="enableTotalEdit('${cat}')">
         Gesamt: ${sum.toFixed(1)} kg
         </span>
-        <button class="kilo-btn ${kiloMode[cat]?'active':''}" onclick="toggleKilo('${cat}')">kilo</button>
+       <button class="kilo-btn ${kiloMode[cat]?'active':''}"
+onclick="toggleKilo('${cat}')">
+
+kilo
+
+</button>
+
+<button
+
+class="save-btn
+${alreadySavedToday(cat)?'saved':''}"
+
+${alreadySavedToday(cat)?'disabled':''}
+
+onclick="saveHistory('${cat}')">
+
+${alreadySavedToday(cat)?
+'Gespeichert':
+'Speichern'}
+
+</button>
         </div>
       </div>
     </div>`;
