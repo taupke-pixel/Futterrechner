@@ -146,12 +146,26 @@ margin-bottom:10px;
 padding:10px;
 font-size:16px;
 }
+.tab-red{
+  background:#d62828 !important;
+  color:white !important;
+}
+
+.tab-orange{
+  background:#f59e0b !important;
+  color:white !important;
+}
 </style></head>
 <body><header>🐄 Futterrechner — Stall Ultra</header><div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
   <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
-  <div class="tab" onclick="showTab('history')">History</div>
+<div class="tab ${historyWarnClass}"
+onclick="showTab('history')">
+
+History
+
+</div>
 </div><div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
 <div id="calc2" class="panel hidden"></div>
@@ -725,6 +739,21 @@ function buildCalc(){
   let el=document.getElementById("calc");
   el.innerHTML="";
   el.innerHTML += buildWarnings();
+
+  historyWarnClass = "";
+
+if(
+  getWarnClass("agf")==="warn-red" ||
+  getWarnClass("mlf")==="warn-red"
+){
+  historyWarnClass = "tab-red";
+}
+else if(
+  getWarnClass("agf")==="warn-orange" ||
+  getWarnClass("mlf")==="warn-orange"
+){
+  historyWarnClass = "tab-orange";
+}
 
   // 👉 Kühe + Färsen
   ["kuehe","faersen"].forEach(cat=>{
@@ -1515,6 +1544,7 @@ Löschen
 /* === CALCULATOR === */
 let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
+  let historyWarnClass = "";
 
 function press(v){
   if(v==="C"){expr="";update();return;}
