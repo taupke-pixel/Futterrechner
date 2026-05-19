@@ -60,14 +60,102 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
   margin-top:10px;
 }
 .editable span.stift{font-size:16px;color:#333}
+.save-btn{
+padding:8px 14px;
+border-radius:8px;
+border:none;
+background:#27ae60;
+color:#fff;
+font-size:16px;
+cursor:pointer;
+margin-left:8px;
+}
+
+.save-btn.saved{
+background:#888;
+}
+
+.warning-banner{
+background:#c40000;
+color:#fff;
+padding:14px;
+border-radius:10px;
+margin-bottom:14px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-size:18px;
+font-weight:bold;
+}
+
+.warning-banner button{
+background:#fff;
+border:none;
+border-radius:8px;
+padding:8px 12px;
+cursor:pointer;
+}
+
+.history-box{
+background:#fff;
+padding:14px;
+border-radius:12px;
+margin-bottom:14px;
+box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+
+.history-header{
+font-size:20px;
+font-weight:bold;
+margin-bottom:10px;
+cursor:pointer;
+}
+
+.history-item{
+padding:10px;
+border-bottom:1px solid #ddd;
+}
+
+.lager-card{
+background:#fff;
+padding:14px;
+border-radius:12px;
+margin-bottom:14px;
+box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+
+.warn-green{
+color:#008000;
+font-weight:bold;
+}
+
+.warn-orange{
+color:#f39c12;
+font-weight:bold;
+}
+
+.warn-red{
+color:#c40000;
+font-weight:bold;
+}
+
+.delivery-form input,
+.delivery-form select{
+width:100%;
+margin-bottom:10px;
+padding:10px;
+font-size:16px;
+}
 </style></head>
 <body><header>🐄 Futterrechner — Stall Ultra</header><div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
   <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
+  <div class="tab" onclick="showTab('history')">History</div>
 </div><div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
 <div id="calc2" class="panel hidden"></div>
+  <div id="history" class="panel hidden"></div>
 
 <script>
 
@@ -167,6 +255,43 @@ let data={
   
 let sortMode=false;
 let kiloMode={};
+
+  let historyData =
+JSON.parse(localStorage.getItem("history") || "[]");
+
+let lagerData =
+JSON.parse(localStorage.getItem("lager") || JSON.stringify({
+
+  agf:{
+    bestand:0,
+    orange:5,
+    rot:2,
+    lieferzeit:2
+  },
+
+  mlf:{
+    bestand:0,
+    orange:5,
+    rot:2,
+    lieferzeit:2
+  }
+
+}));
+
+let lieferungen =
+JSON.parse(localStorage.getItem("lieferungen") || "[]");
+
+let hiddenWarnings =
+JSON.parse(localStorage.getItem("hiddenWarnings") || "{}");
+
+let historyCollapsed = {
+
+  tageslog:false,
+  lager:false,
+  lieferungen:false,
+  verlauf:false
+
+};
 
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
 function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
