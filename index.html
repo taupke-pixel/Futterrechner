@@ -729,29 +729,47 @@ function addArbeitstage(starttage,arbeitstage){
     }
   );
 }
-function getWarnClass(produkt){
+
+  function getWarnClass(produkt){
 
   let tage =
   calcResttage(produkt);
 
-  let leer =
-  getLeerDatum(produkt);
+  let bestell =
+  getBestellDatum(produkt);
 
-  if(
-    leer &&
-    (
-      isWochenende(leer) ||
-      isFeiertag(leer)
-    )
-  ){
-    return "warn-red";
+  let heute =
+  new Date();
+
+  heute.setHours(0,0,0,0);
+
+  if(bestell){
+
+    let b =
+    new Date(bestell);
+
+    b.setHours(0,0,0,0);
+
+    let diff =
+    Math.ceil(
+      (b - heute)
+      / (1000*60*60*24)
+    );
+
+    if(
+      diff <=
+      lagerData[produkt].rot
+    ){
+      return "warn-red";
+    }
   }
 
-  if(tage <= lagerData[produkt].rot)
-    return "warn-red";
-
-  if(tage <= lagerData[produkt].orange)
+  if(
+    tage <=
+    lagerData[produkt].orange
+  ){
     return "warn-orange";
+  }
 
   return "warn-green";
 }
