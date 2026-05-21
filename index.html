@@ -936,10 +936,13 @@ function buildWarnings(){
 
   ["agf","mlf"].forEach(produkt=>{
 
-    let resttage = calcResttage(produkt);
+let resttage = calcResttage(produkt);
 
-    if(resttage > lagerData[produkt].rot)
-      return;
+let warn =
+getWarnClass(produkt);
+
+if(warn !== "warn-red")
+  return;
 
     if(hiddenWarnings[produkt] === getToday())
       return;
