@@ -327,11 +327,15 @@ JSON.parse(localStorage.getItem("hiddenWarnings") || "{}");
 
 let historyCollapsed = {
 
-  tageslog:false,
+ tageslog:true,
   lager:false,
   lieferungen:false,
-  verlauf:false
+  verlauf:false,
 
+kategorien:{},
+jahre:{},
+monate:{},
+wochen:{}
 };
 
 function save(){localStorage.setItem("futter",JSON.stringify(data))}
@@ -495,7 +499,6 @@ function saveHistory(cat){
 
   buildHistory();
 
-  alert("Gespeichert");
 }
   function calcAverage(produkt){
 
@@ -1456,9 +1459,157 @@ function deleteHistory(id){
 
   buildCalc();
 
-  alert("Tageslog gelöscht");
+}
+function getKategorien(){
+
+  return [
+    "kuehe",
+    "bullen",
+    "faersen",
+    "kaelber",
+    "trocken",
+    "restbullen"
+  ];
+
 }
 
+function getKategorieName(cat){
+
+  return globalCfg[
+    cat + "Name"
+  ] || cat;
+
+}
+  function getJahre(cat){
+
+  let jahre = [
+
+    ...new Set(
+
+      historyData
+
+      .filter(e=>
+        e.kategorie===cat
+      )
+
+      .map(e=>
+        e.datum.split(".")[2]
+      )
+
+    )
+
+  ];
+
+  return jahre.sort((a,b)=>b-a);
+
+}
+  function getMonate(cat,jahr){
+
+  let monate = [
+
+    ...new Set(
+
+      historyData
+
+      .filter(e=>
+        e.kategorie===cat &&
+        e.datum.split(".")[2]===jahr
+      )
+
+      .map(e=>
+        e.datum.split(".")[1]
+      )
+
+    )
+
+  ];
+
+  return monate.sort((a,b)=>b-a);
+
+}
+  function getWochen(cat,jahr,monat){
+
+  let logs = historyData.filter(e=>
+
+    e.kategorie===cat &&
+    e.datum.split(".")[2]===jahr &&
+    e.datum.split(".")[1]===monat
+
+  );
+
+  let wochen = [
+
+    ...new Set(
+
+      logs.map(e=>{
+
+        let tag =
+        parseInt(
+          e.datum.split(".")[0]
+        );
+
+        let start =
+        Math.floor((tag-1)/7)*7+1;
+
+        let ende =
+        start+6;
+
+        return (
+          String(start).padStart(2,"0")
+          + "."
+          + monat
+          + " - "
+          + String(ende).padStart(2,"0")
+          + "."
+          + monat
+        );
+
+      })
+
+    )
+
+  ];
+
+  return wochen;
+
+}
+  function getTage(cat,jahr,monat,woche){
+
+  let teile =
+  woche.split(" - ");
+
+  let start =
+  parseInt(
+    teile[0].split(".")[0]
+  );
+
+  let ende =
+  parseInt(
+    teile[1].split(".")[0]
+  );
+
+  return historyData.filter(e=>{
+
+    if(e.kategorie!==cat)
+      return false;
+
+    let d =
+    e.datum.split(".");
+
+    let tag =
+    parseInt(d[0]);
+
+    return (
+      d[2]===jahr &&
+      d[1]===monat &&
+      tag>=start &&
+      tag<=ende
+    );
+
+  });
+
+}
+  
 function buildHistory(){
 
   let h = document.getElementById("history");
@@ -1478,16 +1629,419 @@ function buildHistory(){
 
   buildHistory();">
 
-  Tageslog
+${historyCollapsed.tageslog ? "▶" : "▼"} Tageslog
 
   </div>
 
-  <div class="cat-body">
+ <div class="cat-body"
+style="
+display:${historyCollapsed.tageslog ? 'none' : 'block'};
+">
+${getKategorien().map(cat=>`
 
-  ${Object.entries(
+<div
 
-    historyData.reduce((acc,e)=>{
+onclick="
+historyCollapsed.kategorien['${cat}']=
+!historyCollapsed.kategorien['${cat}'];
 
+buildHistory();
+"
+
+style="
+padding:10px;
+margin-bottom:8px;
+background:#eef3f7;
+border-radius:8px;
+font-weight:bold;
+cursor:pointer;
+">
+
+${historyCollapsed.kategorien[cat] ? "▼" : "▶"}
+${getKategorieName(cat)}
+
+</div>
+
+${historyCollapsed.kategorien[cat] ? `
+
+<div
+style="
+margin-left:20px;
+">
+
+${getJahre(cat).map(jahr=>`
+
+<div
+
+onclick="
+historyCollapsed.jahre['${cat}_${jahr}']=
+!historyCollapsed.jahre['${cat}_${jahr}'];
+
+buildHistory();
+"
+
+style="
+padding:8px;
+margin-bottom:6px;
+background:#f8fafc;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+">
+
+${historyCollapsed.jahre[cat+"_"+jahr] ? "▼" : "▶"}
+${jahr}
+
+</div>
+
+${historyCollapsed.jahre[cat+"_"+jahr] ? `
+
+<div
+style="
+margin-left:20px;
+">
+<div
+style="
+padding:10px;
+margin-bottom:10px;
+background:#dfeaf3;
+border-radius:8px;
+font-weight:bold;
+">
+
+Jahressumme
+
+<br><br>
+
+Gesamt:
+${historyData
+.filter(e=>
+  e.kategorie===cat &&
+  e.datum.split(".")[2]===jahr
+)
+.reduce((s,e)=>s+e.gesamt,0)
+.toFixed(1)} kg
+<br><br>
+
+${(() => {
+
+let futter = {};
+
+historyData
+
+.filter(e=>
+  e.kategorie===cat &&
+  e.datum.split(".")[2]===jahr
+)
+
+.forEach(e=>{
+
+  e.futter.forEach(f=>{
+
+    futter[f.name] =
+    (futter[f.name] || 0)
+    + f.kg;
+
+  });
+
+});
+
+return Object.entries(futter)
+
+.map(([name,kg])=>`
+
+<div
+style="
+display:flex;
+justify-content:space-between;
+padding:4px 0;
+">
+
+<span>${name}</span>
+
+<span>${kg.toFixed(1)} kg</span>
+
+</div>
+
+`)
+
+.join("");
+
+})()}
+</div>
+${getMonate(cat,jahr).map(monat=>`
+
+<div
+
+onclick="
+historyCollapsed.monate['${cat}_${jahr}_${monat}']=
+!historyCollapsed.monate['${cat}_${jahr}_${monat}'];
+
+buildHistory();
+"
+
+style="
+padding:8px;
+margin-bottom:6px;
+background:#eef3f7;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+">
+
+${historyCollapsed.monate[cat+"_"+jahr+"_"+monat] ? "▼" : "▶"}
+${monat}.${jahr}
+
+</div>
+
+${historyCollapsed.monate[cat+"_"+jahr+"_"+monat] ? `
+
+<div
+style="
+margin-left:20px;
+">
+<div
+style="
+padding:10px;
+margin-bottom:10px;
+background:#eef3f7;
+border-radius:8px;
+font-weight:bold;
+">
+
+Monatssumme
+
+<br><br>
+
+Gesamt:
+${historyData
+.filter(e=>
+  e.kategorie===cat &&
+  e.datum.split(".")[2]===jahr &&
+  e.datum.split(".")[1]===monat
+)
+.reduce((s,e)=>s+e.gesamt,0)
+.toFixed(1)} kg
+<br><br>
+
+${(() => {
+
+let futter = {};
+
+historyData
+
+.filter(e=>
+  e.kategorie===cat &&
+  e.datum.split(".")[2]===jahr &&
+  e.datum.split(".")[1]===monat
+)
+
+.forEach(e=>{
+
+  e.futter.forEach(f=>{
+
+    futter[f.name] =
+    (futter[f.name] || 0)
+    + f.kg;
+
+  });
+
+});
+
+return Object.entries(futter)
+
+.map(([name,kg])=>`
+
+<div
+style="
+display:flex;
+justify-content:space-between;
+padding:4px 0;
+">
+
+<span>${name}</span>
+
+<span>${kg.toFixed(1)} kg</span>
+
+</div>
+
+`)
+
+.join("");
+
+})()}
+</div>
+${getWochen(cat,jahr,monat).map(woche=>`
+
+<div
+
+onclick="
+historyCollapsed.wochen['${cat}_${jahr}_${monat}_${woche}']=
+!historyCollapsed.wochen['${cat}_${jahr}_${monat}_${woche}'];
+
+buildHistory();
+"
+
+style="
+padding:8px;
+margin-bottom:6px;
+background:#f8fafc;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+">
+
+${historyCollapsed.wochen[cat+"_"+jahr+"_"+monat+"_"+woche] ? "▼" : "▶"}
+${woche}
+
+</div>
+
+${historyCollapsed.wochen[cat+"_"+jahr+"_"+monat+"_"+woche] ? `
+
+<div
+style="
+margin-left:20px;
+">
+
+<div
+style="
+padding:10px;
+margin-bottom:10px;
+background:#eef3f7;
+border-radius:8px;
+font-weight:bold;
+">
+
+Wochensumme
+
+<br><br>
+
+Gesamt:
+${getTage(cat,jahr,monat,woche)
+.reduce((s,e)=>s+e.gesamt,0)
+.toFixed(1)} kg
+<br><br>
+
+${(() => {
+
+let futter = {};
+
+getTage(cat,jahr,monat,woche)
+.forEach(e=>{
+
+  e.futter.forEach(f=>{
+
+    futter[f.name] =
+    (futter[f.name] || 0)
+    + f.kg;
+
+  });
+
+});
+
+return Object.entries(futter)
+
+.map(([name,kg])=>`
+
+<div
+style="
+display:flex;
+justify-content:space-between;
+padding:4px 0;
+">
+
+<span>${name}</span>
+
+<span>${kg.toFixed(1)} kg</span>
+
+</div>
+
+`)
+
+.join("");
+
+})()}
+</div>
+${getTage(cat,jahr,monat,woche).map(e=>`
+
+<div
+style="
+padding:10px;
+margin-bottom:8px;
+background:#fff;
+border-radius:8px;
+border:1px solid #ddd;
+">
+
+<b>${e.datum}</b>
+
+<br>
+
+Tiere:
+${e.tiere}
+
+<br>
+
+Gesamt:
+${e.gesamt.toFixed(1)} kg
+
+<br><br>
+
+${e.futter.map(f=>`
+
+<div
+style="
+display:flex;
+justify-content:space-between;
+padding:4px 0;
+border-bottom:1px solid #eee;
+">
+
+<span>${f.name}</span>
+
+<span>${f.kg.toFixed(1)} kg</span>
+
+</div>
+
+`).join("")}
+
+</div>
+
+`).join("")}
+
+</div>
+
+` : ""}
+
+`).join("")}
+
+</div>
+
+` : ""}
+
+`).join("")}
+
+</div>
+
+` : ""}
+
+`).join("")}
+
+</div>
+
+` : ""}
+`).join("")}
+
+<br>
+${Object.entries(
+
+    historyData
+
+    .filter(e=>
+      e.datum===getToday()
+    )
+
+    .reduce((acc,e)=>{
       if(!acc[e.datum])
         acc[e.datum]=[];
 
@@ -1527,14 +2081,14 @@ function buildHistory(){
       cursor:pointer;
       ">
 
-      ${index===0?'▼':'▶'}
-      ${datum}
+     ▶
+${datum}
 
       </div>
 
       <div
       style="
-      display:${index===0?'block':'none'};
+   display:none;
       background:#fff;
       padding:14px;
       ">
@@ -1892,12 +2446,126 @@ buildHistory();
 buildCalc();
 ">
     </div>
+<br><br>
 
+<button
+class="save-btn"
+onclick="exportBackup()">
+
+Backup erstellen
+
+</button>
+
+<input
+type="file"
+id="backupFile"
+style="display:none"
+onchange="importBackup(event)">
+
+<button
+class="save-btn"
+onclick="
+document
+.getElementById('backupFile')
+.click();
+">
+
+Backup laden
+
+</button>
   </div>`;
   updateHistoryTabColor();
 
 }
+function exportBackup(){
 
+ let backup = {
+
+  data,
+  globalCfg,
+
+  historyData,
+  lagerData,
+  lieferungen,
+
+  hiddenWarnings,
+  historyCollapsed
+
+};
+
+  let blob = new Blob(
+    [JSON.stringify(backup,null,2)],
+    {type:"application/json"}
+  );
+
+  let a =
+  document.createElement("a");
+
+  a.href =
+  URL.createObjectURL(blob);
+
+  a.download =
+  "futterrechner-backup.json";
+
+  a.click();
+
+}
+  function importBackup(event){
+
+  let file =
+  event.target.files[0];
+
+  if(!file) return;
+
+  let reader =
+  new FileReader();
+
+  reader.onload = function(e){
+
+    let backup =
+    JSON.parse(e.target.result);
+
+   data =
+backup.data || data;
+
+globalCfg =
+backup.globalCfg || globalCfg;
+
+historyData =
+backup.historyData || [];
+
+lagerData =
+backup.lagerData || lagerData;
+
+lieferungen =
+backup.lieferungen || [];
+
+hiddenWarnings =
+backup.hiddenWarnings || {};
+
+historyCollapsed =
+backup.historyCollapsed || historyCollapsed;
+
+save();
+saveGlobal();
+
+saveHistoryStorage();
+saveLagerStorage();
+
+saveLieferungen();
+saveHiddenWarnings();
+
+buildSettings();
+buildCalc();
+buildHistory();
+
+alert("Backup geladen");
+
+  };
+
+  reader.readAsText(file);
+
+}
 function updateHistoryTabColor(){
 
   let tab =
