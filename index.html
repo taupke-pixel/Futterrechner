@@ -746,26 +746,12 @@ function addArbeitstage(starttage,arbeitstage){
 
   heute.setHours(0,0,0,0);
 
-  if(bestell){
-
-    let b =
-    new Date(bestell);
-
-    b.setHours(0,0,0,0);
-
-    let diff =
-    Math.ceil(
-      (b - heute)
-      / (1000*60*60*24)
-    );
-
-    if(
-      diff <=
-      lagerData[produkt].rot
-    ){
-      return "warn-red";
-    }
-  }
+ if(
+  tage <=
+  lagerData[produkt].rot
+){
+  return "warn-red";
+}
 
   if(
     tage <=
@@ -868,7 +854,20 @@ rows += `
       Zielgewicht Bullenration (kg)
       <input type="number"
       value="${ziel}"
-      oninput="data.restbullen.ziel=num(this.value);"
+oninput="
+data.restbullen.ziel=num(this.value);
+
+let proBulle = 0;
+
+data.bullen.items.forEach(i=>{
+  if(i.kg>0) proBulle += i.kg;
+});
+
+data.restbullen.anz =
+proBulle > 0
+? Math.round(data.restbullen.ziel / proBulle)
+: 0;
+"
       onblur="buildCalc()">
 
 <br><br>
@@ -950,8 +949,10 @@ if(warn !== "warn-red")
     if(hiddenWarnings[produkt] === getToday())
       return;
 
-    let text = produkt.toUpperCase();
-
+   let text =
+produkt === "agf"
+? globalCfg.agfName
+: globalCfg.mlfName;
     html += `
 
     <div class="warning-banner">
@@ -1408,7 +1409,6 @@ function addLieferung(){
 
   buildCalc();
 
-  alert("Lieferung gespeichert");
 }
 
 function deleteLieferung(id){
@@ -1432,7 +1432,6 @@ function deleteLieferung(id){
 
   buildCalc();
 
-  alert("Lieferung gelöscht");
 }
 
 function deleteHistory(id){
