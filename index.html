@@ -502,34 +502,43 @@ function saveHistory(cat){
 }
 function calcAverage(produkt){
 
-  let eintraege = historyData.filter(h=>{
+  let tage = {};
 
-    if(produkt==="agf")
-      return h.agf>0;
+  historyData.forEach(h=>{
 
-    if(produkt==="mlf")
-      return h.mlf>0;
+    let wert = produkt==="agf"
+      ? (h.agf || 0)
+      : (h.mlf || 0);
 
-    return false;
+    if(wert<=0) return;
 
-  }).slice(0,14);
+    if(!tage[h.datum])
+      tage[h.datum] = 0;
 
-  if(eintraege.length===0)
+    tage[h.datum] += wert;
+
+  });
+
+let werte = Object.entries(tage)
+.sort((a,b)=>{
+
+  let da = a[0].split(".").reverse().join("-");
+  let db = b[0].split(".").reverse().join("-");
+
+  return db.localeCompare(da);
+
+})
+.slice(0,14)
+.map(e=>e[1]);
+
+  if(werte.length===0)
     return 0;
 
   let total = 0;
 
-  eintraege.forEach(h=>{
+  werte.forEach(v=> total += v);
 
-    if(produkt==="agf")
-      total += h.agf;
-
-    if(produkt==="mlf")
-      total += h.mlf;
-
-  });
-
-  return total / eintraege.length;
+  return total / werte.length;
 }
 
 function calcResttage(produkt){
