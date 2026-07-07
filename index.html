@@ -500,33 +500,36 @@ function saveHistory(cat){
   buildHistory();
 
 }
-  function calcAverage(produkt){
+function calcAverage(produkt){
+
+  let eintraege = historyData.filter(h=>{
+
+    if(produkt==="agf")
+      return h.agf>0;
+
+    if(produkt==="mlf")
+      return h.mlf>0;
+
+    return false;
+
+  }).slice(0,14);
+
+  if(eintraege.length===0)
+    return 0;
 
   let total = 0;
 
-  let tage = 0;
+  eintraege.forEach(h=>{
 
-  historyData.forEach(h=>{
-
-    if(produkt==="agf" && h.agf>0){
-
+    if(produkt==="agf")
       total += h.agf;
 
-      tage++;
-    }
-
-    if(produkt==="mlf" && h.mlf>0){
-
+    if(produkt==="mlf")
       total += h.mlf;
-
-      tage++;
-    }
 
   });
 
-  if(tage<=0) return 0;
-
-  return total / tage;
+  return total / eintraege.length;
 }
 
 function calcResttage(produkt){
