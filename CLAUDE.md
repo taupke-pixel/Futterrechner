@@ -79,6 +79,9 @@ App als APK-Link (`download.html`).
     Muss **identisch** sein, inkl. zweitem Gerät.
   - `regeln.test.js` (Rules), `sync.js` (2 Geräte, offline, entfernen), `freigabe.js` (Phase 2), `geraete.js` (Phase 3),
     `bilder.js` (Screenshots nach `tests/.tmp/bilder`).
+  - App: `powershell -File tests\android.ps1` (startet Android-Emulator, testet `app-probe-debug.apk` per Fernsteuerung).
+    Debug-APK vorher bauen (`android\gradlew.bat assembleProbeDebug`). Die Test-URL-Hintertür gibt es nur in Debug-Versionen.
+  - Einzelne Tests können > 5 Minuten dauern – Zeitlimits großzügig wählen.
 - PowerShell 5.1: vor `git`/`node`/`firebase` den PATH neu laden (siehe `tests\emulator.ps1`).
 
 ## Bekannte Auffälligkeiten im Ist-Code (nur melden, nicht eigenmächtig ändern) – Details und Status in FEHLER.md
