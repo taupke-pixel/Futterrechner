@@ -1,0 +1,18 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "de.stallultra.futterrechner.test",
+      "sha256_cert_fingerprints": ["5C:87:BD:AE:BC:85:13:FF:0C:5A:08:4D:A2:A9:E2:E8:70:6A:33:4B:BC:A9:DF:A3:B6:90:71:C0:9A:61:D6:36"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "de.stallultra.futterrechner",
+      "sha256_cert_fingerprints": ["5C:87:BD:AE:BC:85:13:FF:0C:5A:08:4D:A2:A9:E2:E8:70:6A:33:4B:BC:A9:DF:A3:B6:90:71:C0:9A:61:D6:36"]
+    }
+  }
+]

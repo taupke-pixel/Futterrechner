@@ -44,12 +44,19 @@ ol li{margin-bottom:8px}
   <p><a href="./">Ohne App im Browser weiter</a></p>
 </main>
 <script>
+  // Test-Webseite → Test-App, sonst die echte App
+  const istTest = /futterrechner-test-stall|localhost|127\.0\.0\.1/.test(location.hostname);
+  const paket = istTest ? "de.stallultra.futterrechner.test" : "de.stallultra.futterrechner";
+  // Test-App: kommt aus dem GitHub-Branch (der kostenlose Firebase-Tarif erlaubt keine APK-Dateien)
+  document.querySelector("a[download]").href = istTest
+    ? "https://raw.githubusercontent.com/taupke-pixel/Futterrechner/umbau/04-android-app/app/futterrechner-test.apk"
+    : "app/futterrechner.apk";
   const code = new URLSearchParams(location.search).get("einladung");
   if (code && /^[A-Za-z0-9]{8,64}$/.test(code)) {
     document.getElementById("mit-einladung").style.display = "block";
     document.getElementById("app-oeffnen").href =
       "intent://einladung?code=" + encodeURIComponent(code) +
-      "#Intent;scheme=futterrechner;package=de.stallultra.futterrechner;end";
+      "#Intent;scheme=futterrechner;package=" + paket + ";end";
   }
 </script>
 </body>

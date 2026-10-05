@@ -123,7 +123,7 @@ async function main() {
 
     await pruefe("Download-Seite allein gibt keinen Zugriff", async () => {
       const D = await neuesGeraet(browser, BASIS + "download.html");
-      assert(await D.page.$("a[href='app/futterrechner.apk']"), "Download-Link fehlt");
+      assert(await D.page.$("a[download][href$='.apk']"), "Download-Link fehlt");
       await D.page.goto(URL_EMU);
       await D.page.waitForFunction(() => document.getElementById("accessBlock").style.display === "flex", null, { timeout: 20000 });
       const hatDaten = await D.page.evaluate(() => !!document.querySelector("#calc .category"));

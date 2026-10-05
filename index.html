@@ -2978,7 +2978,8 @@ async function anfrageAblehnen(){
 // Das neue Gerät trägt sich mit dem Code selbst ein und löscht die Einladung im selben Schritt.
 // Gültigkeit und Einmaligkeit prüfen die Security Rules mit der Serverzeit (nicht die Uhr am Handy).
 const EINLADUNG_MINUTEN = 10;
-const APP_PAKET = "de.stallultra.futterrechner";
+// Test-Webseite → Test-App (lädt die Test-Datenbank), sonst die echte App
+const APP_PAKET = istTestSeite ? "de.stallultra.futterrechner.test" : "de.stallultra.futterrechner";
 const inApp = /FutterrechnerApp/.test(navigator.userAgent);
 const istAndroid = /Android/i.test(navigator.userAgent);
 const einladungsCode = urlParams.get("einladung");

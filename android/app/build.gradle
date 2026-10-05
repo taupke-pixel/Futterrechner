@@ -1,0 +1,70 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signatur-Schlüssel: liegt NICHT im Repository (android/keystore.properties + android/futterrechner.jks).
+// Gut aufheben! Ohne ihn kann die App nicht mehr aktualisiert werden (die Webseite schon).
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
+android {
+    namespace 'de.stallultra.futterrechner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'de.stallultra.futterrechner'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    // live = lädt die echte Seite (GitHub Pages), probe = lädt die Test-Webseite (Test-Datenbank).
+    // Beide Apps können gleichzeitig installiert sein.
+    flavorDimensions += 'ziel'
+    productFlavors {
+        live {
+            dimension 'ziel'
+            buildConfigField 'String', 'START_URL', '"https://taupke-pixel.github.io/Futterrechner/"'
+            resValue 'string', 'app_name', 'Futterrechner'
+            manifestPlaceholders = [linkHost: 'taupke-pixel.github.io', linkPfad: '/Futterrechner']
+        }
+        probe {
+            dimension 'ziel'
+            applicationIdSuffix '.test'
+            buildConfigField 'String', 'START_URL', '"https://futterrechner-test-stall.web.app/"'
+            resValue 'string', 'app_name', 'Futterrechner TEST'
+            manifestPlaceholders = [linkHost: 'futterrechner-test-stall.web.app', linkPfad: '/']
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
