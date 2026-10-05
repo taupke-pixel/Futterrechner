@@ -265,3 +265,87 @@ test("Betreiber lehnt ab", async () => {
   if (z.exists()) throw new Error("abgelehntes Gerät hat trotzdem einen Betrieb");
   await assertFails(setDoc(doc(als("r1"), "betriebe/A/daten/futter"), { inhalt: {} }));
 });
+
+// ---------- Phase 3: Geräte per PIN / QR-Code ----------
+async function einladungAnlegen(code, betriebId, minutenAlt) {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), `einladungen/${code}`), {
+      betriebId, betriebName: "Betrieb " + betriebId, von: "a1", art: code.length === 8 ? "pin" : "qr",
+      erstellt: new Date(Date.now() - minutenAlt * 60000)
+    });
+  });
+}
+
+function einloesen(db, uid, code, betriebId, mitLoeschen = true) {
+  const b = writeBatch(db);
+  b.set(doc(db, `betriebe/${betriebId}/geraete/${uid}`), { name: "Neues Handy", seit: serverTimestamp(), einladung: code });
+  b.set(doc(db, `geraetezuordnung/${uid}`), { betriebId });
+  if (mitLoeschen) b.delete(doc(db, `einladungen/${code}`));
+  return b.commit();
+}
+
+test("Gerät des Betriebs erzeugt PIN- und QR-Einladung, Fremde nicht", async () => {
+  const a1 = als("a1");
+  const e = { betriebId: "A", betriebName: "Betrieb A", von: "a1", erstellt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(a1, "einladungen/12345678"), { ...e, art: "pin" }));
+  await assertSucceeds(setDoc(doc(a1, "einladungen/abcdefghijkmnopqrstuvwxyzABCDEFGH23456"), { ...e, art: "qr" }));
+  await assertFails(setDoc(doc(a1, "einladungen/1234abcd"), { ...e, art: "pin" }));          // PIN mit Buchstaben
+  await assertFails(setDoc(doc(a1, "einladungen/kurz"), { ...e, art: "qr" }));               // QR zu kurz
+  await assertFails(setDoc(doc(a1, "einladungen/22222222"), { ...e, von: "b1", art: "pin" })); // falscher Absender
+  await assertFails(setDoc(doc(a1, "einladungen/33333333"), { ...e, erstellt: new Date(Date.now() + 3600000), art: "pin" })); // Uhr manipuliert
+  await assertFails(setDoc(doc(a1, "einladungen/44444444"), { ...e, betriebId: "B", art: "pin" })); // für fremden Betrieb
+  await assertFails(setDoc(doc(als("fremd"), "einladungen/55555555"), { ...e, von: "fremd", art: "pin" }));
+  // Vorhandene PIN überschreiben geht nicht
+  await assertFails(setDoc(doc(a1, "einladungen/12345678"), { ...e, art: "pin" }));
+});
+
+test("Neues Gerät tritt mit gültiger PIN bei und hat danach Zugriff", async () => {
+  await einladungAnlegen("87654321", "A", 1);
+  const n = als("n1");
+  await assertSucceeds(getDoc(doc(n, "einladungen/87654321")));
+  await assertSucceeds(einloesen(n, "n1", "87654321", "A"));
+  await assertSucceeds(getDoc(doc(n, "betriebe/A/daten/futter")));
+});
+
+test("PIN nur einmal nutzbar", async () => {
+  await einladungAnlegen("11112222", "A", 1);
+  await assertSucceeds(einloesen(als("n1"), "n1", "11112222", "A"));
+  await assertFails(einloesen(als("n2"), "n2", "11112222", "A"));
+  await assertFails(getDoc(doc(als("n2"), "betriebe/A/daten/futter")));
+});
+
+test("Einladung nach 10 Minuten abgelaufen (Serverzeit)", async () => {
+  await einladungAnlegen("99998888", "A", 11);
+  await assertFails(einloesen(als("n1"), "n1", "99998888", "A"));
+  await einladungAnlegen("99997777", "A", 9);
+  await assertSucceeds(einloesen(als("n2"), "n2", "99997777", "A"));
+});
+
+test("Einlösen ohne Löschen der Einladung, für falschen Betrieb oder ohne Einladung geht nicht", async () => {
+  await einladungAnlegen("12121212", "A", 1);
+  await assertFails(einloesen(als("n1"), "n1", "12121212", "A", false));
+  await assertFails(einloesen(als("n1"), "n1", "12121212", "B"));
+  await assertFails(einloesen(als("n1"), "n1", "00000000", "A"));
+  // Fremdes Gerät eintragen (nicht sich selbst)
+  const n = als("n1");
+  const b = writeBatch(n);
+  b.set(doc(n, "betriebe/A/geraete/jemand"), { name: "x", seit: serverTimestamp(), einladung: "12121212" });
+  b.set(doc(n, "geraetezuordnung/jemand"), { betriebId: "A" });
+  b.delete(doc(n, "einladungen/12121212"));
+  await assertFails(b.commit());
+});
+
+test("Gerät, das schon in einem Betrieb ist, kann nicht zusätzlich beitreten", async () => {
+  await einladungAnlegen("34343434", "A", 1);
+  await assertFails(einloesen(als("b1"), "b1", "34343434", "A"));
+});
+
+test("Einladungen: Liste nur für den eigenen Betrieb, Löschen nicht für Fremde", async () => {
+  const { query, where } = require("firebase/firestore");
+  await einladungAnlegen("56565656", "A", 1);
+  await assertSucceeds(getDocs(query(collection(als("a2"), "einladungen"), where("betriebId", "==", "A"))));
+  await assertFails(getDocs(query(collection(als("b1"), "einladungen"), where("betriebId", "==", "A"))));
+  await assertFails(getDocs(collection(als("fremd"), "einladungen")));
+  await assertFails(deleteDoc(doc(als("fremd"), "einladungen/56565656")));
+  await assertSucceeds(deleteDoc(doc(als("a2"), "einladungen/56565656")));
+});

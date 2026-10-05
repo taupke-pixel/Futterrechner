@@ -31,6 +31,15 @@ service cloud.firestore {
       return feld is string && feld.size() > 0 && feld.size() <= max;
     }
 
+    // Einladung (PIN/QR) noch gültig: höchstens 10 Minuten alt (Serverzeit), passt zum Betrieb,
+    // und wird im selben Schritt gelöscht → nur einmal nutzbar
+    function einladungGueltig(code, betriebId) {
+      return exists(/databases/$(database)/documents/einladungen/$(code))
+        && get(/databases/$(database)/documents/einladungen/$(code)).data.betriebId == betriebId
+        && request.time < get(/databases/$(database)/documents/einladungen/$(code)).data.erstellt + duration.value(10, 'm')
+        && !existsAfter(/databases/$(database)/documents/einladungen/$(code));
+    }
+
     // Anfrage nach diesem Schreibvorgang (im selben Paket)
     function anfrageDanach(anfrageId) {
       return getAfter(/databases/$(database)/documents/anfragen/$(anfrageId)).data;
@@ -80,6 +89,15 @@ service cloud.firestore {
                       && anfrageDanach(request.resource.data.anfrageId).status == 'erlaubt'
                       && anfrageDanach(request.resource.data.anfrageId).uid == geraetUid
                       && anfrageDanach(request.resource.data.anfrageId).betriebId == betriebId
+                      && !exists(/databases/$(database)/documents/geraetezuordnung/$(geraetUid))
+                      && getAfter(/databases/$(database)/documents/geraetezuordnung/$(geraetUid)).data.betriebId == betriebId;
+        // Gerät hinzufügen: (b) das neue Gerät selbst mit gültiger Einladung (PIN oder QR-Code)
+        allow create: if angemeldet() && request.auth.uid == geraetUid
+                      && request.resource.data.keys().hasOnly(['name', 'seit', 'einladung'])
+                      && text(request.resource.data.name, 60)
+                      && request.resource.data.seit == request.time
+                      && request.resource.data.einladung is string
+                      && einladungGueltig(request.resource.data.einladung, betriebId)
                       && !exists(/databases/$(database)/documents/geraetezuordnung/$(geraetUid))
                       && getAfter(/databases/$(database)/documents/geraetezuordnung/$(geraetUid)).data.betriebId == betriebId;
       }
@@ -132,6 +150,26 @@ service cloud.firestore {
                           && request.resource.data.betriebId is string
                           && existsAfter(/databases/$(database)/documents/betriebe/$(request.resource.data.betriebId)/geraete/$(resource.data.uid)))
                     );
+    }
+
+    // ---------- Einladungen für neue Geräte (PIN / QR-Code) ----------
+    match /einladungen/{code} {
+      // Wer den Code kennt, darf ihn nachschlagen (Betrieb, Ablauf). Auflisten nur für Geräte des Betriebs.
+      allow get: if angemeldet();
+      allow list: if istGeraet(resource.data.betriebId);
+      // Erzeugen: nur ein Gerät des Betriebs, Zeit = Serverzeit. PIN = 8 Ziffern, QR = langer Zufallscode.
+      allow create: if istGeraet(request.resource.data.betriebId)
+                    && request.resource.data.keys().hasOnly(['betriebId', 'betriebName', 'von', 'erstellt', 'art'])
+                    && request.resource.data.von == request.auth.uid
+                    && request.resource.data.erstellt == request.time
+                    && request.resource.data.betriebName is string && request.resource.data.betriebName.size() <= 100
+                    && ((request.resource.data.art == 'pin' && code.matches('^[0-9]{8}$'))
+                        || (request.resource.data.art == 'qr' && code.matches('^[A-Za-z0-9]{32,64}$')));
+      // Löschen: Geräte des Betriebs (zurückziehen/aufräumen) oder beim Einlösen durch das neue Gerät
+      allow delete: if istGeraet(resource.data.betriebId)
+                    || (angemeldet()
+                        && request.time < resource.data.erstellt + duration.value(10, 'm')
+                        && existsAfter(/databases/$(database)/documents/betriebe/$(resource.data.betriebId)/geraete/$(request.auth.uid)));
     }
 
     // ---------- Altes Zugangssystem (vor dem Umbau) ----------

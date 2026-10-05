@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<!-- QR-Code wird im Gerät selbst erzeugt (kein fremder Dienst sieht die Einladung) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 
 <style>
 body{font-family:Arial;margin:0;background:#eef1f4}
@@ -2970,6 +2972,251 @@ async function anfrageAblehnen(){
   }
 }
 
+// 📱 GERÄTE: weitere Geräte per PIN oder QR-Code hinzufügen, Geräte entfernen
+// Ein vorhandenes Gerät erzeugt eine Einladung (einladungen/{code}), ca. 10 Minuten gültig, nur einmal nutzbar.
+// Das neue Gerät trägt sich mit dem Code selbst ein und löscht die Einladung im selben Schritt.
+// Gültigkeit und Einmaligkeit prüfen die Security Rules mit der Serverzeit (nicht die Uhr am Handy).
+const EINLADUNG_MINUTEN = 10;
+const APP_PAKET = "de.stallultra.futterrechner";
+const inApp = /FutterrechnerApp/.test(navigator.userAgent);
+const istAndroid = /Android/i.test(navigator.userAgent);
+const einladungsCode = urlParams.get("einladung");
+
+let aktiveEinladung = null;   // { pin, qr, bis, timer }
+
+function zufall(zeichen, laenge){
+  const z=new Uint32Array(laenge);
+  crypto.getRandomValues(z);
+  return Array.from(z, x=>zeichen[x % zeichen.length]).join("");
+}
+
+function seitenAdresse(){
+  return location.origin+location.pathname;
+}
+
+function geraetStandardName(){
+  const ua=navigator.userAgent;
+  if(/Android/i.test(ua)) return "Android-Handy";
+  if(/iPhone|iPad/i.test(ua)) return "iPhone";
+  if(/Windows/i.test(ua)) return "Windows-PC";
+  if(/Mac/i.test(ua)) return "Mac";
+  return "Gerät";
+}
+
+// ---------- Vorhandenes Gerät: Einladung erzeugen ----------
+async function einladungErzeugen(){
+  const knopf=document.getElementById("einladen-knopf");
+  if(knopf) knopf.disabled=true;
+  try{
+    const FV=firebase.firestore.FieldValue;
+    const name=(document.getElementById("betrieb-name")||{}).textContent||"";
+    const basis={ betriebId, betriebName:name.slice(0,100), von:geraeteUid, erstellt:FV.serverTimestamp() };
+    const qr=zufall("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789",40);
+    let pin=null;
+    for(let versuch=0; versuch<5 && !pin; versuch++){
+      const p=zufall("0123456789",8);
+      try{
+        await db.collection("einladungen").doc(p).set({...basis, art:"pin"});
+        pin=p;
+      }catch(e){ if(e.code!=="permission-denied") throw e; }   // PIN schon vergeben → neue
+    }
+    if(!pin) throw new Error("Keine freie PIN gefunden");
+    await db.collection("einladungen").doc(qr).set({...basis, art:"qr"});
+    if(aktiveEinladung) einladungBeenden(false);
+    aktiveEinladung={ pin, qr, bis:Date.now()+EINLADUNG_MINUTEN*60000 };
+    zeigeEinladung();
+    aktiveEinladung.timer=setInterval(zeigeEinladungRestzeit,1000);
+  }catch(e){
+    console.log("Einladung fehlgeschlagen:", e);
+    alert("Einladung konnte nicht erstellt werden. Ist Internet da?");
+  }finally{
+    if(knopf) knopf.disabled=false;
+  }
+}
+
+function zeigeEinladung(){
+  const el=document.getElementById("einladung-anzeige");
+  if(!el || !aktiveEinladung) return;
+  const link=seitenAdresse()+"?einladung="+aktiveEinladung.qr;
+  let qrSvg="";
+  try{
+    const q=qrcode(0,"M");
+    q.addData(link);
+    q.make();
+    qrSvg=q.createSvgTag({ cellSize:5, margin:2, scalable:true });
+  }catch(e){ qrSvg="<p>QR-Code nicht verfügbar – bitte die PIN benutzen.</p>"; }
+  el.innerHTML=`
+    <div style="background:#eef6ee;padding:12px;border-radius:10px;text-align:center">
+      <b>Neues Gerät hinzufügen</b>
+      <p style="margin:6px 0">Mit dem neuen Gerät den QR-Code scannen<br>– oder dort „Ich habe eine PIN“ wählen und eingeben:</p>
+      <div id="einladung-qr" style="max-width:240px;margin:auto">${qrSvg}</div>
+      <div style="font-size:30px;letter-spacing:4px;font-weight:bold;margin:8px 0" id="einladung-pin">${aktiveEinladung.pin.slice(0,4)} ${aktiveEinladung.pin.slice(4)}</div>
+      <div id="einladung-rest" style="color:#555"></div>
+      <button class="save-btn" style="background:#888;margin-top:8px" onclick="einladungBeenden(true)">Abbrechen</button>
+    </div>`;
+  zeigeEinladungRestzeit();
+}
+
+function zeigeEinladungRestzeit(){
+  if(!aktiveEinladung) return;
+  const rest=Math.max(0,Math.round((aktiveEinladung.bis-Date.now())/1000));
+  const el=document.getElementById("einladung-rest");
+  if(el) el.textContent=`noch ${Math.floor(rest/60)}:${String(rest%60).padStart(2,"0")} min gültig, nur einmal nutzbar`;
+  if(rest<=0) einladungBeenden(true);
+}
+
+// Einladung zurückziehen (abgelaufen oder abgebrochen)
+function einladungBeenden(loeschen){
+  if(!aktiveEinladung) return;
+  clearInterval(aktiveEinladung.timer);
+  if(loeschen){
+    [aktiveEinladung.pin, aktiveEinladung.qr].forEach(c=>db.collection("einladungen").doc(c).delete().catch(()=>{}));
+  }
+  aktiveEinladung=null;
+  const el=document.getElementById("einladung-anzeige");
+  if(el) el.innerHTML="";
+}
+
+// Abgelaufene Einladungen des Betriebs aufräumen
+function einladungenAufraeumen(){
+  db.collection("einladungen").where("betriebId","==",betriebId).get().then(q=>{
+    q.docs.forEach(d=>{
+      const t=d.data().erstellt;
+      const alter=t && t.toMillis ? Date.now()-t.toMillis() : 0;
+      if(alter>EINLADUNG_MINUTEN*60000 && !(aktiveEinladung && [aktiveEinladung.pin,aktiveEinladung.qr].includes(d.id)))
+        d.ref.delete().catch(()=>{});
+    });
+  }).catch(()=>{});
+}
+
+// ---------- Geräteliste ----------
+let geraeteAbo=null;
+function baueGeraeteListe(){
+  const el=document.getElementById("geraete-liste");
+  if(!el || !betriebId) return;
+  if(geraeteAbo) geraeteAbo();
+  geraeteAbo=db.collection("betriebe").doc(betriebId).collection("geraete").onSnapshot(q=>{
+    const liste=document.getElementById("geraete-liste");
+    if(!liste) return;
+    const geraete=q.docs.map(d=>({ uid:d.id, ...d.data() }))
+      .sort((a,b)=>((a.seit&&a.seit.toMillis&&a.seit.toMillis())||0)-((b.seit&&b.seit.toMillis&&b.seit.toMillis())||0));
+    liste.innerHTML=geraete.map(g=>{
+      const ich=g.uid===geraeteUid;
+      const seit=g.seit && g.seit.toDate ? g.seit.toDate().toLocaleDateString("de-DE") : "";
+      return `<div class="history-item" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div><b>${esc(g.name)}</b>${ich?" <span style='color:#27ae60'>(dieses Gerät)</span>":""}<br>
+          <span style="font-size:12px;color:#666">seit ${esc(seit)}</span></div>
+        <div style="white-space:nowrap">
+          <button class="sort-btn" onclick="geraetUmbenennen('${esc(g.uid)}')">✎</button>
+          <button class="sort-btn" style="background:#f3c4c4" onclick="geraetEntfernen('${esc(g.uid)}')">Entfernen</button>
+        </div></div>`;
+    }).join("");
+    cloud.anzahlGeraete=geraete.length;
+  }, e=>console.log("Geräteliste:", e));
+}
+
+async function geraetUmbenennen(uid){
+  const doc=db.collection("betriebe").doc(betriebId).collection("geraete").doc(uid);
+  const alt=(await doc.get()).data();
+  const name=prompt("Name des Geräts:", alt ? alt.name : "");
+  if(!name || !name.trim()) return;
+  await doc.update({ name:name.trim().slice(0,60) }).catch(e=>alert("Ändern fehlgeschlagen"));
+}
+
+async function geraetEntfernen(uid){
+  const ich=uid===geraeteUid;
+  let frage = ich
+    ? "Dieses Gerät aus dem Betrieb abmelden?\nDie Daten bleiben im Betrieb, aber dieses Gerät hat danach keinen Zugriff mehr."
+    : "Dieses Gerät aus dem Betrieb entfernen?\nEs verliert sofort den Zugriff.";
+  if(ich && cloud.anzahlGeraete<=1)
+    frage="ACHTUNG: Das ist das letzte Gerät des Betriebs!\nDanach kommt niemand mehr an die Daten, außer der Betreiber fügt über eine neue Anfrage wieder ein Gerät hinzu.\n\nTrotzdem abmelden?";
+  if(!confirm(frage)) return;
+  try{
+    if(ich) await cloudSyncFertig();
+    const b=db.batch();
+    b.delete(db.collection("betriebe").doc(betriebId).collection("geraete").doc(uid));
+    b.delete(db.collection("geraetezuordnung").doc(uid));
+    await b.commit();
+    if(ich) geraetEntfernt();
+  }catch(e){
+    console.log(e);
+    alert("Entfernen fehlgeschlagen (Internet?)");
+  }
+}
+
+// ---------- Neues Gerät: mit PIN oder QR-Code beitreten ----------
+function pinBereichZeigen(){
+  document.getElementById("zugang-pin").style.display="block";
+  document.getElementById("pin-eingabe").focus();
+}
+
+async function pinEinloesen(){
+  const pin=document.getElementById("pin-eingabe").value.replace(/\D/g,"");
+  if(pin.length!==8){ alert("Die PIN hat 8 Ziffern"); return; }
+  await einladungEinloesen(pin, document.getElementById("pin-geraetename").value);
+}
+
+async function einladungEinloesen(code, name){
+  name=(name||"").trim().slice(0,60) || geraetStandardName();
+  try{
+    const z=await db.collection("geraetezuordnung").doc(geraeteUid).get();
+    if(z.exists){ alert("Dieses Gerät gehört schon zu einem Betrieb. Erst dort abmelden (Einstellungen → Betrieb)."); return false; }
+    const e=await db.collection("einladungen").doc(code).get({source:"server"});
+    if(!e.exists){ alert("Diese PIN bzw. dieser QR-Code ist ungültig oder wurde schon benutzt."); return false; }
+    const d=e.data();
+    const FV=firebase.firestore.FieldValue;
+    const b=db.batch();
+    b.set(db.collection("betriebe").doc(d.betriebId).collection("geraete").doc(geraeteUid),{ name, seit:FV.serverTimestamp(), einladung:code });
+    b.set(db.collection("geraetezuordnung").doc(geraeteUid),{ betriebId:d.betriebId });
+    b.delete(e.ref);
+    await b.commit();
+    // Einladung aus der Adresse entfernen und App starten
+    location.replace(seitenAdresse()+(mitEmulator?"?emulator=1":""));
+    return true;
+  }catch(err){
+    console.log("Einlösen fehlgeschlagen:", err);
+    alert(err && err.code==="permission-denied"
+      ? "Diese PIN bzw. dieser QR-Code ist abgelaufen (gültig 10 Minuten). Bitte auf dem anderen Gerät eine neue erzeugen."
+      : "Hat nicht geklappt. Ist Internet da?");
+    return false;
+  }
+}
+
+// Seite wurde über einen QR-Code geöffnet (?einladung=…)
+async function zeigeEinladungsSeite(){
+  const block=document.getElementById("einladungBlock");
+  const inhalt=document.getElementById("einladung-inhalt");
+  block.style.display="flex";
+  let d=null;
+  try{
+    const e=await db.collection("einladungen").doc(einladungsCode).get({source:"server"});
+    if(e.exists) d=e.data();
+  }catch(err){ console.log(err); }
+  if(!d){
+    inhalt.innerHTML=`<p>Dieser QR-Code ist ungültig, abgelaufen oder wurde schon benutzt.</p>
+      <p>Bitte auf dem anderen Gerät unter Einstellungen → Betrieb → „Gerät hinzufügen“ einen neuen erzeugen.</p>
+      <p><button class="save-btn" onclick="location.replace(seitenAdresse())">Zur App</button></p>`;
+    return;
+  }
+  const appLink=`intent://einladung?code=${encodeURIComponent(einladungsCode)}#Intent;scheme=futterrechner;package=${APP_PAKET};`+
+    `S.browser_fallback_url=${encodeURIComponent(seitenAdresse()+"download.html?einladung="+einladungsCode)};end`;
+  inhalt.innerHTML=`
+    <p>Einladung zum Betrieb <b>${esc(d.betriebName||"")}</b>.</p>
+    ${istAndroid && !inApp ? `
+      <p><a class="save-btn" style="display:inline-block;text-decoration:none;padding:12px 18px" href="${appLink}">In der App öffnen</a></p>
+      <p style="font-size:13px;color:#555">Ist die App noch nicht installiert, kommst du automatisch zur Download-Seite.</p>
+      <hr><p style="font-size:13px">Oder ohne App hier im Browser benutzen:</p>` : ""}
+    <p>Name dieses Geräts:<br><input id="einladung-geraetename" value="${esc(geraetStandardName())}" style="padding:8px;width:90%"></p>
+    <p><button class="save-btn" id="einladung-knopf" onclick="einladungAusSeite()">${istAndroid && !inApp ? "Im Browser beitreten" : "Diesem Betrieb beitreten"}</button></p>`;
+}
+
+async function einladungAusSeite(){
+  const k=document.getElementById("einladung-knopf");
+  k.disabled=true;
+  const ok=await einladungEinloesen(einladungsCode, document.getElementById("einladung-geraetename").value);
+  if(!ok) k.disabled=false;
+}
+
 /* === ☁️ CLOUD-SPEICHER: Daten des Betriebs in Firestore ===
    Rechnen und Anzeigen bleiben unverändert. Die Speicherfunktionen (save, saveGlobal, saveHistoryStorage,
    saveLagerStorage, saveLieferungen) schreiben wie bisher in den localStorage und melden die Änderung hier an.
@@ -3292,8 +3539,15 @@ function baueBetriebBereich(){
     <button class="save-btn" onclick="altDatenUebernehmen()">In den Betrieb übernehmen</button>
     <button class="save-btn" onclick="altDatenHerunterladen()">Als Backup herunterladen</button>
   </p>` : ""}
+  <h3>Geräte</h3>
+  <div id="geraete-liste">lade…</div>
+  <p><button class="save-btn" id="einladen-knopf" onclick="einladungErzeugen()">+ Gerät hinzufügen (QR-Code / PIN)</button></p>
+  <div id="einladung-anzeige"></div>
   `;
+  if(aktiveEinladung) zeigeEinladung();
   if(betriebId){
+    baueGeraeteListe();
+    einladungenAufraeumen();
     db.collection("betriebe").doc(betriebId).get().then(s=>{
       const n=document.getElementById("betrieb-name");
       if(n && s.exists) n.textContent=s.data().name||"";
@@ -3407,12 +3661,18 @@ function zeigeZugangsseite(){
   beobachteEigeneAnfrage();
 }
 
-// Start: Freigabe-Link (?approve= / ?deny=) oder normale App
+// Start: Freigabe-Link (?approve= / ?deny=), Einladung per QR-Code (?einladung=) oder normale App
 (async()=>{
   if(approveID || denyID){
     try{ geraeteUid=(await anmelden()).uid; }catch(e){}
     zeigeFreigabe();
     return;
+  }
+  if(einladungsCode){
+    try{ geraeteUid=(await anmelden()).uid; }catch(e){}
+    const z=await db.collection("geraetezuordnung").doc(geraeteUid).get().catch(()=>null);
+    if(!z || !z.exists){ zeigeEinladungsSeite(); return; }
+    // Gerät ist schon in einem Betrieb → Einladung ignorieren, normal starten
   }
   starten();
 })();
@@ -3444,6 +3704,17 @@ function zeigeZugangsseite(){
       <div id="zugang-abgelehnt" style="display:none;color:#c40000;margin-top:12px">Deine letzte Anfrage wurde abgelehnt.</div>
     </div>
 
+    <hr style="margin:18px 0">
+    <p><b>Dein Betrieb benutzt den Futterrechner schon?</b><br>
+      <span style="font-size:13px">Dann auf einem Gerät des Betriebs unter Einstellungen → „Gerät hinzufügen“ den QR-Code
+      scannen – oder die PIN hier eingeben:</span></p>
+    <button class="save-btn" style="background:#2f80ed" onclick="pinBereichZeigen()">Ich habe eine PIN</button>
+    <div id="zugang-pin" style="display:none;margin-top:10px">
+      <input id="pin-eingabe" inputmode="numeric" maxlength="9" placeholder="8-stellige PIN" style="font-size:22px;letter-spacing:3px;width:100%;padding:8px;box-sizing:border-box;text-align:center"><br>
+      <input id="pin-geraetename" placeholder="Name dieses Geräts (z. B. Handy Stall)" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box"><br>
+      <button class="save-btn" onclick="pinEinloesen()">Beitreten</button>
+    </div>
+
     <div id="zugang-warten" style="display:none">
       <p>✅ Anfrage gesendet.</p>
       <p>Sobald sie freigegeben ist, startet die App hier von selbst. Du kannst die Seite auch schließen und später wieder öffnen.</p>
@@ -3453,7 +3724,14 @@ function zeigeZugangsseite(){
   </div>
 </div>
 
-<div id="freigabeBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
+<div id="einladungBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
+  <div style="background:white;padding:24px;border-radius:10px;width:360px;max-width:94%;text-align:center;">
+    <h2>🐄 Futterrechner</h2>
+    <div id="einladung-inhalt">Prüfe Einladung…</div>
+  </div>
+</div>
+
+<div id="freigabeBlock"style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
   <div style="background:white;padding:24px;border-radius:10px;width:420px;max-width:94%;">
     <h2>Zugangsanfrage</h2>
     <div id="freigabe-inhalt">Lade Anfrage…</div>
