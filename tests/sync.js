@@ -108,7 +108,7 @@ async function main() {
         b.delete(db.collection("geraetezuordnung").doc(uid));
         await b.commit();
       }, uidB);
-      await warteBis(B.page, () => document.getElementById("accessBlock").style.display === "flex", null, 20000);
+      await warteBis(B.page, () => { const b = document.getElementById("accessBlock"); return b && b.style.display === "flex"; }, null, 20000);
       assert(B.meldungen.some(m => m.includes("entfernt")), "Hinweis fehlt");
       const reste = await B.page.evaluate(() => ["futter", "history", "lager", "lieferungen", "betriebId"].filter(k => localStorage.getItem(k)));
       assert.deepStrictEqual(reste, [], "Daten liegen noch auf dem Gerät: " + reste);
@@ -116,7 +116,7 @@ async function main() {
 
     await pruefe("Keine Seitenfehler", async () => {
       const alle = [...A.meldungen, ...B.meldungen].filter(m => m.startsWith("SEITENFEHLER"));
-      assert.deepStrictEqual(alle, []);
+      assert.deepStrictEqual(alle, [], alle.join(" | "));
     });
   } finally {
     await browser.close();

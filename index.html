@@ -3224,8 +3224,8 @@ async function einladungAusSeite(){
    saveLagerStorage, saveLieferungen) schreiben wie bisher in den localStorage und melden die Änderung hier an.
    Von hier geht sie gebündelt in den Betrieb:
      betriebe/{betriebId}/daten/futter | einstellungen | lager
-     betriebe/{betriebId}/history/{id}       je Tageseintrag ein Dokument
-     betriebe/{betriebId}/lieferungen/{id}   je Lieferung ein Dokument
+     betriebe/{betriebId}/history/{JJJJ-MM}      je Monat ein Dokument mit allen Tageseinträgen
+     betriebe/{betriebId}/lieferungen/{JJJJ-MM}  je Monat ein Dokument mit allen Lieferungen
    Änderungen anderer Geräte kommen über onSnapshot herein und werden angezeigt.
    Nur auf diesem Gerät bleiben: hiddenWarnings, historyCollapsed, Taschenrechner (calcHist). */
 
@@ -3238,7 +3238,7 @@ const cloud = {
   timer:null,
   schreibtGerade:false,
   stand:{                      // zuletzt bekannter Stand in der Cloud
-    history:new Map(),         // Dokument-ID → Sortierwert
+    history:new Map(),         // Eintrags-ID → { s: Sortierwert, monat, obj: gespeicherter Eintrag }
     lieferungen:new Map(),
     lager:null
   },
@@ -3256,7 +3256,13 @@ function cloudSpeichern(art){
   zeigeSyncStatus();
 }
 
-// Eindeutige Dokument-ID für einen History-/Lieferungs-Eintrag
+// Monat eines Eintrags ("TT.MM.JJJJ" → "JJJJ-MM") = Dokument, in dem er gespeichert wird
+function monatVon(e){
+  const d = e && typeof e.datum==="string" ? e.datum.split(".") : [];
+  return (d.length===3 && /^\d{4}$/.test(d[2]) && /^\d{2}$/.test(d[1])) ? d[2]+"-"+d[1] : "ohne-datum";
+}
+
+// Eindeutige ID für einen History-/Lieferungs-Eintrag
 function eintragDokIds(liste){
   const ids=[];
   const vergeben=new Set();
@@ -3319,6 +3325,9 @@ function cloudSchreiben(){
     cloud.stand.lager=neu;
   }
 
+  // History und Lieferungen: je Monat EIN Dokument mit allen Einträgen des Monats.
+  // So liest ein App-Start nur ca. 12 Dokumente pro Jahr statt jeden Eintrag einzeln (kostenloser Firebase-Tarif).
+  // Neue/gelöschte Einträge gehen als „hinzufügen/entfernen“ (arrayUnion/arrayRemove) – gleichzeitige Geräte stören sich nicht.
   ["history","lieferungen"].forEach(art=>{
     if(!offen[art]) return;
     const liste = art==="history" ? historyData : lieferungen;
@@ -3327,22 +3336,35 @@ function cloudSchreiben(){
     const bekannt=cloud.stand[art];
     const neuIdx=[];
     ids.forEach((id,i)=>{ if(!bekannt.has(id)) neuIdx.push(i); });
-    // Sortierwert: neueste oben (wie bisher unshift). Neue Einträge vorne → nur diese schreiben,
+    // Sortierwert: neueste oben (wie bisher unshift). Neue Einträge vorne → nur diese hinzufügen,
     // sonst (z. B. Backup geladen) Reihenfolge für alle neu festlegen.
-    let maxS=0; bekannt.forEach(s=>{ if(s>maxS) maxS=s; });
+    let maxS=0; bekannt.forEach(x=>{ if(x.s>maxS) maxS=x.s; });
     const basis=Math.max(Date.now()*1000, maxS+liste.length+1);
     const nurVorne=neuIdx.every((idx,k)=>idx===k);
     const neuStand=new Map();
-    ids.forEach((id,i)=>{
-      const istNeu=!bekannt.has(id);
-      if(istNeu || !nurVorne){
-        const s=basis-i;
-        neuStand.set(id,s);
-        const e=liste[i];
-        ops.push(b=>b.set(col.doc(id), { e:kopie(e), s }));
-      } else neuStand.set(id,bekannt.get(id));
-    });
-    bekannt.forEach((s,id)=>{ if(!neuStand.has(id)) ops.push(b=>b.delete(col.doc(id))); });
+    if(nurVorne){
+      const dazu={}, weg={};
+      ids.forEach((id,i)=>{
+        if(bekannt.has(id)){ neuStand.set(id,bekannt.get(id)); return; }
+        const obj={ id, s:basis-i, e:kopie(liste[i]) };
+        const monat=monatVon(liste[i]);
+        neuStand.set(id,{ s:obj.s, monat, obj });
+        (dazu[monat]=dazu[monat]||[]).push(obj);
+      });
+      bekannt.forEach((x,id)=>{ if(!neuStand.has(id)) (weg[x.monat]=weg[x.monat]||[]).push(x.obj); });
+      Object.entries(dazu).forEach(([m,objs])=>ops.push(b=>b.set(col.doc(m), { eintraege:FV.arrayUnion(...objs) }, {merge:true})));
+      Object.entries(weg).forEach(([m,objs])=>ops.push(b=>b.set(col.doc(m), { eintraege:FV.arrayRemove(...objs) }, {merge:true})));
+    } else {
+      const monate={};
+      ids.forEach((id,i)=>{
+        const obj={ id, s:basis-i, e:kopie(liste[i]) };
+        const m=monatVon(liste[i]);
+        (monate[m]=monate[m]||[]).push(obj);
+        neuStand.set(id,{ s:obj.s, monat:m, obj });
+      });
+      Object.entries(monate).forEach(([m,objs])=>ops.push(b=>b.set(col.doc(m), { eintraege:objs })));
+      new Set([...bekannt.values()].map(x=>x.monat)).forEach(m=>{ if(!monate[m]) ops.push(b=>b.delete(col.doc(m))); });
+    }
     cloud.stand[art]=neuStand;
   });
 
@@ -3411,7 +3433,7 @@ function cloudUebernehmen(art, wert){
   }
   if(art==="history" || art==="lieferungen"){
     const docs=wert.slice().sort((a,b)=> (b.s-a.s) || (a.id<b.id?-1:a.id>b.id?1:0));
-    cloud.stand[art]=new Map(docs.map(d=>[d.id,d.s]));
+    cloud.stand[art]=new Map(docs.map(d=>[d.id,{ s:d.s, monat:d.monat, obj:{ id:d.id, s:d.s, e:d.e } }]));
     const liste=docs.map(d=>d.e);
     if(art==="history"){ historyData=liste; localStorage.setItem("history",JSON.stringify(historyData)); }
     else { lieferungen=liste; localStorage.setItem("lieferungen",JSON.stringify(lieferungen)); }
@@ -3471,7 +3493,9 @@ function cloudAbonnieren(){
     });
     ["history","lieferungen"].forEach(art=>{
       cloud.abos.push(ref.collection(art).onSnapshot({includeMetadataChanges:true}, q=>{
-        empfangen(art, q.docs.map(d=>({ id:d.id, ...d.data() })), q.metadata, q.empty);
+        const alle=[];
+        q.docs.forEach(d=>(d.data().eintraege||[]).forEach(o=>alle.push({ ...o, monat:d.id })));
+        empfangen(art, alle, q.metadata, alle.length===0);
       }, e=>{ cloudFehler(e); fehler(e); }));
     });
     // Eigener Geräte-Eintrag: verschwindet er, wurde dieses Gerät aus dem Betrieb entfernt
