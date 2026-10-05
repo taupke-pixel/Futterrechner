@@ -63,7 +63,9 @@ geraetezuordnung/{uid}                     betriebId
 - Geräteliste mit Umbenennen/Entfernen in Einstellungen → Betrieb (Sprung-Knopf „👥 Betrieb & Geräte“ im Kopf).
 - 🧪 `tests/geraete.js` grün (PIN-Beitritt < 1 Minute, abgelaufen/benutzt abgelehnt, Download-Link ohne Zugriff).
 
-## Phase 4 – Android-App ✅ (Gerätetest im Emulator: siehe FORTSCHRITT.md)
+## Phase 4 – Android-App ✅
+- 🧪 `tests\android.ps1` (Android-Emulator + Debug-App gegen Firebase-Emulator) grün: Start, Anmeldung, Speichern in die Cloud,
+  Freigabe bleibt nach Neustart, Backup-Dateiauswahl, Einladung per Link öffnet die App.
 - `android/`: WebView-App (Java), Varianten `live` (lädt GitHub Pages, Paket `de.stallultra.futterrechner`) und
   `probe` (lädt Test-Webseite, Paket `…futterrechner.test`). Eigener Speicher, Backup über Android-Dateiauswahl,
   Einladungen per `futterrechner://einladung?code=` und App Links.

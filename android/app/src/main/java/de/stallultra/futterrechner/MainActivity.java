@@ -34,12 +34,15 @@ public class MainActivity extends Activity {
     private static final int DATEI_SPEICHERN = 2;
 
     private WebView webView;
+    private String startHost;
     private ValueCallback<Uri[]> dateiRueckgabe;
     private byte[] zuSpeichern;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Nur Debug-Versionen: Fernsteuerung für automatische Tests erlauben
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true);
         webView = new WebView(this);
         setContentView(webView);
 
@@ -107,6 +110,11 @@ public class MainActivity extends Activity {
     /** Welche Seite laden? Normal die Startseite, bei einer Einladung die Startseite mit ?einladung=… */
     private String zielAdresse(Intent intent) {
         String start = BuildConfig.START_URL;
+        // Nur in Debug-Versionen (nie in der verschickten APK): andere Startseite zum Testen, z. B. lokaler Emulator
+        if (BuildConfig.DEBUG && intent != null && intent.getStringExtra("testUrl") != null) {
+            start = intent.getStringExtra("testUrl");
+            startHost = Uri.parse(start).getHost();
+        }
         Uri daten = intent != null ? intent.getData() : null;
         if (daten == null) return start;
         String code = null;
@@ -116,7 +124,7 @@ public class MainActivity extends Activity {
             code = daten.getQueryParameter("einladung");
         }
         if (code != null && code.matches("[A-Za-z0-9]{8,64}")) {
-            return start + "?einladung=" + code;
+            return start + (start.contains("?") ? "&" : "?") + "einladung=" + code;
         }
         return start;
     }
@@ -130,9 +138,9 @@ public class MainActivity extends Activity {
 
     /** Links zu anderen Seiten (E-Mail, fremde Webseiten) im passenden Programm öffnen, die eigene Seite in der App. */
     private boolean externOeffnen(Uri uri) {
-        Uri start = Uri.parse(BuildConfig.START_URL);
+        String host = startHost != null ? startHost : Uri.parse(BuildConfig.START_URL).getHost();
         String schema = uri.getScheme();
-        if (("https".equals(schema) || "http".equals(schema)) && start.getHost().equals(uri.getHost())) {
+        if (("https".equals(schema) || "http".equals(schema)) && host.equals(uri.getHost())) {
             return false; // eigene Seite: in der App bleiben
         }
         try {
