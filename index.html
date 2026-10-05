@@ -159,7 +159,8 @@ font-size:16px;
   color:white !important;
 }
 </style></head>
-<body><header>🐄 Futterrechner — Stall Ultra<div id="sync-status" style="font-size:12px;opacity:.85"></div></header><div class="tabs">
+<body><header>🐄 Futterrechner — Stall Ultra<div style="font-size:12px;opacity:.9"><span id="sync-status"></span>
+<a id="betrieb-link" href="#" onclick="zumBetrieb();return false;" style="display:none;color:#fff;margin-left:10px">👥 Betrieb &amp; Geräte</a></div></header><div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
   <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
@@ -3524,9 +3525,16 @@ showTab = function(t){
   document.getElementById("betrieb").classList.toggle("hidden", t!=="settings");
 };
 
+function zumBetrieb(){
+  showTab("settings");
+  document.getElementById("betrieb").scrollIntoView({behavior:"smooth"});
+}
+
 function baueBetriebBereich(){
   const el=document.getElementById("betrieb");
   if(!el) return;
+  const link=document.getElementById("betrieb-link");
+  if(link) link.style.display = betriebId ? "inline" : "none";
   const alt=localStorage.getItem("datenVorUmbau") && !localStorage.getItem("datenVorUmbauUebernommen");
   el.innerHTML=`
   <hr>
