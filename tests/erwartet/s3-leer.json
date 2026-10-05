@@ -1,0 +1,1715 @@
+{
+ "szenario": "s3-leer",
+ "schritte": [
+  {
+   "schritt": "start",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Speichern Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "0",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ Bullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+"
+  },
+  {
+   "schritt": "restmischung-eingegeben",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Speichern Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "100",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ Bullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+"
+  },
+  {
+   "schritt": "kuehe-gespeichert",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Speichern Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "100",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 100 Gesamt: 0.0 kg ▼ Bullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen ▶ 05.10.2026 Kühe Keine Einzelwerte gespeichert Tiere: 100 Gesamt: 0.0 kg Löschen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+"
+  },
+  {
+   "schritt": "bullen-gespeichert",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Speichern Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "100",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 100 Gesamt: 0.0 kg ▼ Bullen ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 10 Gesamt: 0.0 kg ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen ▶ 05.10.2026 Bullen Keine Einzelwerte gespeichert Tiere: 10 Gesamt: 0.0 kg Löschen Kühe Keine Einzelwerte gespeichert Tiere: 100 Gesamt: 0.0 kg Löschen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+"
+  },
+  {
+   "schritt": "restmischung-gespeichert",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "100",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 100 Gesamt: 0.0 kg ▼ Bullen ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 10 Gesamt: 0.0 kg ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 0 Gesamt: 0.0 kg ▶ 05.10.2026 Restmischung Bullen Keine Einzelwerte gespeichert Tiere: 0 Gesamt: 0.0 kg Löschen Bullen Keine Einzelwerte gespeichert Tiere: 10 Gesamt: 0.0 kg Löschen Kühe Keine Einzelwerte gespeichert Tiere: 100 Gesamt: 0.0 kg Löschen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+"
+  },
+  {
+   "schritt": "bullen-eintrag-geloescht",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "100",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 100 Gesamt: 0.0 kg ▼ Bullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 0 Gesamt: 0.0 kg ▶ 05.10.2026 Restmischung Bullen Keine Einzelwerte gespeichert Tiere: 0 Gesamt: 0.0 kg Löschen Kühe Keine Einzelwerte gespeichert Tiere: 100 Gesamt: 0.0 kg Löschen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+"
+  },
+  {
+   "schritt": "taschenrechner",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "100",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 100 Gesamt: 0.0 kg ▼ Bullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 0 Gesamt: 0.0 kg ▶ 05.10.2026 Restmischung Bullen Keine Einzelwerte gespeichert Tiere: 0 Gesamt: 0.0 kg Löschen Kühe Keine Einzelwerte gespeichert Tiere: 100 Gesamt: 0.0 kg Löschen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "4 789/456*123-C0.⌫=+ 2+2 = 4"
+  },
+  {
+   "schritt": "nach-neuladen",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe – Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechnerFelder": [
+    "100",
+    "30",
+    "10",
+    "0",
+    "0",
+    "0",
+    "5",
+    "20"
+   ],
+   "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+   "einstellungenFelder": [
+    "Niedersachsen",
+    "AGF",
+    "0.5",
+    "MLF",
+    "0.5",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0",
+    "Futter 1",
+    "0",
+    "Futter 2",
+    "0",
+    "Futter 3",
+    "0",
+    "Futter 4",
+    "0",
+    "Futter 5",
+    "0",
+    "Futter 6",
+    "0",
+    "Futter 7",
+    "0",
+    "Futter 8",
+    "0",
+    "AGF",
+    "0",
+    "MLF",
+    "0"
+   ],
+   "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 100 Gesamt: 0.0 kg ▼ Bullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Restmischung Bullen ▼ 2026 Jahressumme Gesamt: 0.0 kg ▼ 10.2026 Monatssumme Gesamt: 0.0 kg ▼ 01.10 - 07.10 Wochensumme Gesamt: 0.0 kg 05.10.2026 Tiere: 0 Gesamt: 0.0 kg ▶ 05.10.2026 Restmischung Bullen Keine Einzelwerte gespeichert Tiere: 0 Gesamt: 0.0 kg Löschen Kühe Keine Einzelwerte gespeichert Tiere: 100 Gesamt: 0.0 kg Löschen Lagerbestand AGF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - MLF Bestand: 0.0 kg Ø Verbrauch: 0.0 kg/Tag Reicht noch ca. 999.0 Tage Bestellen bis: - Lieferungen AGF MLF Lieferung speichern Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+   "historyFelder": [
+    "agf",
+    "",
+    "",
+    "5",
+    "2",
+    "5",
+    "2"
+   ],
+   "historyTab": "tab",
+   "taschenrechner": "0 789/456*123-C0.⌫=+ 2+2 = 4"
+  }
+ ],
+ "backupVorNeuladen": {
+  "data": {
+   "kuehe": {
+    "anz": 100,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "faersen": {
+    "anz": 30,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "restbullen": {
+    "rest": 100,
+    "ziel": 0,
+    "anz": 0,
+    "collapsed": false
+   },
+   "bullen": {
+    "anz": 10,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "trocken": {
+    "anz": 5,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "kaelber": {
+    "anz": 20,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   }
+  },
+  "globalCfg": {
+   "agfName": "AGF",
+   "mlfName": "MLF",
+   "bundesland": "Niedersachsen",
+   "agfKg": 0.5,
+   "mlfKg": 0.5,
+   "kueheName": "Kühe",
+   "faersenName": "Färsen",
+   "bullenName": "Bullen",
+   "restbullenName": "Restmischung Bullen",
+   "trockenName": "Trockensteher",
+   "kaelberName": "Kälber"
+  },
+  "historyData": [
+   {
+    "id": "1791172800000xwdu4",
+    "datum": "05.10.2026",
+    "kategorie": "restbullen",
+    "tiere": 0,
+    "gesamt": 0,
+    "agf": 0,
+    "mlf": 0,
+    "futter": []
+   },
+   {
+    "id": "1791172800000fh1jv",
+    "datum": "05.10.2026",
+    "kategorie": "kuehe",
+    "tiere": 100,
+    "gesamt": 0,
+    "agf": 0,
+    "mlf": 0,
+    "futter": []
+   }
+  ],
+  "lagerData": {
+   "agf": {
+    "bestand": 0,
+    "orange": 5,
+    "rot": 2,
+    "lieferzeit": 2
+   },
+   "mlf": {
+    "bestand": 0,
+    "orange": 5,
+    "rot": 2,
+    "lieferzeit": 2
+   }
+  },
+  "lieferungen": [],
+  "hiddenWarnings": {},
+  "historyCollapsed": {
+   "tageslog": false,
+   "lager": false,
+   "lieferungen": false,
+   "verlauf": false,
+   "kategorien": {
+    "kuehe": true,
+    "bullen": true,
+    "faersen": true,
+    "kaelber": true,
+    "trocken": true,
+    "restbullen": true
+   },
+   "jahre": {
+    "kuehe_2026": true,
+    "bullen_2026": true,
+    "restbullen_2026": true
+   },
+   "monate": {
+    "kuehe_2026_10": true,
+    "bullen_2026_10": true,
+    "restbullen_2026_10": true
+   },
+   "wochen": {
+    "kuehe_2026_10_01.10 - 07.10": true,
+    "bullen_2026_10_01.10 - 07.10": true,
+    "restbullen_2026_10_01.10 - 07.10": true
+   }
+  }
+ },
+ "backupNachNeuladen": {
+  "data": {
+   "kuehe": {
+    "anz": 100,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "faersen": {
+    "anz": 30,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "restbullen": {
+    "rest": 0,
+    "ziel": 0,
+    "anz": 0,
+    "collapsed": false
+   },
+   "bullen": {
+    "anz": 10,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "trocken": {
+    "anz": 5,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   },
+   "kaelber": {
+    "anz": 20,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     }
+    ],
+    "collapsed": false
+   }
+  },
+  "globalCfg": {
+   "agfName": "AGF",
+   "mlfName": "MLF",
+   "bundesland": "Niedersachsen",
+   "agfKg": 0.5,
+   "mlfKg": 0.5,
+   "kueheName": "Kühe",
+   "faersenName": "Färsen",
+   "bullenName": "Bullen",
+   "restbullenName": "Restmischung Bullen",
+   "trockenName": "Trockensteher",
+   "kaelberName": "Kälber"
+  },
+  "historyData": [
+   {
+    "id": "1791172800000xwdu4",
+    "datum": "05.10.2026",
+    "kategorie": "restbullen",
+    "tiere": 0,
+    "gesamt": 0,
+    "agf": 0,
+    "mlf": 0,
+    "futter": []
+   },
+   {
+    "id": "1791172800000fh1jv",
+    "datum": "05.10.2026",
+    "kategorie": "kuehe",
+    "tiere": 100,
+    "gesamt": 0,
+    "agf": 0,
+    "mlf": 0,
+    "futter": []
+   }
+  ],
+  "lagerData": {
+   "agf": {
+    "bestand": 0,
+    "orange": 5,
+    "rot": 2,
+    "lieferzeit": 2
+   },
+   "mlf": {
+    "bestand": 0,
+    "orange": 5,
+    "rot": 2,
+    "lieferzeit": 2
+   }
+  },
+  "lieferungen": [],
+  "hiddenWarnings": {},
+  "historyCollapsed": {
+   "tageslog": false,
+   "lager": false,
+   "lieferungen": false,
+   "verlauf": false,
+   "kategorien": {
+    "kuehe": true,
+    "bullen": true,
+    "faersen": true,
+    "kaelber": true,
+    "trocken": true,
+    "restbullen": true
+   },
+   "jahre": {
+    "kuehe_2026": true,
+    "restbullen_2026": true
+   },
+   "monate": {
+    "kuehe_2026_10": true,
+    "restbullen_2026_10": true
+   },
+   "wochen": {
+    "kuehe_2026_10_01.10 - 07.10": true,
+    "restbullen_2026_10_01.10 - 07.10": true
+   }
+  }
+ },
+ "meldungen": []
+}

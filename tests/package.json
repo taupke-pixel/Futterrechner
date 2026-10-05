@@ -1,0 +1,14 @@
+{
+  "name": "futterrechner-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tests für den Futterrechner (Vergleichstest, Security-Rules-Tests)",
+  "scripts": {
+    "vergleich": "node vergleich.js",
+    "vergleich:basis": "node vergleich.js --basis"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
