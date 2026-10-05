@@ -7,6 +7,7 @@
 
 <!-- 🔥 HIER die Scripts -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
@@ -156,7 +157,7 @@ font-size:16px;
   color:white !important;
 }
 </style></head>
-<body><header>🐄 Futterrechner — Stall Ultra</header><div class="tabs">
+<body><header>🐄 Futterrechner — Stall Ultra<div id="sync-status" style="font-size:12px;opacity:.85"></div></header><div class="tabs">
   <div class="tab active" onclick="showTab('calc')">Rechner</div>
   <div class="tab" onclick="showTab('settings')">Einstellungen</div>
   <div class="tab" onclick="showTab('calc2')">Taschenrechner</div>
@@ -169,6 +170,7 @@ History
 </div>
 </div><div id="calc" class="panel"></div>
 <div id="settings" class="panel hidden"></div>
+<div id="betrieb" class="panel hidden"></div>
 <div id="calc2" class="panel hidden"></div>
   <div id="history" class="panel hidden"></div>
 
@@ -186,9 +188,31 @@ const firebaseConfig = {
   appId: "1:858916796951:web:dd614896bee4cbba6c7a52",
   measurementId: "G-X3YZD3B9L7"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// 🧪 Firebase-Testprojekt: wird NUR benutzt, wenn die Seite lokal läuft (localhost).
+// Auf GitHub Pages gilt immer firebaseConfig (echtes Projekt). Mit ?emulator=1 lokal: Firebase-Emulator auf dem PC.
+const testConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  appId: ""
+};
 const urlParams = new URLSearchParams(window.location.search);
+const istLokal = ["localhost","127.0.0.1"].includes(location.hostname);
+const mitEmulator = istLokal && (urlParams.get("emulator")==="1" || !testConfig.projectId);
+firebase.initializeApp(
+  !istLokal ? firebaseConfig :
+  mitEmulator ? { apiKey:"demo-key", authDomain:"localhost", projectId:"demo-futterrechner" } :
+  testConfig
+);
+const db = firebase.firestore();
+const auth = firebase.auth();
+if(mitEmulator){
+  db.useEmulator("localhost",8080);
+  auth.useEmulator("http://localhost:9099");
+}
+// Offline-Speicher: im Stall ohne Netz läuft alles weiter, abgeglichen wird später
+db.enablePersistence({synchronizeTabs:true})
+  .catch(e=>console.log("Offline-Speicher nicht verfügbar:", e.code));
 const approveID = urlParams.get("approve");
 const denyID = urlParams.get("deny");
 
@@ -338,14 +362,16 @@ monate:{},
 wochen:{}
 };
 
-function save(){localStorage.setItem("futter",JSON.stringify(data))}
-function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg))}
+// Speichern: wie bisher in den localStorage (Zwischenspeicher) + zusätzlich in den Betrieb in der Cloud
+function save(){localStorage.setItem("futter",JSON.stringify(data));cloudSpeichern("futter")}
+function saveGlobal(){localStorage.setItem("gCfg",JSON.stringify(globalCfg));cloudSpeichern("einstellungen")}
 
   function saveHistoryStorage(){
   localStorage.setItem(
     "history",
     JSON.stringify(historyData)
   );
+  cloudSpeichern("history");
 }
 
 function saveLagerStorage(){
@@ -353,6 +379,7 @@ function saveLagerStorage(){
     "lager",
     JSON.stringify(lagerData)
   );
+  cloudSpeichern("lager");
 }
 
 function saveLieferungen(){
@@ -360,6 +387,7 @@ function saveLieferungen(){
     "lieferungen",
     JSON.stringify(lieferungen)
   );
+  cloudSpeichern("lieferungen");
 }
 
 function saveHiddenWarnings(){
@@ -2843,17 +2871,422 @@ async function handleApproval(){
   }
 }
 
-  handleApproval().then(()=>{
-  checkAccess().then(ok=>{
-    if(ok){
-      
-      buildCalc();
-      buildSettings();
-      buildCalc2();
-    buildHistory();
-      updateHistoryTabColor();
+/* === ☁️ CLOUD-SPEICHER: Daten des Betriebs in Firestore ===
+   Rechnen und Anzeigen bleiben unverändert. Die Speicherfunktionen (save, saveGlobal, saveHistoryStorage,
+   saveLagerStorage, saveLieferungen) schreiben wie bisher in den localStorage und melden die Änderung hier an.
+   Von hier geht sie gebündelt in den Betrieb:
+     betriebe/{betriebId}/daten/futter | einstellungen | lager
+     betriebe/{betriebId}/history/{id}       je Tageseintrag ein Dokument
+     betriebe/{betriebId}/lieferungen/{id}   je Lieferung ein Dokument
+   Änderungen anderer Geräte kommen über onSnapshot herein und werden angezeigt.
+   Nur auf diesem Gerät bleiben: hiddenWarnings, historyCollapsed, Taschenrechner (calcHist). */
+
+let betriebId = localStorage.getItem("betriebId") || null;
+let geraeteUid = null;
+
+const cloud = {
+  aktiv:false,                 // true, sobald die Daten des Betriebs geladen sind
+  offen:{},                    // geänderte Bereiche, die noch nicht an Firestore übergeben wurden
+  timer:null,
+  schreibtGerade:false,
+  stand:{                      // zuletzt bekannter Stand in der Cloud
+    history:new Map(),         // Dokument-ID → Sortierwert
+    lieferungen:new Map(),
+    lager:null
+  },
+  abos:[],
+  wartetAufBlur:false
+};
+
+function kopie(o){ return o===undefined ? null : JSON.parse(JSON.stringify(o)); }
+
+function cloudSpeichern(art){
+  if(!cloud.aktiv) return;
+  cloud.offen[art]=true;
+  clearTimeout(cloud.timer);
+  cloud.timer=setTimeout(cloudSchreiben,400);
+  zeigeSyncStatus();
+}
+
+// Eindeutige Dokument-ID für einen History-/Lieferungs-Eintrag
+function eintragDokIds(liste){
+  const ids=[];
+  const vergeben=new Set();
+  liste.forEach(e=>{
+    let id = (e && e.id!==undefined && e.id!==null) ? String(e.id) : "";
+    if(!/^[A-Za-z0-9_-]{1,120}$/.test(id)){
+      let h=0; const s=JSON.stringify(e);
+      for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; }
+      id="x"+(h>>>0).toString(36);
     }
+    let eindeutig=id, n=2;
+    while(vergeben.has(eindeutig)) eindeutig=id+"_"+(n++);
+    vergeben.add(eindeutig);
+    ids.push(eindeutig);
   });
+  return ids;
+}
+
+// Lokale Änderungen in den Betrieb schreiben
+function cloudSchreiben(){
+  clearTimeout(cloud.timer);
+  if(!cloud.aktiv || !betriebId) return;
+  const offen=cloud.offen;
+  cloud.offen={};
+  const ref=db.collection("betriebe").doc(betriebId);
+  const FV=firebase.firestore.FieldValue;
+  const kopf={ geaendert:FV.serverTimestamp(), von:geraeteUid };
+  const ops=[];
+
+  if(offen.futter)
+    ops.push(b=>b.set(ref.collection("daten").doc("futter"), {...kopf, inhalt:kopie(data)}));
+
+  if(offen.einstellungen)
+    ops.push(b=>b.set(ref.collection("daten").doc("einstellungen"), {...kopf, inhalt:kopie(globalCfg)}));
+
+  if(offen.lager){
+    const lagerDok=ref.collection("daten").doc("lager");
+    const neu=kopie(lagerData)||{};
+    const alt=cloud.stand.lager||{};   // gibt es noch kein Lager in der Cloud, zählt der Bestand dort als 0
+    // Bestand als „Abziehen/Hinzufügen“ schicken, damit gleichzeitige Änderungen mehrerer Geräte nicht verloren gehen
+    const inhalt={};
+    new Set([...Object.keys(neu),...Object.keys(alt)]).forEach(p=>{
+      if(!(p in neu)){ inhalt[p]=FV.delete(); return; }
+      const n=neu[p], a=alt[p]||{};
+      if(!n || typeof n!=="object"){ inhalt[p]=n; return; }
+      const w={};
+      new Set([...Object.keys(n),...Object.keys(a)]).forEach(k=>{
+        if(!(k in n)) w[k]=FV.delete();
+        else if(k==="bestand" && typeof n[k]==="number" && (typeof a[k]==="number" || !(k in a))){
+          const delta=n[k]-(a[k]||0);
+          if(delta!==0 || !(k in a)) w[k]=FV.increment(delta);
+        }
+        else if(JSON.stringify(n[k])!==JSON.stringify(a[k])) w[k]=n[k];
+      });
+      // Nur geänderte Produkte schicken – ein leeres {} würde beim Zusammenführen das ganze Produkt leeren
+      if(Object.keys(w).length) inhalt[p]=w;
+    });
+    if(Object.keys(inhalt).length)
+      ops.push(b=>b.set(lagerDok, {...kopf, inhalt}, {merge:true}));
+    cloud.stand.lager=neu;
+  }
+
+  ["history","lieferungen"].forEach(art=>{
+    if(!offen[art]) return;
+    const liste = art==="history" ? historyData : lieferungen;
+    const col=ref.collection(art);
+    const ids=eintragDokIds(liste);
+    const bekannt=cloud.stand[art];
+    const neuIdx=[];
+    ids.forEach((id,i)=>{ if(!bekannt.has(id)) neuIdx.push(i); });
+    // Sortierwert: neueste oben (wie bisher unshift). Neue Einträge vorne → nur diese schreiben,
+    // sonst (z. B. Backup geladen) Reihenfolge für alle neu festlegen.
+    let maxS=0; bekannt.forEach(s=>{ if(s>maxS) maxS=s; });
+    const basis=Math.max(Date.now()*1000, maxS+liste.length+1);
+    const nurVorne=neuIdx.every((idx,k)=>idx===k);
+    const neuStand=new Map();
+    ids.forEach((id,i)=>{
+      const istNeu=!bekannt.has(id);
+      if(istNeu || !nurVorne){
+        const s=basis-i;
+        neuStand.set(id,s);
+        const e=liste[i];
+        ops.push(b=>b.set(col.doc(id), { e:kopie(e), s }));
+      } else neuStand.set(id,bekannt.get(id));
+    });
+    bekannt.forEach((s,id)=>{ if(!neuStand.has(id)) ops.push(b=>b.delete(col.doc(id))); });
+    cloud.stand[art]=neuStand;
+  });
+
+  if(!ops.length) return Promise.resolve();
+  // in Paketen (Firestore erlaubt höchstens 500 Schreibvorgänge je Paket)
+  const fertig=[];
+  for(let i=0;i<ops.length;i+=400){
+    const b=db.batch();
+    ops.slice(i,i+400).forEach(f=>f(b));
+    fertig.push(b.commit().catch(cloudFehler));
+  }
+  cloud.schreibtGerade=true;
+  zeigeSyncStatus();
+  db.waitForPendingWrites().then(()=>{ cloud.schreibtGerade=false; zeigeSyncStatus(); });
+  return Promise.resolve();
+}
+
+// Wartet, bis alles bei Firestore angekommen ist (für Tests und vor dem Entfernen eines Geräts)
+async function cloudSyncFertig(){
+  cloudSchreiben();
+  await db.waitForPendingWrites();
+}
+
+function cloudFehler(e){
+  console.log("Cloud-Fehler:", e);
+  if(e && e.code==="permission-denied") pruefeGeraetNochDa();
+}
+
+// Rationen laden – genau wie beim Start aus dem localStorage
+function futterAusCloud(saved){
+  saved = saved || {};
+  return {
+    kuehe: saved.kuehe||buildCat(100),
+    faersen: saved.faersen||buildCat(30),
+    restbullen: data.restbullen,   // Restmischung wird wie bisher nicht geladen
+    bullen: saved.bullen||buildCat(10),
+    trocken: saved.trocken||buildCat(5),
+    kaelber: saved.kaelber||buildCat(20)
+  };
+}
+
+function lagerStandard(){
+  return { agf:{bestand:0,orange:5,rot:2,lieferzeit:2}, mlf:{bestand:0,orange:5,rot:2,lieferzeit:2} };
+}
+
+// Daten aus der Cloud übernehmen (art = futter | einstellungen | lager | history | lieferungen)
+function cloudUebernehmen(art, wert){
+  if(art==="futter"){
+    data=futterAusCloud(wert);
+    localStorage.setItem("futter",JSON.stringify(data));
+  }
+  if(art==="einstellungen"){
+    globalCfg={...defaultGlobal, ...(wert||{})};
+    localStorage.setItem("gCfg",JSON.stringify(globalCfg));
+  }
+  if(art==="lager"){
+    const neu = wert ? kopie(wert) : lagerStandard();
+    // Winzige Rundungsreste aus „Abziehen/Hinzufügen“ ignorieren → Anzeige bleibt Zeichen für Zeichen gleich
+    ["agf","mlf"].forEach(p=>{
+      if(neu[p] && lagerData[p] && typeof neu[p].bestand==="number" && typeof lagerData[p].bestand==="number"
+         && Math.abs(neu[p].bestand-lagerData[p].bestand) < 1e-6) neu[p].bestand=lagerData[p].bestand;
+    });
+    lagerData=neu;
+    cloud.stand.lager = wert ? kopie(lagerData) : null;
+    localStorage.setItem("lager",JSON.stringify(lagerData));
+  }
+  if(art==="history" || art==="lieferungen"){
+    const docs=wert.slice().sort((a,b)=> (b.s-a.s) || (a.id<b.id?-1:a.id>b.id?1:0));
+    cloud.stand[art]=new Map(docs.map(d=>[d.id,d.s]));
+    const liste=docs.map(d=>d.e);
+    if(art==="history"){ historyData=liste; localStorage.setItem("history",JSON.stringify(historyData)); }
+    else { lieferungen=liste; localStorage.setItem("lieferungen",JSON.stringify(lieferungen)); }
+  }
+}
+
+// Neu zeichnen – aber nicht, während jemand gerade etwas eintippt
+function neuZeichnen(){
+  const a=document.activeElement;
+  if(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.closest(".panel")){
+    if(!cloud.wartetAufBlur){
+      cloud.wartetAufBlur=true;
+      a.addEventListener("blur",()=>{ cloud.wartetAufBlur=false; setTimeout(neuZeichnen,0); },{once:true});
+    }
+    return;
+  }
+  buildCalc();
+  buildSettings();
+  buildHistory();
+  updateHistoryTabColor();
+  baueBetriebBereich();
+}
+
+// Betrieb abonnieren. Liefert ein Promise, das erfüllt ist, wenn alle Bereiche einmal geladen sind.
+function cloudAbonnieren(){
+  const ref=db.collection("betriebe").doc(betriebId);
+  const erst={};          // erster Stand je Bereich
+  const arten=["futter","einstellungen","lager","history","lieferungen"];
+  return new Promise((fertig,fehler)=>{
+    let erledigt=false;
+    const pruefeFertig=()=>{
+      if(erledigt || !arten.every(a=>erst[a])) return;
+      // Kommt alles nur aus einem leeren Zwischenspeicher (z. B. erster Start ohne Netz), auf den Server warten
+      const alleAusCache=arten.every(a=>erst[a].ausCache);
+      const cacheLeer=arten.every(a=>erst[a].leer);
+      if(alleAusCache && cacheLeer){ arten.forEach(a=>{ delete erst[a]; }); zeigeSyncStatus("warte"); return; }
+      erledigt=true;
+      arten.forEach(a=>cloudUebernehmen(a, erst[a].wert));
+      fertig();
+    };
+    const empfangen=(art, wert, meta, leer)=>{
+      if(!erledigt){
+        erst[art]={ wert, ausCache:meta.fromCache, leer };
+        pruefeFertig();
+        return;
+      }
+      // Eigene, noch unbestätigte Änderungen oder ungespeicherte lokale Änderungen: abwarten
+      if(meta.hasPendingWrites || cloud.offen[art]) return;
+      const vorher=JSON.stringify([data,globalCfg,lagerData,historyData,lieferungen]);
+      cloudUebernehmen(art, wert);
+      if(JSON.stringify([data,globalCfg,lagerData,historyData,lieferungen])!==vorher) neuZeichnen();
+    };
+    ["futter","einstellungen","lager"].forEach(art=>{
+      cloud.abos.push(ref.collection("daten").doc(art).onSnapshot({includeMetadataChanges:true}, s=>{
+        empfangen(art, s.exists ? s.data().inhalt : null, s.metadata, !s.exists);
+      }, e=>{ cloudFehler(e); fehler(e); }));
+    });
+    ["history","lieferungen"].forEach(art=>{
+      cloud.abos.push(ref.collection(art).onSnapshot({includeMetadataChanges:true}, q=>{
+        empfangen(art, q.docs.map(d=>({ id:d.id, ...d.data() })), q.metadata, q.empty);
+      }, e=>{ cloudFehler(e); fehler(e); }));
+    });
+    // Eigener Geräte-Eintrag: verschwindet er, wurde dieses Gerät aus dem Betrieb entfernt
+    cloud.abos.push(ref.collection("geraete").doc(geraeteUid).onSnapshot(s=>{
+      if(!s.exists && !s.metadata.fromCache) geraetEntfernt();
+    }, e=>cloudFehler(e)));
+  });
+}
+
+async function pruefeGeraetNochDa(){
+  if(!geraeteUid) return;
+  try{
+    const z=await db.collection("geraetezuordnung").doc(geraeteUid).get({source:"server"});
+    if(!z.exists) geraetEntfernt();
+  }catch(e){
+    if(e.code==="permission-denied") geraetEntfernt();
+  }
+}
+
+// Gerät wurde entfernt: Daten des Betriebs von diesem Gerät löschen, Zugangsseite zeigen
+async function geraetEntfernt(){
+  if(cloud.entfernt) return;
+  cloud.entfernt=true;
+  cloud.aktiv=false;
+  cloud.abos.forEach(a=>a()); cloud.abos=[];
+  ["futter","gCfg","history","lager","lieferungen","betriebId"].forEach(k=>localStorage.removeItem(k));
+  try{ await db.terminate(); await db.clearPersistence(); }catch(e){}
+  alert("Dieses Gerät wurde aus dem Betrieb entfernt.");
+  location.reload();
+}
+
+function zeigeSyncStatus(zustand){
+  const el=document.getElementById("sync-status");
+  if(!el) return;
+  if(zustand==="laden"){ el.textContent="⏳ lade Daten…"; return; }
+  if(zustand==="warte"){ el.textContent="📴 keine Verbindung – bitte einmal mit Internet öffnen"; return; }
+  if(!cloud.aktiv){ el.textContent=""; return; }
+  const offen = Object.keys(cloud.offen).length>0 || cloud.schreibtGerade;
+  el.textContent = !navigator.onLine
+    ? (offen ? "📴 offline – wird gespeichert, sobald Netz da ist" : "📴 offline")
+    : (offen ? "⏳ speichert…" : "☁️ gespeichert");
+}
+window.addEventListener("online",()=>zeigeSyncStatus());
+window.addEventListener("offline",()=>zeigeSyncStatus());
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") cloudSchreiben(); });
+window.addEventListener("pagehide",()=>cloudSchreiben());
+
+// Der Bereich „Betrieb“ erscheint im Tab Einstellungen unter den bisherigen Einstellungen
+const _showTabOriginal = showTab;
+showTab = function(t){
+  _showTabOriginal(t);
+  document.getElementById("betrieb").classList.toggle("hidden", t!=="settings");
+};
+
+function baueBetriebBereich(){
+  const el=document.getElementById("betrieb");
+  if(!el) return;
+  const alt=localStorage.getItem("datenVorUmbau");
+  el.innerHTML=`
+  <hr>
+  <h3>Betrieb</h3>
+  <div id="betrieb-name">${betriebId ? "" : "–"}</div>
+  <div style="font-size:12px;color:#666;margin-top:6px">Gerätekennung: ${geraeteUid||"–"}</div>
+  ${alt ? `<p><button class="save-btn" onclick="altDatenHerunterladen()">Alte Daten dieses Geräts (vor dem Umbau) als Backup herunterladen</button></p>` : ""}
+  `;
+  if(betriebId){
+    db.collection("betriebe").doc(betriebId).get().then(s=>{
+      const n=document.getElementById("betrieb-name");
+      if(n && s.exists) n.textContent=s.data().name||"";
+    }).catch(()=>{});
+  }
+}
+
+// Sicherheitskopie der Daten, die vor dem Umbau nur auf diesem Gerät lagen
+function altDatenSichern(){
+  if(localStorage.getItem("betriebId") || localStorage.getItem("datenVorUmbau")) return;
+  const hatDaten=["futter","history","lager","lieferungen","gCfg"].some(k=>localStorage.getItem(k));
+  if(!hatDaten) return;
+  localStorage.setItem("datenVorUmbau", JSON.stringify({
+    data, globalCfg, historyData, lagerData, lieferungen, hiddenWarnings, historyCollapsed
+  }, null, 2));
+}
+
+function altDatenHerunterladen(){
+  const blob=new Blob([localStorage.getItem("datenVorUmbau")||"{}"],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="futterrechner-backup-vor-umbau.json";
+  a.click();
+}
+
+// Anonyme Geräte-Anmeldung: jedes Gerät bekommt eine feste Kennung (uid)
+function anmelden(){
+  return new Promise((ok,fehler)=>{
+    const stop=auth.onAuthStateChanged(user=>{
+      stop();
+      if(user) ok(user);
+      else auth.signInAnonymously().then(c=>ok(c.user)).catch(fehler);
+    }, fehler);
+  });
+}
+
+function zeigeApp(){
+  buildCalc();
+  buildSettings();
+  buildCalc2();
+  buildHistory();
+  updateHistoryTabColor();
+  baueBetriebBereich();
+}
+
+async function starten(){
+  zeigeSyncStatus("laden");
+  try{
+    const user=await anmelden();
+    geraeteUid=user.uid;
+  }catch(e){
+    console.log("Anmeldung fehlgeschlagen:", e);
+    zeigeSyncStatus("warte");
+    return;
+  }
+
+  // Zu welchem Betrieb gehört dieses Gerät?
+  let zuordnung=null;
+  try{
+    const z=await db.collection("geraetezuordnung").doc(geraeteUid).get();
+    zuordnung = z.exists ? z.data().betriebId : null;
+  }catch(e){
+    // ohne Netz und nicht im Zwischenspeicher: bisherigen Betrieb weiter benutzen
+    zuordnung = betriebId;
+  }
+
+  if(!zuordnung){
+    betriebId=null;
+    localStorage.removeItem("betriebId");
+    zeigeSyncStatus();
+    zeigeZugangsseite();
+    return;
+  }
+
+  altDatenSichern();
+  betriebId=zuordnung;
+  localStorage.setItem("betriebId",betriebId);
+  try{
+    await cloudAbonnieren();
+  }catch(e){
+    console.log("Laden fehlgeschlagen:", e);
+    return;
+  }
+  cloud.aktiv=true;
+  zeigeSyncStatus();
+  zeigeApp();
+}
+
+// Kein Betrieb zugeordnet → Zugang anfragen
+function zeigeZugangsseite(){
+  showRequestForm();
+  const k=document.getElementById("zugang-kennung");
+  if(k) k.textContent="Gerätekennung: "+geraeteUid;
+}
+
+handleApproval().then(()=>{
+  starten();
 });
   
 </script>
@@ -2872,6 +3305,7 @@ async function handleApproval(){
     </label><br><br>
 
     <button onclick="anfrageSenden()">Anfrage senden</button>
+    <div id="zugang-kennung" style="font-size:11px;color:#888;margin-top:14px"></div>
   </div>
 </div></body>
 </html>

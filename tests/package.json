@@ -4,11 +4,16 @@
   "private": true,
   "description": "Tests für den Futterrechner (Vergleichstest, Security-Rules-Tests)",
   "scripts": {
-    "vergleich": "node vergleich.js",
-    "vergleich:basis": "node vergleich.js --basis"
+    "vergleich": "powershell -NoProfile -File emulator.ps1 \"node tests/vergleich.js\"",
+    "vergleich:basis": "node vergleich.js --basis",
+    "regeln": "powershell -NoProfile -File emulator.ps1 \"node --test --test-reporter=spec tests/regeln.test.js\"",
+    "sync": "powershell -NoProfile -File emulator.ps1 \"node tests/sync.js\"",
+    "test": "npm run regeln && npm run vergleich && npm run sync"
   },
   "type": "commonjs",
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
     "playwright": "^1.63.0"
   }
 }

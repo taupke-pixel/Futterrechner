@@ -139,6 +139,12 @@ async function laufeSzenario(browser, url, sz, modus) {
   ergebnis.backupNachNeuladen = await backupExport(page);
   ergebnis.meldungen = meldungen;
 
+  // Cloud-Fassung: ein zweites Gerät im selben Betrieb muss dasselbe sehen
+  if (zugang.zweitesGeraet) {
+    const zweit = await zugang.zweitesGeraet(browser, page, url, sz, modus, schnappschuss);
+    if (zweit) ergebnis.zweitesGeraet = zweit;
+  }
+
   await context.close();
   return ergebnis;
 }
@@ -217,11 +223,17 @@ async function main() {
       vergleiche(ohneIds(soll.backupVorNeuladen), ohneIds(erg.backupVorNeuladen), `${sz.name}/backup-vor-neuladen`, fehler);
       vergleiche(ohneIds(soll.backupNachNeuladen), ohneIds(erg.backupNachNeuladen), `${sz.name}/backup-nach-neuladen`, fehler);
       vergleiche(soll.meldungen, erg.meldungen, `${sz.name}/meldungen`, fehler);
+      if (erg.zweitesGeraet) {
+        // Taschenrechner-Verlauf bleibt auf dem Gerät – alles andere muss gleich sein
+        const { taschenrechner: _a, schritt: _s, ...ersteGeraet } = soll.schritte[soll.schritte.length - 1];
+        const { taschenrechner: _b, ...zweitesGeraet } = erg.zweitesGeraet;
+        vergleiche(ersteGeraet, zweitesGeraet, `${sz.name}/zweites-geraet`, fehler);
+      }
       if (fehler.length) {
         ok = false;
         console.log(`✘ ${sz.name}: ${fehler.length} Unterschied(e)`);
         fehler.forEach(f => console.log("   " + f));
-      } else console.log(`✔ ${sz.name}: identisch (${erg.schritte.length} Schritte)`);
+      } else console.log(`✔ ${sz.name}: identisch (${erg.schritte.length} Schritte, Modus ${modus}${erg.zweitesGeraet ? ", zweites Gerät gleich" : ""})`);
     }
   } finally {
     await browser.close();
