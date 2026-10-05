@@ -67,6 +67,8 @@ App als APK-Link (`download.html`).
   zusätzlich `cloudSpeichern(art)` auf. `showTab` wird nur umhüllt (Bereich `#betrieb` unter den Einstellungen).
 - History/Lieferungen je **Monat ein Dokument** (Lesekosten im kostenlosen Tarif!). Lager-Bestand per `increment`.
 - Betreiber = Geräte des Betriebs in `system/betreiber` (kein Rollensystem). Einrichten: `werkzeuge/betreiber-einrichten.js`.
+- Verwaltungs-PIN (Wunsch Fritz 05.10.2026): Geräte hinzufügen/andere entfernen nur nach PIN-Eingabe, von jedem Gerät aus.
+  Kein Rollensystem – wer die PIN kennt, darf es. Details UMBAUPLAN.md Phase 3b. Branch `umbau/05-verwaltungs-pin`.
 - Android: `android/` (WebView, Varianten live/probe). Signatur-Schlüssel `android/futterrechner.jks` + `keystore.properties`
   sind **nicht im Repo** (gitignored) – nie löschen. Werkzeuge: JDK Temurin 21, Android SDK in `%LOCALAPPDATA%\Android\Sdk`.
 - Kostenloser Firebase-Tarif: keine APK-Dateien auf Firebase Hosting (Test-APK kommt aus dem GitHub-Branch).

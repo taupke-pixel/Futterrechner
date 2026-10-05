@@ -40,6 +40,20 @@ service cloud.firestore {
         && !existsAfter(/databases/$(database)/documents/einladungen/$(code));
     }
 
+    // Verwaltungs-PIN: Das Gerät hat in den letzten 10 Minuten die richtige Verwaltungs-PIN des Betriebs eingegeben
+    // (betriebe/{id}/freischaltung/{uid}). Nur dann darf es Geräte hinzufügen (Einladung) oder andere Geräte entfernen.
+    function freigeschaltet(betriebId) {
+      return istGeraet(betriebId)
+        && exists(/databases/$(database)/documents/betriebe/$(betriebId)/freischaltung/$(request.auth.uid))
+        && request.time < get(/databases/$(database)/documents/betriebe/$(betriebId)/freischaltung/$(request.auth.uid)).data.zeit
+                          + duration.value(10, 'm');
+    }
+
+    // Prüfwert = SHA-256 (klein geschrieben, hex) des Nachweises, den die App aus der PIN berechnet
+    function pruefwertVon(nachweis) {
+      return hashing.sha256(nachweis).toHexString().lower();
+    }
+
     // Anfrage nach diesem Schreibvorgang (im selben Paket)
     function anfrageDanach(anfrageId) {
       return getAfter(/databases/$(database)/documents/anfragen/$(anfrageId)).data;
@@ -49,7 +63,15 @@ service cloud.firestore {
     match /betriebe/{betriebId} {
       // Betreiber sieht nur Name/Datum der Betriebe (für „zu bestehendem Betrieb hinzufügen“), keine Futterdaten
       allow read: if istGeraet(betriebId) || istBetreiber();
-      allow update: if istGeraet(betriebId) && nurFelder(['name']) && text(request.resource.data.name, 100);
+      allow update: if (istGeraet(betriebId) && nurFelder(['name']) && text(request.resource.data.name, 100))
+                    // Merker „Verwaltungs-PIN ist festgelegt“ (nur zusammen mit dem Prüfwert) …
+                    || (istGeraet(betriebId) && nurFelder(['verwaltungsPinGesetzt'])
+                        && request.resource.data.verwaltungsPinGesetzt == true
+                        && existsAfter(/databases/$(database)/documents/betriebe/$(betriebId)/geheim/verwaltung))
+                    // … und beim Zurücksetzen durch den Betreiber wieder aus
+                    || (istBetreiber() && nurFelder(['verwaltungsPinGesetzt'])
+                        && request.resource.data.verwaltungsPinGesetzt == false
+                        && !existsAfter(/databases/$(database)/documents/betriebe/$(betriebId)/geheim/verwaltung));
       // Neuer Betrieb nur bei Freigabe einer Anfrage durch den Betreiber
       allow create: if istBetreiber()
                     && request.resource.data.keys().hasOnly(['name', 'angelegt', 'anfrageId'])
@@ -74,13 +96,40 @@ service cloud.firestore {
         allow read, write: if istGeraet(betriebId);
       }
 
+      // Verwaltungs-PIN des Betriebs. Gespeichert wird nur ein Prüfwert. Lesen kann ihn niemand.
+      // Festlegen: einmal am Anfang von einem Gerät des Betriebs. Ändern: nur mit der alten PIN (freigeschaltet).
+      // Vergessen: der Betreiber (Fritz) kann sie zurücksetzen, danach legt der Betrieb eine neue fest.
+      match /geheim/{dokId} {
+        allow create: if dokId == 'verwaltung' && istGeraet(betriebId)
+                      && request.resource.data.keys().hasOnly(['pruefwert', 'gesetzt'])
+                      && request.resource.data.pruefwert is string && request.resource.data.pruefwert.size() == 64
+                      && request.resource.data.gesetzt == request.time;
+        allow update: if dokId == 'verwaltung' && freigeschaltet(betriebId)
+                      && request.resource.data.keys().hasOnly(['pruefwert', 'gesetzt'])
+                      && request.resource.data.pruefwert is string && request.resource.data.pruefwert.size() == 64
+                      && request.resource.data.gesetzt == request.time;
+        allow delete: if istBetreiber();
+      }
+
+      // PIN eingeben: gelingt nur, wenn der Nachweis zum gespeicherten Prüfwert passt. Lesen kann es niemand.
+      match /freischaltung/{geraetUid} {
+        allow create, update: if istGeraet(betriebId) && geraetUid == request.auth.uid
+                      && request.resource.data.keys().hasOnly(['nachweis', 'zeit'])
+                      && request.resource.data.zeit == request.time
+                      && request.resource.data.nachweis is string && request.resource.data.nachweis.size() == 64
+                      && exists(/databases/$(database)/documents/betriebe/$(betriebId)/geheim/verwaltung)
+                      && pruefwertVon(request.resource.data.nachweis)
+                         == get(/databases/$(database)/documents/betriebe/$(betriebId)/geheim/verwaltung).data.pruefwert;
+        allow delete: if istGeraet(betriebId) && geraetUid == request.auth.uid;
+      }
+
       // Geräte des Betriebs
       match /geraete/{geraetUid} {
         allow read: if istGeraet(betriebId);
         // Name eines Geräts ändern
         allow update: if istGeraet(betriebId) && nurFelder(['name']) && text(request.resource.data.name, 60);
-        // Jedes Gerät des Betriebs darf Geräte entfernen (auch sich selbst)
-        allow delete: if istGeraet(betriebId);
+        // Entfernen: jedes Gerät des Betriebs, aber nur mit Verwaltungs-PIN. Sich selbst abmelden geht ohne PIN.
+        allow delete: if (istGeraet(betriebId) && geraetUid == request.auth.uid) || freigeschaltet(betriebId);
         // Gerät hinzufügen: (a) Betreiber bei Freigabe einer Anfrage dieses Geräts
         allow create: if istBetreiber()
                       && request.resource.data.keys().hasOnly(['name', 'seit', 'anfrageId'])
@@ -113,8 +162,8 @@ service cloud.firestore {
                     && request.resource.data.betriebId is string
                     && existsAfter(/databases/$(database)/documents/betriebe/$(request.resource.data.betriebId)/geraete/$(geraetUid))
                     && (istBetreiber() || request.auth.uid == geraetUid);
-      // Beim Entfernen eines Geräts wird auch seine Zuordnung gelöscht – von einem Gerät desselben Betriebs oder vom Gerät selbst
-      allow delete: if angemeldet() && (request.auth.uid == geraetUid || istGeraet(resource.data.betriebId));
+      // Beim Entfernen eines Geräts wird auch seine Zuordnung gelöscht – vom Gerät selbst oder mit Verwaltungs-PIN
+      allow delete: if angemeldet() && (request.auth.uid == geraetUid || freigeschaltet(resource.data.betriebId));
     }
 
     // ---------- Zugangsanfragen ----------
@@ -157,8 +206,8 @@ service cloud.firestore {
       // Wer den Code kennt, darf ihn nachschlagen (Betrieb, Ablauf). Auflisten nur für Geräte des Betriebs.
       allow get: if angemeldet();
       allow list: if istGeraet(resource.data.betriebId);
-      // Erzeugen: nur ein Gerät des Betriebs, Zeit = Serverzeit. PIN = 8 Ziffern, QR = langer Zufallscode.
-      allow create: if istGeraet(request.resource.data.betriebId)
+      // Erzeugen: nur ein Gerät des Betriebs mit Verwaltungs-PIN, Zeit = Serverzeit. PIN = 8 Ziffern, QR = langer Zufallscode.
+      allow create: if freigeschaltet(request.resource.data.betriebId)
                     && request.resource.data.keys().hasOnly(['betriebId', 'betriebName', 'von', 'erstellt', 'art'])
                     && request.resource.data.von == request.auth.uid
                     && request.resource.data.erstellt == request.time

@@ -63,6 +63,16 @@ geraetezuordnung/{uid}                     betriebId
 - Geräteliste mit Umbenennen/Entfernen in Einstellungen → Betrieb (Sprung-Knopf „👥 Betrieb & Geräte“ im Kopf).
 - 🧪 `tests/geraete.js` grün (PIN-Beitritt < 1 Minute, abgelaufen/benutzt abgelehnt, Download-Link ohne Zugriff).
 
+## Phase 3b – Verwaltungs-PIN ✅ (Wunsch von Fritz, 05.10.2026, Branch `umbau/05-verwaltungs-pin`)
+- Der Betriebsleiter legt einmal eine Verwaltungs-PIN fest (6–12 Ziffern). Geräte hinzufügen (Einladung erzeugen) und
+  **andere** Geräte entfernen geht von jedem Gerät des Betriebs, aber nur nach Eingabe dieser PIN. Sich selbst abmelden geht ohne.
+- Gespeichert wird nur ein Prüfwert: `betriebe/{id}/geheim/verwaltung.pruefwert = sha256(nachweis)`,
+  `nachweis = sha256("futterrechner:" + betriebId + ":" + PIN)` (in der App berechnet). Niemand kann ihn lesen.
+- PIN eingeben = `betriebe/{id}/freischaltung/{uid}` schreiben; die Rules prüfen den Nachweis gegen den Prüfwert.
+  Gilt 10 Minuten (Serverzeit). Ändern nur mit alter PIN. Merker `verwaltungsPinGesetzt` am Betrieb.
+- PIN vergessen: `node werkzeuge/verwaltungs-pin-zuruecksetzen.js --projekt … --betrieb <ID>` (echtes Projekt nur mit Freigabe).
+- 🧪 34 Rules-Tests, Geräte-Test (falsche PIN abgelehnt, auch direkt über die Datenbank) grün.
+
 ## Phase 4 – Android-App ✅
 - 🧪 `tests\android.ps1` (Android-Emulator + Debug-App gegen Firebase-Emulator) grün: Start, Anmeldung, Speichern in die Cloud,
   Freigabe bleibt nach Neustart, Backup-Dateiauswahl, Einladung per Link öffnet die App.

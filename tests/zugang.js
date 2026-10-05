@@ -108,7 +108,19 @@ async function zweitesGeraet(browser, ersteSeite, url, sz, modus, schnappschuss)
 
 async function aufraeumen(modus) {}
 
+// Verwaltungs-PIN eines Betriebs direkt setzen (wie „PIN festlegen“ in der App)
+async function verwaltungsPinSetzen(betriebId, pin) {
+  const crypto = require("crypto");
+  const sha = s => crypto.createHash("sha256").update(s).digest("hex");
+  await adminSchreiben(`betriebe/${betriebId}/geheim/verwaltung`, { pruefwert: sha(sha("futterrechner:" + betriebId + ":" + pin)) });
+  await fetch(`${FS_URL}/betriebe/${betriebId}?updateMask.fieldPaths=verwaltungsPinGesetzt`, {
+    method: "PATCH", headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { verwaltungsPinGesetzt: { booleanValue: true } } })
+  });
+}
+
 module.exports = {
+  verwaltungsPinSetzen,
   erkenneModus, urlZusatz, vorbereiten, warteAufApp, vorNeuladen, zweitesGeraet, aufraeumen,
   geraetEintragenOeffentlich: geraetEintragen, adminSchreiben
 };

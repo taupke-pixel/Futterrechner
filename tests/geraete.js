@@ -24,6 +24,12 @@ async function neuesGeraet(browser, url = URL_EMU, ua) {
 }
 const uidVon = page => page.evaluate(async () => { while (!geraeteUid) await new Promise(r => setTimeout(r, 50)); return geraeteUid; });
 const appDa = page => zugang.warteAufApp(page, "emulator", true);
+async function pinEingeben(page, pin) {
+  await page.waitForFunction(() => document.getElementById("pinDialog").style.display === "flex", null, { timeout: 15000 });
+  await page.fill("#pinDialog-feld", pin);
+  await page.click("#pinDialog-ok");
+  await new Promise(r => setTimeout(r, 400));
+}
 
 async function main() {
   const server = await starteServer(path.join(__dirname, ".."), PORT);
@@ -42,6 +48,15 @@ async function main() {
     await appDa(A.page);
     await A.page.evaluate(() => showTab("settings"));
     await A.page.waitForFunction(() => document.querySelectorAll("#geraete-liste .history-item").length === 1, null, { timeout: 15000 });
+
+    await pruefe("Betriebsleiter legt die Verwaltungs-PIN fest", async () => {
+      await A.page.waitForSelector("text=Verwaltungs-PIN festlegen", { timeout: 15000 });
+      await A.page.click("#verwaltung-hinweis button");
+      await pinEingeben(A.page, "246810");
+      await pinEingeben(A.page, "246810");
+      await A.page.waitForFunction(() => document.getElementById("verwaltung-hinweis").textContent.includes("PIN ändern"), null, { timeout: 15000 });
+      assert(A.meldungen.some(m => m.includes("Verwaltungs-PIN gespeichert")), A.meldungen.join(" | "));
+    });
 
     let pin;
     const N = await neuesGeraet(browser);
@@ -131,9 +146,35 @@ async function main() {
       await D.context.close();
     });
 
-    await pruefe("Gerät in der Liste entfernen → verliert sofort den Zugriff", async () => {
+    await pruefe("Ohne richtige Verwaltungs-PIN: kein Gerät hinzufügen, kein Gerät entfernen", async () => {
+      // Ausgangslage: keine offene Einladung, keine gültige Freischaltung mehr (auch nicht in der Datenbank)
+      await A.page.evaluate(async () => {
+        einladungBeenden(true);
+        freischaltungBis = 0;
+        await db.collection("betriebe").doc(betriebId).collection("freischaltung").doc(geraeteUid).delete();
+      });
+      await A.page.click("#einladen-knopf");
+      await pinEingeben(A.page, "111111");
+      await new Promise(r => setTimeout(r, 1500));
+      assert(A.meldungen.some(m => m.includes("Falsche Verwaltungs-PIN")), "kein Hinweis auf falsche PIN");
+      assert.strictEqual(await A.page.evaluate(() => aktiveEinladung), null);
+      // Auch direkt über die Datenbank (ohne App) geht es nicht
+      const ergebnis = await A.page.evaluate(async () => {
+        try { await db.collection("einladungen").doc("13572468").set({ betriebId, betriebName: "", von: geraeteUid, erstellt: firebase.firestore.FieldValue.serverTimestamp(), art: "pin" }); return "geschafft"; }
+        catch (e) { return e.code; }
+      });
+      assert.strictEqual(ergebnis, "permission-denied");
       const uidN = await uidVon(N.page);
       await A.page.click(`button[onclick="geraetEntfernen('${uidN}')"]`);
+      await pinEingeben(A.page, "000000");
+      await new Promise(r => setTimeout(r, 1500));
+      assert.strictEqual(await N.page.evaluate(() => !!document.querySelector("#calc .category")), true, "Gerät wurde trotz falscher PIN entfernt");
+    });
+
+    await pruefe("Gerät in der Liste entfernen (mit Verwaltungs-PIN) → verliert sofort den Zugriff", async () => {
+      const uidN = await uidVon(N.page);
+      await A.page.click(`button[onclick="geraetEntfernen('${uidN}')"]`);
+      await pinEingeben(A.page, "246810");
       await N.page.waitForFunction(() => { const b = document.getElementById("accessBlock"); return b && b.style.display === "flex"; }, null, { timeout: 20000 });
       assert(N.meldungen.some(m => m.includes("entfernt")));
       await A.page.waitForFunction(() => !document.getElementById("geraete-liste").textContent.includes("Handy Stall"), null, { timeout: 15000 });

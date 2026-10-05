@@ -33,6 +33,8 @@ beforeEach(async () => {
         await setDoc(doc(db, `geraetezuordnung/${g}`), { betriebId: bid });
       }
     }
+    // Verwaltungs-PIN 123456 für Betrieb A und B
+    for (const bid of ["A", "B"]) await setDoc(doc(db, `betriebe/${bid}/geheim/verwaltung`), { pruefwert: sha(nachweis(bid, "123456")), gesetzt: new Date() });
     // Betreiber = Betrieb F (Fritz), Gerät f1
     await setDoc(doc(db, "system/betreiber"), { betriebId: "F" });
     await setDoc(doc(db, "zugriffe/alt123"), { status: "erlaubt" });
@@ -48,6 +50,13 @@ beforeEach(async () => {
 after(async () => { await env.cleanup(); });
 
 const als = uid => env.authenticatedContext(uid).firestore();
+const crypto = require("crypto");
+const sha = s => crypto.createHash("sha256").update(s).digest("hex");
+// Nachweis wie in der App: sha256("futterrechner:" + Betrieb + ":" + PIN); gespeichert wird sha256(Nachweis)
+const nachweis = (bid, pin) => sha("futterrechner:" + bid + ":" + pin);
+// Gerät gibt die Verwaltungs-PIN ein
+const freischalten = (db, bid, uid, pin = "123456") =>
+  setDoc(doc(db, `betriebe/${bid}/freischaltung/${uid}`), { nachweis: nachweis(bid, pin), zeit: serverTimestamp() });
 const anonym = () => env.unauthenticatedContext().firestore();
 
 // ---------- Phase 1: strikte Trennung der Betriebe ----------
@@ -120,6 +129,7 @@ test("Betrieb: nur Name änderbar, nicht löschbar", async () => {
 
 test("Entferntes Gerät verliert sofort den Zugriff", async () => {
   const a1 = als("a1");
+  await assertSucceeds(freischalten(a1, "A", "a1"));
   const batch = writeBatch(a1);
   batch.delete(doc(a1, "betriebe/A/geraete/a2"));
   batch.delete(doc(a1, "geraetezuordnung/a2"));
@@ -286,6 +296,7 @@ function einloesen(db, uid, code, betriebId, mitLoeschen = true) {
 
 test("Gerät des Betriebs erzeugt PIN- und QR-Einladung, Fremde nicht", async () => {
   const a1 = als("a1");
+  await assertSucceeds(freischalten(a1, "A", "a1"));
   const e = { betriebId: "A", betriebName: "Betrieb A", von: "a1", erstellt: serverTimestamp() };
   await assertSucceeds(setDoc(doc(a1, "einladungen/12345678"), { ...e, art: "pin" }));
   await assertSucceeds(setDoc(doc(a1, "einladungen/abcdefghijkmnopqrstuvwxyzABCDEFGH23456"), { ...e, art: "qr" }));
@@ -348,4 +359,71 @@ test("Einladungen: Liste nur für den eigenen Betrieb, Löschen nicht für Fremd
   await assertFails(getDocs(collection(als("fremd"), "einladungen")));
   await assertFails(deleteDoc(doc(als("fremd"), "einladungen/56565656")));
   await assertSucceeds(deleteDoc(doc(als("a2"), "einladungen/56565656")));
+});
+
+// ---------- Verwaltungs-PIN: Geräte hinzufügen/entfernen nur mit PIN ----------
+test("Ohne Verwaltungs-PIN: keine Einladung, kein Entfernen anderer Geräte", async () => {
+  const a1 = als("a1");
+  await assertFails(setDoc(doc(a1, "einladungen/24242424"), { betriebId: "A", betriebName: "A", von: "a1", erstellt: serverTimestamp(), art: "pin" }));
+  await assertFails(deleteDoc(doc(a1, "betriebe/A/geraete/a2")));
+  await assertFails(deleteDoc(doc(a1, "geraetezuordnung/a2")));
+});
+
+test("Falsche Verwaltungs-PIN wird abgelehnt, richtige freigeschaltet", async () => {
+  const a1 = als("a1");
+  await assertFails(freischalten(a1, "A", "a1", "654321"));
+  await assertFails(freischalten(a1, "A", "a1", "12345"));
+  // PIN von Betrieb A gilt nicht als Nachweis für Betrieb B
+  await assertFails(freischalten(als("b1"), "B", "b1", "000000"));
+  await assertSucceeds(freischalten(a1, "A", "a1"));
+  // Fremde Uhrzeit oder für ein anderes Gerät geht nicht
+  await assertFails(setDoc(doc(a1, "betriebe/A/freischaltung/a1"), { nachweis: nachweis("A", "123456"), zeit: new Date(Date.now() + 3600000) }));
+  await assertFails(setDoc(doc(a1, "betriebe/A/freischaltung/a2"), { nachweis: nachweis("A", "123456"), zeit: serverTimestamp() }));
+  // Fremde Betriebe: auch mit „richtiger“ PIN nicht
+  await assertFails(freischalten(a1, "B", "a1"));
+});
+
+test("Mit Verwaltungs-PIN: Einladung erzeugen und anderes Gerät entfernen", async () => {
+  const a1 = als("a1");
+  await assertSucceeds(freischalten(a1, "A", "a1"));
+  await assertSucceeds(setDoc(doc(a1, "einladungen/24242424"), { betriebId: "A", betriebName: "A", von: "a1", erstellt: serverTimestamp(), art: "pin" }));
+  const b = writeBatch(a1);
+  b.delete(doc(a1, "betriebe/A/geraete/a2"));
+  b.delete(doc(a1, "geraetezuordnung/a2"));
+  await assertSucceeds(b.commit());
+});
+
+test("Freischaltung gilt nur 10 Minuten", async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "betriebe/A/freischaltung/a1"), { nachweis: nachweis("A", "123456"), zeit: new Date(Date.now() - 11 * 60000) });
+  });
+  await assertFails(deleteDoc(doc(als("a1"), "betriebe/A/geraete/a2")));
+});
+
+test("PIN und Nachweis kann niemand lesen", async () => {
+  const a1 = als("a1");
+  await assertSucceeds(freischalten(a1, "A", "a1"));
+  await assertFails(getDoc(doc(a1, "betriebe/A/geheim/verwaltung")));
+  await assertFails(getDoc(doc(a1, "betriebe/A/freischaltung/a1")));
+  await assertFails(getDocs(collection(a1, "betriebe/A/freischaltung")));
+  await assertFails(getDoc(doc(als("f1"), "betriebe/A/geheim/verwaltung")));
+});
+
+test("PIN festlegen: einmal am Anfang; ändern nur mit alter PIN", async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), "betriebe/NEU"), { name: "Neu" });
+    await setDoc(doc(ctx.firestore(), "betriebe/NEU/geraete/n1"), { name: "n1" }); });
+  const n1 = als("n1");
+  await assertSucceeds(setDoc(doc(n1, "betriebe/NEU/geheim/verwaltung"), { pruefwert: sha(nachweis("NEU", "777777")), gesetzt: serverTimestamp() }));
+  // Überschreiben ohne alte PIN geht nicht
+  await assertFails(setDoc(doc(n1, "betriebe/NEU/geheim/verwaltung"), { pruefwert: sha(nachweis("NEU", "000000")), gesetzt: serverTimestamp() }));
+  // Mit alter PIN geht es
+  await assertSucceeds(freischalten(n1, "NEU", "n1", "777777"));
+  await assertSucceeds(setDoc(doc(n1, "betriebe/NEU/geheim/verwaltung"), { pruefwert: sha(nachweis("NEU", "888888")), gesetzt: serverTimestamp() }));
+  // Fremde können keine PIN für einen anderen Betrieb festlegen
+  await assertFails(setDoc(doc(als("b1"), "betriebe/NEU/geheim/verwaltung"), { pruefwert: sha("x"), gesetzt: serverTimestamp() }));
+});
+
+test("PIN vergessen: nur der Betreiber kann sie zurücksetzen", async () => {
+  await assertFails(deleteDoc(doc(als("a1"), "betriebe/A/geheim/verwaltung")));
+  await assertSucceeds(deleteDoc(doc(als("f1"), "betriebe/A/geheim/verwaltung")));
 });

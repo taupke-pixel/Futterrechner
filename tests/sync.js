@@ -102,6 +102,8 @@ async function main() {
     });
 
     await pruefe("Gerät B entfernen → B verliert sofort den Zugriff", async () => {
+      await zugang.verwaltungsPinSetzen(betrieb, "123456");
+      assert.strictEqual(await A.page.evaluate(() => freischaltungSenden("123456")), true, "Freischaltung mit Verwaltungs-PIN fehlgeschlagen");
       await A.page.evaluate(async uid => {
         const b = db.batch();
         b.delete(db.collection("betriebe").doc(betriebId).collection("geraete").doc(uid));

@@ -43,6 +43,12 @@ Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
 - QR-Code auf einem Android-Handy: Knopf „In der App öffnen“ – ist die App nicht da, kommt die Download-Seite.
 - Download-Seite/-Link allein gibt keinen Zugriff.
 
+### Verwaltungs-PIN (dein Wunsch)
+- Der Betriebsleiter legt einmal eine **Verwaltungs-PIN** fest (6–12 Ziffern).
+- Geräte **hinzufügen** und **entfernen** geht von jedem Gerät des Betriebs – aber nur mit dieser PIN.
+  Die Datenbank prüft die PIN, nicht nur das Handy. Sich selbst abmelden geht ohne PIN.
+- PIN vergessen? Mir Bescheid sagen – ich setze sie zurück, dann legt der Betrieb eine neue fest.
+
 ### Phase 4 – Android-App
 - Kleine App (49 KB), die die Webseite lädt → Updates kommen automatisch mit der Webseite.
 - Eigener Speicher: Browserverlauf löschen schadet nicht mehr.

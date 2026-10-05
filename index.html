@@ -3007,6 +3007,8 @@ function geraetStandardName(){
 
 // ---------- Vorhandenes Gerät: Einladung erzeugen ----------
 async function einladungErzeugen(){
+  // Geräte hinzufügen nur mit Verwaltungs-PIN
+  if(!(await verwaltungFreischalten())) return;
   const knopf=document.getElementById("einladen-knopf");
   if(knopf) knopf.disabled=true;
   try{
@@ -3133,6 +3135,8 @@ async function geraetEntfernen(uid){
   if(ich && cloud.anzahlGeraete<=1)
     frage="ACHTUNG: Das ist das letzte Gerät des Betriebs!\nDanach kommt niemand mehr an die Daten, außer der Betreiber fügt über eine neue Anfrage wieder ein Gerät hinzu.\n\nTrotzdem abmelden?";
   if(!confirm(frage)) return;
+  // Andere Geräte entfernen nur mit Verwaltungs-PIN (sich selbst abmelden geht ohne)
+  if(!ich && !(await verwaltungFreischalten())) return;
   try{
     if(ich) await cloudSyncFertig();
     const b=db.batch();
@@ -3144,6 +3148,111 @@ async function geraetEntfernen(uid){
     console.log(e);
     alert("Entfernen fehlgeschlagen (Internet?)");
   }
+}
+
+// ---------- Verwaltungs-PIN des Betriebs ----------
+// Der Betriebsleiter legt sie am Anfang fest. Geräte hinzufügen/entfernen geht von jedem Gerät, aber nur mit dieser PIN.
+// Die App schickt nur einen Nachweis (Prüfsumme), die Datenbank vergleicht ihn – die PIN selbst wird nirgends gespeichert.
+let freischaltungBis = 0;
+
+async function sha256hex(text){
+  const b=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+
+function pinNachweis(pin){
+  return sha256hex("futterrechner:"+betriebId+":"+pin);
+}
+
+// Kleines Eingabefenster mit verdeckter PIN. Liefert die PIN oder null (Abbrechen).
+function pinDialog(titel, text){
+  return new Promise(fertig=>{
+    const d=document.getElementById("pinDialog");
+    document.getElementById("pinDialog-titel").textContent=titel;
+    document.getElementById("pinDialog-text").textContent=text;
+    const feld=document.getElementById("pinDialog-feld");
+    feld.value="";
+    d.style.display="flex";
+    setTimeout(()=>feld.focus(),50);
+    const ende=wert=>{
+      d.style.display="none";
+      document.getElementById("pinDialog-ok").onclick=null;
+      document.getElementById("pinDialog-abbrechen").onclick=null;
+      feld.onkeydown=null;
+      fertig(wert);
+    };
+    document.getElementById("pinDialog-ok").onclick=()=>ende(feld.value.trim());
+    document.getElementById("pinDialog-abbrechen").onclick=()=>ende(null);
+    feld.onkeydown=e=>{ if(e.key==="Enter") ende(feld.value.trim()); };
+  });
+}
+
+async function verwaltungsPinGesetzt(){
+  try{
+    const s=await db.collection("betriebe").doc(betriebId).get({source:"server"});
+    return !!(s.exists && s.data().verwaltungsPinGesetzt);
+  }catch(e){
+    const s=await db.collection("betriebe").doc(betriebId).get().catch(()=>null);
+    return !!(s && s.exists && s.data().verwaltungsPinGesetzt);
+  }
+}
+
+// PIN abfragen und bei der Datenbank freischalten lassen (gilt ca. 10 Minuten)
+async function verwaltungFreischalten(){
+  if(Date.now()<freischaltungBis) return true;
+  if(!(await verwaltungsPinGesetzt())){
+    alert("Für diesen Betrieb ist noch keine Verwaltungs-PIN festgelegt.\nDer Betriebsleiter legt sie jetzt einmalig fest.");
+    return await verwaltungsPinFestlegen(false);
+  }
+  const pin=await pinDialog("Verwaltungs-PIN", "Zum Hinzufügen oder Entfernen von Geräten bitte die Verwaltungs-PIN des Betriebs eingeben.");
+  if(pin===null || pin==="") return false;
+  return await freischaltungSenden(pin);
+}
+
+async function freischaltungSenden(pin){
+  try{
+    await db.collection("betriebe").doc(betriebId).collection("freischaltung").doc(geraeteUid).set({
+      nachweis: await pinNachweis(pin),
+      zeit: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    freischaltungBis=Date.now()+9*60000;
+    return true;
+  }catch(e){
+    console.log("Freischaltung:", e);
+    alert(e && e.code==="permission-denied" ? "Falsche Verwaltungs-PIN." : "Keine Verbindung – bitte mit Internet nochmal versuchen.");
+    return false;
+  }
+}
+
+// PIN festlegen (am Anfang) oder ändern (nur mit der alten PIN)
+async function verwaltungsPinFestlegen(aendern){
+  if(aendern){
+    freischaltungBis=0;
+    if(!(await verwaltungFreischalten())) return false;
+  }
+  const p1=await pinDialog(aendern ? "Neue Verwaltungs-PIN" : "Verwaltungs-PIN festlegen",
+    "Nur der Betriebsleiter sollte sie kennen. 6 bis 12 Ziffern.");
+  if(p1===null) return false;
+  if(!/^[0-9]{6,12}$/.test(p1)){ alert("Bitte 6 bis 12 Ziffern eingeben."); return false; }
+  const p2=await pinDialog("PIN wiederholen", "Bitte dieselbe PIN noch einmal eingeben.");
+  if(p2!==p1){ alert("Die beiden PINs stimmen nicht überein."); return false; }
+  try{
+    const ref=db.collection("betriebe").doc(betriebId);
+    const FV=firebase.firestore.FieldValue;
+    const b=db.batch();
+    b.set(ref.collection("geheim").doc("verwaltung"),{ pruefwert: await sha256hex(await pinNachweis(p1)), gesetzt: FV.serverTimestamp() });
+    b.update(ref,{ verwaltungsPinGesetzt:true });
+    await b.commit();
+  }catch(e){
+    console.log("PIN festlegen:", e);
+    alert(e && e.code==="permission-denied"
+      ? "Für diesen Betrieb gibt es schon eine Verwaltungs-PIN. Bitte die vorhandene PIN benutzen."
+      : "Keine Verbindung – bitte mit Internet nochmal versuchen.");
+    return false;
+  }
+  alert("Verwaltungs-PIN gespeichert. Bitte gut merken – ohne sie kann niemand Geräte hinzufügen oder entfernen.");
+  baueBetriebBereich();
+  return await freischaltungSenden(p1);
 }
 
 // ---------- Neues Gerät: mit PIN oder QR-Code beitreten ----------
@@ -3573,12 +3682,23 @@ function baueBetriebBereich(){
     <button class="save-btn" onclick="altDatenHerunterladen()">Als Backup herunterladen</button>
   </p>` : ""}
   <h3>Geräte</h3>
+  <div id="verwaltung-hinweis"></div>
   <div id="geraete-liste">lade…</div>
   <p><button class="save-btn" id="einladen-knopf" onclick="einladungErzeugen()">+ Gerät hinzufügen (QR-Code / PIN)</button></p>
   <div id="einladung-anzeige"></div>
   `;
   if(aktiveEinladung) zeigeEinladung();
   if(betriebId){
+    verwaltungsPinGesetzt().then(gesetzt=>{
+      const h=document.getElementById("verwaltung-hinweis");
+      if(!h) return;
+      h.innerHTML = gesetzt
+        ? `<p style="font-size:13px;color:#555">🔒 Geräte hinzufügen und entfernen nur mit der Verwaltungs-PIN des Betriebsleiters.
+             <a href="#" onclick="verwaltungsPinFestlegen(true);return false;">PIN ändern</a></p>`
+        : `<p style="background:#fff8e1;padding:10px;border-radius:8px">🔒 <b>Betriebsleiter:</b> Bitte zuerst eine
+             Verwaltungs-PIN festlegen. Nur mit ihr können Geräte hinzugefügt oder entfernt werden.<br><br>
+             <button class="save-btn" onclick="verwaltungsPinFestlegen(false)">Verwaltungs-PIN festlegen</button></p>`;
+    });
     baueGeraeteListe();
     einladungenAufraeumen();
     db.collection("betriebe").doc(betriebId).get().then(s=>{
@@ -3757,7 +3877,20 @@ function zeigeZugangsseite(){
   </div>
 </div>
 
-<div id="einladungBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
+<div id="pinDialog" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:10000;justify-content:center;align-items:center;">
+  <div style="background:#fff;padding:20px;border-radius:12px;width:300px;max-width:90%;text-align:center">
+    <h3 id="pinDialog-titel" style="margin-top:0"></h3>
+    <p id="pinDialog-text" style="font-size:14px"></p>
+    <input id="pinDialog-feld" type="password" inputmode="numeric" autocomplete="off" maxlength="12"
+      style="font-size:24px;letter-spacing:4px;width:100%;padding:8px;box-sizing:border-box;text-align:center">
+    <p>
+      <button id="pinDialog-abbrechen" class="save-btn" style="background:#888">Abbrechen</button>
+      <button id="pinDialog-ok" class="save-btn">OK</button>
+    </p>
+  </div>
+</div>
+
+<div id="einladungBlock"style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
   <div style="background:white;padding:24px;border-radius:10px;width:360px;max-width:94%;text-align:center;">
     <h2>🐄 Futterrechner</h2>
     <div id="einladung-inhalt">Prüfe Einladung…</div>
