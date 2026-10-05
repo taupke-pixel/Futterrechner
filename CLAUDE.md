@@ -7,10 +7,15 @@ Eigentümer: Fritz (Milchviehhalter, kein Programmierer). Sprache im Umgang mit 
 
 - Eine einzige Datei `index.html` (HTML + CSS + JavaScript inline), ausgeliefert über GitHub Pages:
   https://taupke-pixel.github.io/Futterrechner/
-- Bibliotheken per `<script>`-Tag: Firebase JS SDK **8.10.0** (Namespaced-API, `firebase.firestore()`), EmailJS (`emailjs-com@3`).
-- Die Futterdaten (Rationen, History, Lager, Lieferungen, Einstellungen) liegen heute **nur im `localStorage`** des jeweiligen Browsers.
-  Firestore wird bisher nur für die Zugangsfreigabe genutzt (Sammlungen `anfragen` und `zugriffe`).
+- Bibliotheken per `<script>`-Tag: Firebase JS SDK **8.10.0** (app, **auth**, firestore; Namespaced-API), EmailJS (`emailjs-com@3`),
+  qrcode-generator 1.4.4 (cdnjs, QR wird im Gerät erzeugt). Weitere Seiten: `agb.html`, `datenschutz.html`, `download.html`.
+- **Stand Umbau (05.10.2026):** Phasen 0–4 fertig auf Branches `umbau/00…04` (gestapelt, alle auf GitHub). `main` und die echte
+  Datenbank sind **unverändert** – der Livegang (UMBAUPLAN.md, Abschnitt Livegang) wartet auf Fritz' Freigabe.
+  Auf `main` liegen die Futterdaten noch nur im localStorage; ab Branch 01 im Betrieb in Firestore.
 - Echtes Firebase-Projekt: `futterrechner` (**nicht anfassen ohne Freigabe**, siehe unten).
+- Testprojekt: `futterrechner-test-stall` (Default in `.firebaserc`), Test-Webseite https://futterrechner-test-stall.web.app
+  (`firebase deploy --only firestore:rules,hosting --project futterrechner-test-stall`). Anonyme Anmeldung dort muss Fritz einschalten.
+- Fortschritt für Fritz: `FORTSCHRITT.md`. Gefundene Fehler: `FEHLER.md` (nur mit Einzelfreigabe beheben).
 
 ## Feste Regeln (immer einhalten)
 
@@ -45,7 +50,9 @@ Eigentümer: Fritz (Milchviehhalter, kein Programmierer). Sprache im Umgang mit 
 4. **Später:** Android-App als Hülle um die Web-Version (lädt die Seite von GitHub Pages, Updates kommen automatisch), damit der
    Gerätezugang beim Löschen des Browserverlaufs erhalten bleibt.
 
-Der Plan dazu steht in `UMBAUPLAN.md`.
+Der Plan dazu steht in `UMBAUPLAN.md`. Entscheidungen von Fritz (05.10.2026): `firebase-auth.js` 8.10.0 erlaubt; selbständig
+arbeiten, Branches pushen erlaubt, nach Phasen nicht anhalten (Handy-Tests in FORTSCHRITT.md); alles **kostenlos**, kein Play Store –
+App als APK-Link (`download.html`).
 
 ## Technische Leitplanken
 
@@ -56,18 +63,28 @@ Der Plan dazu steht in `UMBAUPLAN.md`.
 - Reine Bedienzustände eines Geräts (`hiddenWarnings`, `historyCollapsed`, Taschenrechner-Verlauf `calcHist`) bleiben lokal.
 - Firestore-Offline-Speicher aktivieren, damit der Rechner im Stall ohne Netz weiter läuft.
 - Security Rules liegen als Datei `firestore.rules` im Repo und werden mit dem Emulator getestet, bevor sie irgendwo aktiv werden.
+- Neuer Code steht in eigenen Abschnitten von index.html: ZUGANG, GERÄTE, CLOUD-SPEICHER. Die Speicherfunktionen rufen nur
+  zusätzlich `cloudSpeichern(art)` auf. `showTab` wird nur umhüllt (Bereich `#betrieb` unter den Einstellungen).
+- History/Lieferungen je **Monat ein Dokument** (Lesekosten im kostenlosen Tarif!). Lager-Bestand per `increment`.
+- Betreiber = Geräte des Betriebs in `system/betreiber` (kein Rollensystem). Einrichten: `werkzeuge/betreiber-einrichten.js`.
+- Android: `android/` (WebView, Varianten live/probe). Signatur-Schlüssel `android/futterrechner.jks` + `keystore.properties`
+  sind **nicht im Repo** (gitignored) – nie löschen. Werkzeuge: JDK Temurin 21, Android SDK in `%LOCALAPPDATA%\Android\Sdk`.
+- Kostenloser Firebase-Tarif: keine APK-Dateien auf Firebase Hosting (Test-APK kommt aus dem GitHub-Branch).
 
 ## Testen
 
-- Vor dem Umbau einen **Vergleichstest** anlegen: Seite mit festen Beispieldaten laden, Ergebnisse (Rechner, Restmischung,
-  History-Summen, Lager/Bestelldatum) speichern. Nach jedem Schritt muss das Ergebnis **identisch** sein.
-- Rules-Tests mit Firebase-Emulator (`firebase emulators:exec`), nie gegen das echte Projekt.
+- Alles läuft im Emulator über `tests\emulator.ps1` (beendet Reste, startet auth+firestore, Projekt `demo-futterrechner`):
+  `cd tests; npm test` oder einzeln `powershell -File tests\emulator.ps1 "node tests/vergleich.js"`.
+  - `vergleich.js` – Vergleichstest gegen Original `d250375` (Erwartung in `tests/erwartet/`, neu: `node vergleich.js --basis`).
+    Muss **identisch** sein, inkl. zweitem Gerät.
+  - `regeln.test.js` (Rules), `sync.js` (2 Geräte, offline, entfernen), `freigabe.js` (Phase 2), `geraete.js` (Phase 3),
+    `bilder.js` (Screenshots nach `tests/.tmp/bilder`).
+- PowerShell 5.1: vor `git`/`node`/`firebase` den PATH neu laden (siehe `tests\emulator.ps1`).
 
-## Bekannte Auffälligkeiten im Ist-Code (nur melden, nicht eigenmächtig ändern)
+## Bekannte Auffälligkeiten im Ist-Code (nur melden, nicht eigenmächtig ändern) – Details und Status in FEHLER.md
 
-- `handleApproval()` ist zweimal definiert; die zweite Fassung gilt.
-- Freigabe-Link `?approve=<id>` kann von jedem aufgerufen werden, der die Anfrage-ID kennt – auch vom Anfragenden selbst.
-- Zugriffsprüfung (`checkAccess`) läuft nur im Browser; die Daten liegen ohnehin lokal.
+- (erledigt ab Branch 02) `handleApproval()` doppelt, Freigabe-Link für jeden nutzbar, `checkAccess` nur im Browser.
+- Echte Firestore-Regeln: `anfragen`/`zugriffe` für jeden les- und schreibbar (F11) – wird mit dem Livegang geschlossen.
 - `saveRestBullenHistory()` zieht AGF/MLF vom Lager ab, ruft aber `saveLagerStorage()` nicht auf; es fehlt auch die
   „heute schon gespeichert“-Sperre, die `saveHistory()` hat.
 - `data.restbullen` wird beim Start immer zurückgesetzt (nicht aus `localStorage` geladen).
