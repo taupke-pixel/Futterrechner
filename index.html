@@ -188,19 +188,23 @@ const firebaseConfig = {
   appId: "1:858916796951:web:dd614896bee4cbba6c7a52",
   measurementId: "G-X3YZD3B9L7"
 };
-// 🧪 Firebase-Testprojekt: wird NUR benutzt, wenn die Seite lokal läuft (localhost).
-// Auf GitHub Pages gilt immer firebaseConfig (echtes Projekt). Mit ?emulator=1 lokal: Firebase-Emulator auf dem PC.
+// 🧪 Firebase-Testprojekt: wird NUR benutzt, wenn die Seite lokal läuft (localhost) oder auf der Test-Webseite
+// https://futterrechner-test-stall.web.app. Auf GitHub Pages gilt immer firebaseConfig (echtes Projekt).
+// Mit ?emulator=1 lokal: Firebase-Emulator auf dem PC.
 const testConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: ""
+  apiKey: "AIzaSyDwstyb3O-EB1uL-WsRv_QDHLpmKhqoB_o",
+  authDomain: "futterrechner-test-stall.firebaseapp.com",
+  projectId: "futterrechner-test-stall",
+  storageBucket: "futterrechner-test-stall.firebasestorage.app",
+  messagingSenderId: "38025092210",
+  appId: "1:38025092210:web:11b9d6f720baa29428f6eb"
 };
 const urlParams = new URLSearchParams(window.location.search);
 const istLokal = ["localhost","127.0.0.1"].includes(location.hostname);
-const mitEmulator = istLokal && (urlParams.get("emulator")==="1" || !testConfig.projectId);
+const istTestSeite = istLokal || ["futterrechner-test-stall.web.app","futterrechner-test-stall.firebaseapp.com"].includes(location.hostname);
+const mitEmulator = istLokal && urlParams.get("emulator")==="1";
 firebase.initializeApp(
-  !istLokal ? firebaseConfig :
+  !istTestSeite ? firebaseConfig :
   mitEmulator ? { apiKey:"demo-key", authDomain:"localhost", projectId:"demo-futterrechner" } :
   testConfig
 );
@@ -3181,13 +3185,18 @@ showTab = function(t){
 function baueBetriebBereich(){
   const el=document.getElementById("betrieb");
   if(!el) return;
-  const alt=localStorage.getItem("datenVorUmbau");
+  const alt=localStorage.getItem("datenVorUmbau") && !localStorage.getItem("datenVorUmbauUebernommen");
   el.innerHTML=`
   <hr>
   <h3>Betrieb</h3>
   <div id="betrieb-name">${betriebId ? "" : "–"}</div>
   <div style="font-size:12px;color:#666;margin-top:6px">Gerätekennung: ${geraeteUid||"–"}</div>
-  ${alt ? `<p><button class="save-btn" onclick="altDatenHerunterladen()">Alte Daten dieses Geräts (vor dem Umbau) als Backup herunterladen</button></p>` : ""}
+  ${alt ? `
+  <p style="background:#fff8e1;padding:10px;border-radius:8px">
+    Auf diesem Gerät liegen noch Daten von vor dem Umbau (nur auf diesem Gerät, nicht im Betrieb).<br><br>
+    <button class="save-btn" onclick="altDatenUebernehmen()">In den Betrieb übernehmen</button>
+    <button class="save-btn" onclick="altDatenHerunterladen()">Als Backup herunterladen</button>
+  </p>` : ""}
   `;
   if(betriebId){
     db.collection("betriebe").doc(betriebId).get().then(s=>{
@@ -3205,6 +3214,15 @@ function altDatenSichern(){
   localStorage.setItem("datenVorUmbau", JSON.stringify({
     data, globalCfg, historyData, lagerData, lieferungen, hiddenWarnings, historyCollapsed
   }, null, 2));
+}
+
+// Übernahme über die vorhandene Backup-Funktion (wie „Backup laden“ mit der gesicherten Datei)
+function altDatenUebernehmen(){
+  if(!confirm("Alle Daten des Betriebs durch die alten Daten dieses Geräts ersetzen?\n\nDas gilt für alle Geräte des Betriebs. Vorher am besten „Backup erstellen“.")) return;
+  const datei=new File([localStorage.getItem("datenVorUmbau")||"{}"],"futterrechner-backup-vor-umbau.json",{type:"application/json"});
+  importBackup({ target:{ files:[datei] } });
+  localStorage.setItem("datenVorUmbauUebernommen", new Date().toISOString());
+  setTimeout(baueBetriebBereich, 500);
 }
 
 function altDatenHerunterladen(){

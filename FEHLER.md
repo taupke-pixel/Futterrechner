@@ -17,6 +17,7 @@ Status: ⏳ offen · ✅ freigegeben und behoben · ❌ bleibt so
 | F8 | Taschenrechner rechnet mit `eval` | ⏳ |
 | F9 | Durchschnitt zählt nur Tage mit Verbrauch | ⏳ (nur Hinweis) |
 | F10 | Bestelldatum: Lieferzeit 0 und „heute“-Zeitpunkt | ⏳ (nur Hinweis) |
+| F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
 
 ---
 
@@ -58,6 +59,16 @@ weil die Daten dann in der Cloud liegen.
 
 ## F7 – Zugriffsprüfung nur im Browser
 **Behebung:** Phase 1 (vom Auftrag verlangt) – die Security Rules in Firestore prüfen jeden Zugriff.
+
+## F11 – Echte Datenbank ist offen (am 05.10.2026 nur gelesen, nichts geändert)
+**Wo:** Firestore-Regeln im echten Projekt `futterrechner` (Stand 28.03.2026):
+`anfragen` und `zugriffe` erlauben jedem `create`, `read`, `update`.
+**Was passiert:** Jeder, der die Seite kennt, kann (mit etwas Technikwissen) **alle 17 Anfragen mit Vor-/Nachname und E-Mail
+lesen** und sich direkt in `zugriffe` selbst freischalten – sogar ohne den Freigabe-Link. Das ist auch ein Datenschutz-Thema (DSGVO).
+**Behebung:** Mit dem Livegang werden die neuen Regeln (`firestore.rules`) veröffentlicht – dann ist beides gesperrt.
+Bis dahin bleibt es offen, weil Änderungen an der echten Datenbank deine Freigabe brauchen.
+**Wenn du nicht bis zum Livegang warten willst:** Ich kann eine Zwischen-Regel vorbereiten, die das Lesen fremder Anfragen
+sperrt, die alte App aber weiter funktionieren lässt. Sag Bescheid.
 
 ## F8 – Taschenrechner rechnet mit `eval`
 **Wo:** `press("=")`

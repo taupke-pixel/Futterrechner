@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "futterrechner-test-stall",
+    "test": "futterrechner-test-stall"
+  }
+}
