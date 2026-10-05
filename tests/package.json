@@ -8,7 +8,8 @@
     "vergleich:basis": "node vergleich.js --basis",
     "regeln": "powershell -NoProfile -File emulator.ps1 \"node --test --test-reporter=spec tests/regeln.test.js\"",
     "sync": "powershell -NoProfile -File emulator.ps1 \"node tests/sync.js\"",
-    "test": "npm run regeln && npm run vergleich && npm run sync"
+    "freigabe": "powershell -NoProfile -File emulator.ps1 \"node tests/freigabe.js\"",
+    "test": "npm run regeln && npm run vergleich && npm run sync && npm run freigabe"
   },
   "type": "commonjs",
   "devDependencies": {

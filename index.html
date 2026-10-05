@@ -220,34 +220,10 @@ db.enablePersistence({synchronizeTabs:true})
 const approveID = urlParams.get("approve");
 const denyID = urlParams.get("deny");
 
-async function handleApproval(){
-  if(approveID){
-    await db.collection("anfragen").doc(approveID).update({
-      status: "erlaubt"
-    });
-
-    // Zugriff speichern
-    const req = await db.collection("anfragen").doc(approveID).get();
-    const deviceID = req.data().deviceID;
-
-    await db.collection("zugriffe").doc(deviceID).set({
-      status: "erlaubt"
-    });
-
-    alert("Zugriff erlaubt!");
-  }
-
-  if(denyID){
-    await db.collection("anfragen").doc(denyID).update({
-      status: "abgelehnt"
-    });
-
-    alert("Zugriff abgelehnt!");
-  }
-}
 emailjs.init("d0IUYI7pT5TJM46BC");
 
-// Geräte-ID
+// Alte Geräte-ID (vor dem Umbau). Kein Sicherheitsmerkmal mehr – wird nur in der Anfrage mitgeschickt,
+// damit Fritz sieht, ob das Gerät früher schon freigegeben war.
 const deviceID = localStorage.getItem("deviceID") || Math.random().toString(36).substr(2, 9);
 localStorage.setItem("deviceID", deviceID);
 
@@ -2773,105 +2749,224 @@ function buildCalc2(){
   renderHist();
 }
 
-// 🔐 Zugriff Funktionen
+// 🔐 ZUGANG: Anfrage neuer Betriebsleiter, Freigabe nur durch den Betreiber (Fritz)
+// Wer Betreiber ist, steht fest in der Datenbank (system/betreiber → Betrieb von Fritz). Alle Geräte dieses Betriebs
+// dürfen Anfragen freigeben oder ablehnen. Abgesichert durch die Security Rules – nicht nur hier im Browser.
+
+// Fassungen von AGB und Datenschutzerklärung. Bei einer neuen Fassung HIER und in agb.html / datenschutz.html ändern.
+const AGB_FASSUNG = "AGB-Platzhalter-2026-10";
+const DATENSCHUTZ_FASSUNG = "Datenschutz-Platzhalter-2026-10";
+
+function esc(s){
+  return String(s===undefined||s===null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
 
 function showRequestForm(){
   document.getElementById("accessBlock").style.display="flex";
 }
 
+// Ansicht auf der Zugangsseite: "formular" | "warten" | "abgelehnt"
+function zugangAnsicht(ansicht){
+  document.getElementById("zugang-formular").style.display = ansicht==="warten" ? "none" : "block";
+  document.getElementById("zugang-warten").style.display = ansicht==="warten" ? "block" : "none";
+  document.getElementById("zugang-abgelehnt").style.display = ansicht==="abgelehnt" ? "block" : "none";
+}
+
 async function anfrageSenden(){
-  let vorname = document.getElementById("vorname").value.trim();
-  let nachname = document.getElementById("nachname").value.trim();
-  let email = document.getElementById("email").value.trim();
-  let zustimmung = document.getElementById("zustimmung").checked;
+  const wert=id=>document.getElementById(id).value.trim();
+  const vorname=wert("vorname"), nachname=wert("nachname"), betriebsname=wert("betriebsname"), email=wert("email");
 
-  console.log("DEBUG:", vorname, nachname, email);
-
-  if(vorname === "" || nachname === "" || email === ""){
+  if(vorname==="" || nachname==="" || betriebsname==="" || email===""){
     alert("Bitte alles ausfüllen");
     return;
   }
-
-  if(!zustimmung){
-    alert("Bitte Zustimmung bestätigen");
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+    alert("Bitte eine gültige E-Mail-Adresse eingeben");
+    return;
+  }
+  if(!document.getElementById("zustimmung-agb").checked){
+    alert("Bitte die AGB akzeptieren");
+    return;
+  }
+  if(!document.getElementById("zustimmung-datenschutz").checked){
+    alert("Bitte bestätigen, dass du die Datenschutzerklärung gelesen hast");
     return;
   }
 
-  // 🔥 speichern
-  const docRef = await db.collection("anfragen").add({
-    vorname, nachname, email,
-    status:"offen",
-    deviceID
-  });
-
-  // 🔗 Links erstellen (JETZT RICHTIG!)
-let approveLink = "https://taupke-pixel.github.io/Futterrechner/?approve=" + docRef.id;
-let denyLink = "https://taupke-pixel.github.io/Futterrechner/?deny=" + docRef.id;
-
-  // 📧 Mail senden
-  emailjs.send("service_6z9n3x9", "template_e598pub", {
-    name: vorname+" "+nachname,
-    email: email,
-    approve_link: approveLink,
-    deny_link: denyLink
-  });
-
-  alert("Anfrage gesendet");
-}
-
-async function checkAccess(){
-  console.log("checkAccess startet");
-
+  const knopf=document.getElementById("anfrage-knopf");
+  knopf.disabled=true;
   try{
-    const doc = await db.collection("zugriffe").doc(deviceID).get();
+    // Gespeichert wird auch, WER (Gerät) WANN (Serverzeit) WELCHE Fassung bestätigt hat
+    const ref=await db.collection("anfragen").add({
+      vorname, nachname, betriebsname, email,
+      uid: geraeteUid,
+      alteGeraeteId: deviceID,
+      agbFassung: AGB_FASSUNG,
+      datenschutzFassung: DATENSCHUTZ_FASSUNG,
+      zeitpunkt: firebase.firestore.FieldValue.serverTimestamp(),
+      status: "offen"
+    });
 
-    if(!doc.exists || doc.data().status !== "erlaubt"){
-      console.log("kein Zugriff → Formular");
-      showRequestForm();
-      return false;
-    }
+    // Links zeigen auf dieselbe Seite (echte Seite → echte Links, Test-Seite → Test-Links)
+    const basis=location.origin+location.pathname;
+    const zusatz=mitEmulator ? "&emulator=1" : "";
+    try{
+      await emailjs.send("service_6z9n3x9","template_e598pub",{
+        name: vorname+" "+nachname,
+        email: email,
+        betrieb: betriebsname,
+        agb_fassung: AGB_FASSUNG,
+        datenschutz_fassung: DATENSCHUTZ_FASSUNG,
+        approve_link: basis+"?approve="+ref.id+zusatz,
+        deny_link: basis+"?deny="+ref.id+zusatz
+      });
+    }catch(e){ console.log("E-Mail konnte nicht gesendet werden:", e); }
 
-    console.log("Zugriff erlaubt");
-    return true;
-
-  } catch(e){
-    console.log("FEHLER:", e);
-    showRequestForm();
-    return false;
+    zugangAnsicht("warten");
+    beobachteEigeneAnfrage();
+  }catch(e){
+    console.log("Anfrage fehlgeschlagen:", e);
+    alert("Die Anfrage konnte nicht gesendet werden. Bitte mit Internet nochmal versuchen.");
+    knopf.disabled=false;
   }
 }
 
-/* START */
-async function handleApproval(){
-  console.log("APPROVE ID:", approveID);
+// Eigene Anfrage beobachten: sobald Fritz freigibt, startet die App von selbst
+let anfrageAbo=null;
+function beobachteEigeneAnfrage(){
+  if(anfrageAbo) return;
+  anfrageAbo=db.collection("anfragen").where("uid","==",geraeteUid).onSnapshot(q=>{
+    const zeit=a=>a.zeitpunkt && a.zeitpunkt.toMillis ? a.zeitpunkt.toMillis() : Date.now();
+    const neueste=q.docs.map(d=>d.data()).sort((a,b)=>zeit(b)-zeit(a))[0];
+    if(!neueste){ zugangAnsicht("formular"); return; }
+    if(neueste.status==="erlaubt"){
+      anfrageAbo(); anfrageAbo=null;
+      location.reload();
+      return;
+    }
+    zugangAnsicht(neueste.status==="offen" ? "warten" : "abgelehnt");
+  }, e=>console.log("Anfrage-Status:", e));
+}
 
-  if(approveID){
-    console.log("Freigabe erkannt");
+// ---------- Freigabe-Seite (Link aus der E-Mail an Fritz) ----------
+async function zeigeFreigabe(){
+  const id=approveID||denyID;
+  const block=document.getElementById("freigabeBlock");
+  const inhalt=document.getElementById("freigabe-inhalt");
+  block.style.display="flex";
+  const zurApp=`<p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
 
-    await db.collection("anfragen").doc(approveID).update({
-      status: "erlaubt"
-    });
+  let a;
+  try{
+    const s=await db.collection("anfragen").doc(id).get({source:"server"});
+    if(!s.exists){ inhalt.innerHTML="<p>Diese Anfrage gibt es nicht.</p>"+zurApp; return; }
+    a=s.data();
+  }catch(e){
+    inhalt.innerHTML=`<p><b>Keine Berechtigung.</b></p>
+      <p>Anfragen freigeben oder ablehnen kann nur der Betreiber – auf seinem eigenen, freigeschalteten Gerät
+      (und mit Internet).</p>`+zurApp;
+    return;
+  }
 
-    const req = await db.collection("anfragen").doc(approveID).get();
-    const devID = req.data().deviceID;
+  if(a.uid===geraeteUid){
+    inhalt.innerHTML=`<p><b>Keine Berechtigung.</b></p>
+      <p>Das ist deine eigene Anfrage. Freigeben kann nur der Betreiber. Status: <b>${esc(a.status)}</b></p>`+zurApp;
+    return;
+  }
 
-    await db.collection("zugriffe").doc(devID).set({
-      status: "erlaubt"
-    });
+  if(!a.uid){
+    inhalt.innerHTML=`<p>Das ist eine alte Anfrage (vor dem Umbau). Bitte ${esc(a.vorname)} ${esc(a.nachname)} bitten,
+      in der App neu anzufragen.</p>`+zurApp;
+    return;
+  }
 
-    alert("Zugriff erlaubt!");
+  let warVorher="nein";
+  if(a.alteGeraeteId){
+    try{
+      const z=await db.collection("zugriffe").doc(a.alteGeraeteId).get();
+      if(z.exists && z.data().status==="erlaubt") warVorher="ja (altes System)";
+    }catch(e){}
+  }
+  const wann=a.zeitpunkt && a.zeitpunkt.toDate ? a.zeitpunkt.toDate().toLocaleString("de-DE") : "-";
 
-    window.location.href = "https://taupke-pixel.github.io/Futterrechner/";
+  let html=`
+    <table style="font-size:16px">
+      <tr><td>Name</td><td>${esc(a.vorname)} ${esc(a.nachname)}</td></tr>
+      <tr><td>Betrieb</td><td>${esc(a.betriebsname)}</td></tr>
+      <tr><td>E-Mail</td><td>${esc(a.email)}</td></tr>
+      <tr><td>Angefragt</td><td>${esc(wann)}</td></tr>
+      <tr><td>AGB</td><td>${esc(a.agbFassung)}</td></tr>
+      <tr><td>Datenschutz</td><td>${esc(a.datenschutzFassung)}</td></tr>
+      <tr><td>Früher schon Zugang</td><td>${warVorher}</td></tr>
+      <tr><td>Status</td><td><b>${esc(a.status)}</b></td></tr>
+    </table>`;
+
+  if(a.status!=="offen"){
+    inhalt.innerHTML=html+`<p>Diese Anfrage wurde bereits entschieden.</p>`+zurApp;
+    return;
   }
 
   if(denyID){
-    await db.collection("anfragen").doc(denyID).update({
-      status: "abgelehnt"
+    html+=`<p><button class="save-btn" style="background:#c40000" onclick="anfrageAblehnen()">Ablehnen</button></p>`;
+  } else {
+    html+=`
+      <p><button class="save-btn" onclick="anfrageFreigeben(null)">Freigeben – neuer Betrieb „${esc(a.betriebsname)}“</button></p>
+      <details style="margin:10px 0">
+        <summary>Stattdessen zu einem bestehenden Betrieb hinzufügen (z. B. neues Handy)</summary>
+        <select id="freigabe-betrieb" style="width:100%;margin:8px 0;padding:8px"><option value="">lade…</option></select>
+        <button class="save-btn" onclick="anfrageFreigeben(document.getElementById('freigabe-betrieb').value)">Zu diesem Betrieb hinzufügen</button>
+      </details>
+      <p><button class="save-btn" style="background:#c40000" onclick="anfrageAblehnen()">Ablehnen</button></p>`;
+  }
+  inhalt.innerHTML=html+zurApp;
+
+  if(!denyID){
+    db.collection("betriebe").get().then(q=>{
+      const sel=document.getElementById("freigabe-betrieb");
+      if(!sel) return;
+      sel.innerHTML=`<option value="">– Betrieb wählen –</option>`+q.docs
+        .map(d=>({id:d.id,name:d.data().name||d.id}))
+        .sort((x,y)=>x.name.localeCompare(y.name))
+        .map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("");
+    }).catch(e=>console.log(e));
+  }
+}
+
+async function anfrageFreigeben(zielBetrieb){
+  if(zielBetrieb===""){ alert("Bitte einen Betrieb wählen"); return; }
+  const inhalt=document.getElementById("freigabe-inhalt");
+  try{
+    const s=await db.collection("anfragen").doc(approveID).get({source:"server"});
+    const a=s.data();
+    const FV=firebase.firestore.FieldValue;
+    const betriebRef = zielBetrieb ? db.collection("betriebe").doc(zielBetrieb) : db.collection("betriebe").doc();
+    const b=db.batch();
+    if(!zielBetrieb)
+      b.set(betriebRef,{ name:a.betriebsname, angelegt:FV.serverTimestamp(), anfrageId:approveID });
+    b.set(betriebRef.collection("geraete").doc(a.uid),{ name:"Gerät von "+a.vorname, seit:FV.serverTimestamp(), anfrageId:approveID });
+    b.set(db.collection("geraetezuordnung").doc(a.uid),{ betriebId:betriebRef.id });
+    b.update(db.collection("anfragen").doc(approveID),{ status:"erlaubt", betriebId:betriebRef.id, entschieden:FV.serverTimestamp() });
+    await b.commit();
+    inhalt.innerHTML=`<p>✅ <b>Freigegeben.</b> ${esc(a.vorname)} ${esc(a.nachname)} kann die App jetzt benutzen
+      (die App auf dem Gerät startet von selbst).</p><p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
+  }catch(e){
+    console.log("Freigabe fehlgeschlagen:", e);
+    alert("Freigabe fehlgeschlagen. Ist das Gerät schon in einem Betrieb, oder fehlt das Internet?");
+  }
+}
+
+async function anfrageAblehnen(){
+  if(!confirm("Anfrage wirklich ablehnen?")) return;
+  const id=approveID||denyID;
+  try{
+    await db.collection("anfragen").doc(id).update({
+      status:"abgelehnt", entschieden:firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    alert("Zugriff abgelehnt!");
-
-    window.location.href = "https://taupke-pixel.github.io/Futterrechner/";
+    document.getElementById("freigabe-inhalt").innerHTML=`<p>Anfrage abgelehnt.</p>
+      <p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
+  }catch(e){
+    console.log(e);
+    alert("Ablehnen fehlgeschlagen (Internet? Berechtigung?)");
   }
 }
 
@@ -3289,6 +3384,11 @@ async function starten(){
     await cloudAbonnieren();
   }catch(e){
     console.log("Laden fehlgeschlagen:", e);
+    if(e && e.code==="permission-denied"){
+      // Zuordnung zeigt auf einen Betrieb, in dem das Gerät nicht (mehr) steht → Zuordnung löschen, neu anfragen
+      try{ await db.collection("geraetezuordnung").doc(geraeteUid).delete(); }catch(x){}
+      geraetEntfernt();
+    }
     return;
   }
   cloud.aktiv=true;
@@ -3296,34 +3396,67 @@ async function starten(){
   zeigeApp();
 }
 
-// Kein Betrieb zugeordnet → Zugang anfragen
+// Kein Betrieb zugeordnet → Zugang anfragen (oder warten, falls schon angefragt)
 function zeigeZugangsseite(){
+  document.getElementById("agb-fassung").textContent=AGB_FASSUNG;
+  document.getElementById("datenschutz-fassung").textContent=DATENSCHUTZ_FASSUNG;
   showRequestForm();
+  zugangAnsicht("formular");
   const k=document.getElementById("zugang-kennung");
   if(k) k.textContent="Gerätekennung: "+geraeteUid;
+  beobachteEigeneAnfrage();
 }
 
-handleApproval().then(()=>{
+// Start: Freigabe-Link (?approve= / ?deny=) oder normale App
+(async()=>{
+  if(approveID || denyID){
+    try{ geraeteUid=(await anmelden()).uid; }catch(e){}
+    zeigeFreigabe();
+    return;
+  }
   starten();
-});
-  
+})();
+
 </script>
 
-<div id="accessBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:center;">
-  <div style="background:white;padding:30px;border-radius:10px;width:300px;text-align:center;">
-    <h2>Zugriff anfragen</h2>
+<div id="accessBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
+  <div style="background:white;padding:24px;border-radius:10px;width:320px;max-width:92%;text-align:center;">
+    <h2>Zugang anfragen</h2>
 
-    <input id="vorname" placeholder="Vorname"><br>
-    <input id="nachname" placeholder="Nachname"><br>
-    <input id="email" placeholder="E-Mail"><br>
+    <div id="zugang-formular">
+      <input id="vorname" placeholder="Vorname" autocomplete="given-name" style="width:100%;padding:8px;margin:4px 0;box-sizing:border-box"><br>
+      <input id="nachname" placeholder="Nachname" autocomplete="family-name" style="width:100%;padding:8px;margin:4px 0;box-sizing:border-box"><br>
+      <input id="betriebsname" placeholder="Name des Betriebs" autocomplete="organization" style="width:100%;padding:8px;margin:4px 0;box-sizing:border-box"><br>
+      <input id="email" placeholder="E-Mail" type="email" autocomplete="email" style="width:100%;padding:8px;margin:4px 0;box-sizing:border-box"><br>
 
-    <label style="font-size:12px;">
-      <input type="checkbox" id="zustimmung">
-      Zustimmung zur Datenspeicherung
-    </label><br><br>
+      <label style="font-size:13px;display:block;text-align:left;margin:10px 0">
+        <input type="checkbox" id="zustimmung-agb">
+        Ich akzeptiere die <a href="agb.html" target="_blank">AGB</a>
+        (Fassung <span id="agb-fassung"></span>).
+      </label>
+      <label style="font-size:13px;display:block;text-align:left;margin:10px 0">
+        <input type="checkbox" id="zustimmung-datenschutz">
+        Ich habe die <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a>
+        (Fassung <span id="datenschutz-fassung"></span>) gelesen.
+      </label>
 
-    <button onclick="anfrageSenden()">Anfrage senden</button>
+      <button id="anfrage-knopf" class="save-btn" onclick="anfrageSenden()">Anfrage senden</button>
+      <div id="zugang-abgelehnt" style="display:none;color:#c40000;margin-top:12px">Deine letzte Anfrage wurde abgelehnt.</div>
+    </div>
+
+    <div id="zugang-warten" style="display:none">
+      <p>✅ Anfrage gesendet.</p>
+      <p>Sobald sie freigegeben ist, startet die App hier von selbst. Du kannst die Seite auch schließen und später wieder öffnen.</p>
+    </div>
+
     <div id="zugang-kennung" style="font-size:11px;color:#888;margin-top:14px"></div>
+  </div>
+</div>
+
+<div id="freigabeBlock" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;justify-content:center;align-items:flex-start;overflow:auto;">
+  <div style="background:white;padding:24px;border-radius:10px;width:420px;max-width:94%;">
+    <h2>Zugangsanfrage</h2>
+    <div id="freigabe-inhalt">Lade Anfrage…</div>
   </div>
 </div></body>
 </html>

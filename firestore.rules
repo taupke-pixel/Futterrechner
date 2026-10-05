@@ -3,6 +3,8 @@ rules_version = '2';
 // Security Rules Futterrechner „Stall Ultra“
 // Grundsatz: Daten eines Betriebs darf nur ein Gerät lesen/schreiben, das in betriebe/{betriebId}/geraete/{uid} steht.
 // Geräte-Identität = anonyme Firebase-Anmeldung (request.auth.uid). Alles, was hier nicht erlaubt ist, ist verboten.
+// Betreiber (Fritz): alle Geräte des Betriebs, der in system/betreiber eingetragen ist (fester Eintrag, kein Rollensystem).
+// Der Betreiber darf Anfragen freigeben/ablehnen und dabei Betriebe + erstes Gerät anlegen – aber keine Futterdaten lesen.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -10,12 +12,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function pfad(p) {
-      return /databases/$(database)/documents/$(p);
-    }
-
     function istGeraet(betriebId) {
       return angemeldet() && exists(/databases/$(database)/documents/betriebe/$(betriebId)/geraete/$(request.auth.uid));
+    }
+
+    function istBetreiber() {
+      return angemeldet()
+        && exists(/databases/$(database)/documents/system/betreiber)
+        && istGeraet(get(/databases/$(database)/documents/system/betreiber).data.betriebId);
     }
 
     // Nur diese Felder ändern sich (alle anderen bleiben gleich)
@@ -23,16 +27,32 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(felder);
     }
 
+    function text(feld, max) {
+      return feld is string && feld.size() > 0 && feld.size() <= max;
+    }
+
+    // Anfrage nach diesem Schreibvorgang (im selben Paket)
+    function anfrageDanach(anfrageId) {
+      return getAfter(/databases/$(database)/documents/anfragen/$(anfrageId)).data;
+    }
+
     // ---------- Betrieb ----------
     match /betriebe/{betriebId} {
-      allow read: if istGeraet(betriebId);
-      allow update: if istGeraet(betriebId) && nurFelder(['name'])
-                    && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+      // Betreiber sieht nur Name/Datum der Betriebe (für „zu bestehendem Betrieb hinzufügen“), keine Futterdaten
+      allow read: if istGeraet(betriebId) || istBetreiber();
+      allow update: if istGeraet(betriebId) && nurFelder(['name']) && text(request.resource.data.name, 100);
+      // Neuer Betrieb nur bei Freigabe einer Anfrage durch den Betreiber
+      allow create: if istBetreiber()
+                    && request.resource.data.keys().hasOnly(['name', 'angelegt', 'anfrageId'])
+                    && text(request.resource.data.name, 100)
+                    && request.resource.data.angelegt == request.time
+                    && anfrageDanach(request.resource.data.anfrageId).status == 'erlaubt'
+                    && anfrageDanach(request.resource.data.anfrageId).betriebId == betriebId;
 
       // Futterdaten: futter (Rationen), einstellungen, lager
-      match /daten/{dok} {
+      match /daten/{dokId} {
         allow read: if istGeraet(betriebId);
-        allow write: if istGeraet(betriebId) && dok in ['futter', 'einstellungen', 'lager'];
+        allow write: if istGeraet(betriebId) && dokId in ['futter', 'einstellungen', 'lager'];
       }
 
       // Tageslog: je Eintrag ein Dokument
@@ -49,10 +69,19 @@ service cloud.firestore {
       match /geraete/{geraetUid} {
         allow read: if istGeraet(betriebId);
         // Name eines Geräts ändern
-        allow update: if istGeraet(betriebId) && nurFelder(['name'])
-                      && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+        allow update: if istGeraet(betriebId) && nurFelder(['name']) && text(request.resource.data.name, 60);
         // Jedes Gerät des Betriebs darf Geräte entfernen (auch sich selbst)
         allow delete: if istGeraet(betriebId);
+        // Gerät hinzufügen: (a) Betreiber bei Freigabe einer Anfrage dieses Geräts
+        allow create: if istBetreiber()
+                      && request.resource.data.keys().hasOnly(['name', 'seit', 'anfrageId'])
+                      && text(request.resource.data.name, 60)
+                      && request.resource.data.seit == request.time
+                      && anfrageDanach(request.resource.data.anfrageId).status == 'erlaubt'
+                      && anfrageDanach(request.resource.data.anfrageId).uid == geraetUid
+                      && anfrageDanach(request.resource.data.anfrageId).betriebId == betriebId
+                      && !exists(/databases/$(database)/documents/geraetezuordnung/$(geraetUid))
+                      && getAfter(/databases/$(database)/documents/geraetezuordnung/$(geraetUid)).data.betriebId == betriebId;
       }
     }
 
@@ -60,10 +89,58 @@ service cloud.firestore {
     // Damit ein Gerät beim Start seinen Betrieb findet. Lesen nur das eigene.
     match /geraetezuordnung/{geraetUid} {
       allow get: if angemeldet() && request.auth.uid == geraetUid;
+      // Anlegen nur zusammen mit dem Geräte-Eintrag im Betrieb (dessen Regeln prüfen Freigabe bzw. Einladung)
+      allow create: if angemeldet()
+                    && request.resource.data.keys().hasOnly(['betriebId'])
+                    && request.resource.data.betriebId is string
+                    && existsAfter(/databases/$(database)/documents/betriebe/$(request.resource.data.betriebId)/geraete/$(geraetUid))
+                    && (istBetreiber() || request.auth.uid == geraetUid);
       // Beim Entfernen eines Geräts wird auch seine Zuordnung gelöscht – von einem Gerät desselben Betriebs oder vom Gerät selbst
       allow delete: if angemeldet() && (request.auth.uid == geraetUid || istGeraet(resource.data.betriebId));
     }
 
+    // ---------- Zugangsanfragen ----------
+    match /anfragen/{anfrageId} {
+      // Anfrage stellen: nur für das eigene Gerät, Zeitpunkt = Serverzeit, bestätigte Fassungen von AGB/Datenschutz Pflicht
+      allow create: if angemeldet()
+                    && request.resource.data.keys().hasOnly(['vorname', 'nachname', 'betriebsname', 'email', 'uid',
+                         'alteGeraeteId', 'agbFassung', 'datenschutzFassung', 'zeitpunkt', 'status'])
+                    && request.resource.data.keys().hasAll(['vorname', 'nachname', 'betriebsname', 'email', 'uid',
+                         'agbFassung', 'datenschutzFassung', 'zeitpunkt', 'status'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'offen'
+                    && request.resource.data.zeitpunkt == request.time
+                    && text(request.resource.data.vorname, 100)
+                    && text(request.resource.data.nachname, 100)
+                    && text(request.resource.data.betriebsname, 100)
+                    && text(request.resource.data.email, 200)
+                    && text(request.resource.data.agbFassung, 100)
+                    && text(request.resource.data.datenschutzFassung, 100)
+                    && (!('alteGeraeteId' in request.resource.data) || request.resource.data.alteGeraeteId is string)
+                    && !exists(/databases/$(database)/documents/geraetezuordnung/$(request.auth.uid));
+      // Lesen: eigene Anfragen (Status sehen) und der Betreiber
+      allow read: if angemeldet() && (resource.data.uid == request.auth.uid || istBetreiber());
+      // Entscheiden: nur der Betreiber, nur offene Anfragen, nur Status/Betrieb/Zeitpunkt.
+      // Der Anfragende selbst kann seine Anfrage nie ändern oder löschen (Nachweis der Zustimmung bleibt).
+      allow update: if istBetreiber()
+                    && resource.data.status == 'offen'
+                    && nurFelder(['status', 'betriebId', 'entschieden'])
+                    && request.resource.data.entschieden == request.time
+                    && (
+                      (request.resource.data.status == 'abgelehnt' && !('betriebId' in request.resource.data))
+                      || (request.resource.data.status == 'erlaubt'
+                          && request.resource.data.betriebId is string
+                          && existsAfter(/databases/$(database)/documents/betriebe/$(request.resource.data.betriebId)/geraete/$(resource.data.uid)))
+                    );
+    }
+
+    // ---------- Altes Zugangssystem (vor dem Umbau) ----------
+    // Nur noch lesbar für den Betreiber („hatte früher schon Zugang“). Niemand kann sich hier mehr selbst freischalten.
+    match /zugriffe/{alteId} {
+      allow get: if istBetreiber();
+    }
+
+    // system/betreiber wird nur von Hand (Firebase-Webseite) gepflegt – kein Zugriff aus der App.
     // Alles andere: gesperrt
   }
 }

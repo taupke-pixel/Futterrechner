@@ -19,7 +19,7 @@ function urlZusatz(modus) {
 async function vorbereiten(context, page, modus) {
   // E-Mails werden im Test nie verschickt
   await context.route(/emailjs-com/, route =>
-    route.fulfill({ contentType: "text/javascript", body: "window.emailjs={init(){},send(){return Promise.resolve({})}};" }));
+    route.fulfill({ contentType: "text/javascript", body: "window.__mails=[];window.emailjs={init(){},send(s,t,p){window.__mails.push(p);return Promise.resolve({})}};" }));
   if (modus === "attrappe") {
     const attrappe = fs.readFileSync(path.join(__dirname, "firebase-attrappe.js"), "utf8");
     await context.route(/gstatic\.com\/firebasejs\/.*\.js/, route =>
