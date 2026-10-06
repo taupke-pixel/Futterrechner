@@ -49,7 +49,7 @@ ol li{margin-bottom:8px}
   const paket = istTest ? "de.stallultra.futterrechner.test" : "de.stallultra.futterrechner";
   // Test-App: kommt aus dem GitHub-Branch (der kostenlose Firebase-Tarif erlaubt keine APK-Dateien)
   document.querySelector("a[download]").href = istTest
-    ? "https://raw.githubusercontent.com/taupke-pixel/Futterrechner/umbau/04-android-app/app/futterrechner-test.apk"
+    ? "https://raw.githubusercontent.com/taupke-pixel/Futterrechner/fix/fehler-behebung/app/futterrechner-test.apk"
     : "app/futterrechner.apk";
   const code = new URLSearchParams(location.search).get("einladung");
   if (code && /^[A-Za-z0-9]{8,64}$/.test(code)) {
