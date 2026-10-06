@@ -20,6 +20,11 @@ async function vorbereiten(context, page, modus) {
   // E-Mails werden im Test nie verschickt
   await context.route(/emailjs-com/, route =>
     route.fulfill({ contentType: "text/javascript", body: "window.__mails=[];window.emailjs={init(){},send(s,t,p){window.__mails.push(p);return Promise.resolve({})}};" }));
+  // Hinweisleiste des Firebase-Emulators ausblenden (gibt es nur im lokalen Test, verdeckt sonst Knöpfe)
+  if (modus === "emulator") await context.addInitScript(() => {
+    const s = () => { const st = document.createElement("style"); st.textContent = ".firebase-emulator-warning{display:none!important}"; document.head.appendChild(st); };
+    if (document.head) s(); else document.addEventListener("DOMContentLoaded", s);
+  });
   if (modus === "attrappe") {
     const attrappe = fs.readFileSync(path.join(__dirname, "firebase-attrappe.js"), "utf8");
     await context.route(/gstatic\.com\/firebasejs\/.*\.js/, route =>

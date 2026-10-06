@@ -87,6 +87,10 @@ App als APK-Link (`download.html`).
   `cd tests; npm test` oder einzeln `powershell -File tests\emulator.ps1 "node tests/vergleich.js"`.
   - `vergleich.js` – Vergleichstest gegen Original `d250375` (Erwartung in `tests/erwartet/`, neu: `node vergleich.js --basis`).
     Muss **identisch** sein, inkl. zweitem Gerät.
+  - `uebernahme.js` – alte Fassung → neue unter derselben Adresse, Datenübernahme 1:1, zweites altes Handy warnt.
+  - `funktionen.js` – 22 Handgriffe (Lieferung löschen, Warnstufen, Sortieren, kilo, Umbenennen, Bundesland …) gleichzeitig
+    in alter und neuer Fassung, Anzeige muss gleich sein. `handy.js` (Bildschirmbreite), `fehler.js` (F1–F10).
+  - Achtung Ports: 5060 ist in Chrome gesperrt (ERR_UNSAFE_PORT).
   - `regeln.test.js` (Rules), `sync.js` (2 Geräte, offline, entfernen), `freigabe.js` (Phase 2), `geraete.js` (Phase 3),
     `bilder.js` (Screenshots nach `tests/.tmp/bilder`).
   - App: `powershell -File tests\android.ps1` (startet Android-Emulator, testet `app-probe-debug.apk` per Fernsteuerung).

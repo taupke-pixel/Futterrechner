@@ -70,6 +70,16 @@ Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
 - Unter „👥 Betrieb & Geräte“ → **„App weitergeben“**: Download-Link der App teilen (gibt allein keinen Zugriff).
 - Android-App Version 1.1 (Teilen über das Android-Teilen-Menü).
 
+### Alte Daten der Nutzer + alle Funktionen geprüft (06.10.2026)
+- **Übernahme-Test:** Alte Seite mit Daten (Ration, Lager, neue MLF-Lieferung, History) → neue Seite unter derselben
+  Adresse → „In den Betrieb übernehmen“ → alles **1:1 gleich**, auch nach Neuladen und auf einem zweiten Gerät.
+- **Schutz:** Hat ein Betrieb zwei alte Handys, warnt das zweite deutlich, bevor es Daten ersetzt. Der Hinweis zeigt,
+  wie viele Einträge und welcher Stand auf dem Gerät liegen, damit man das richtige Handy nimmt.
+- **Alle Handgriffe** (22 Stück, u. a. Lieferung löschen, Warnstufen, Umsortieren, kilo-Modus, Umbenennen, Bundesland,
+  Warnung ausblenden) laufen gleichzeitig in alter und neuer Fassung – Anzeige jedes Mal **identisch**.
+- **Wichtig beim Livegang:** Alte Daten im **bisherigen Browser** übernehmen (nicht in der neuen App) und **nur auf
+  einem Gerät pro Betrieb** – dem mit den neuesten Daten.
+
 ### Phase 4 – Android-App
 - Kleine App (49 KB), die die Webseite lädt → Updates kommen automatisch mit der Webseite.
 - Eigener Speicher: Browserverlauf löschen schadet nicht mehr.

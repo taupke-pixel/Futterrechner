@@ -100,6 +100,10 @@ geraetezuordnung/{uid}                     betriebId
 5. 🧑‍🌾 Fritz öffnet die Seite **im selben Browser wie bisher**, stellt eine Anfrage.
    🔒 `node werkzeuge/betreiber-einrichten.js --projekt futterrechner --echt-freigegeben --anfrage <ID>`
 6. 🧑‍🌾 Einstellungen → Betrieb → „In den Betrieb übernehmen“ (alte Daten des Browsers). Prüfen: History-Summen, Lager.
+   **Regeln für die Übernahme (für alle Nutzer):** im **bisherigen Browser** (nicht in der neuen App – die hat eigenen
+   Speicher), **nur auf EINEM Gerät pro Betrieb** – dem mit den neuesten Daten (der Hinweis zeigt Anzahl Einträge, neuestes
+   Datum, Lager). Weitere alte Geräte des Betriebs: Übernahme NICHT drücken (sie warnen), nur „Als Backup herunterladen“.
+   Vorher Browserdaten NICHT löschen. 🧪 `tests/uebernahme.js` prüft genau diesen Weg (alt → neu, Daten 1:1).
 7. 🧑‍🌾 App installieren (download.html) und per QR/PIN hinzufügen.
 8. Die übrigen Nutzer: neu anfragen → Fritz gibt frei → im **bisherigen Browser** „In den Betrieb übernehmen“.
 9. Optional 🔒: Repository `taupke-pixel.github.io` mit assetlinks.json (QR öffnet App ohne Zwischentipp);
@@ -107,6 +111,5 @@ geraetezuordnung/{uid}                     betriebId
 10. Alte Sammlungen `anfragen` (alte Einträge) und `zugriffe` bleiben liegen (nur Betreiber lesbar), später ggf. löschen 🔒.
 
 ## Offene Punkte
-- Texte AGB/Datenschutz (Fritz), danach Fassungs-Kennungen anpassen.
-- Fehler aus FEHLER.md einzeln freigeben.
+- AGB/Datenschutz rechtlich prüfen lassen.
 - Kosten: kostenloser Tarif reicht für ca. 15 Betriebe deutlich (Lesen ~40 Dokumente pro App-Start).

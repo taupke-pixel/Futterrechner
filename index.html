@@ -3809,10 +3809,14 @@ function baueBetriebBereich(){
   <div style="font-size:12px;color:#666;margin-top:6px">Gerätekennung: ${geraeteUid||"–"}</div>
   ${alt ? `
   <p style="background:#fff8e1;padding:10px;border-radius:8px">
-    Auf diesem Gerät liegen noch Daten von vor dem Umbau (nur auf diesem Gerät, nicht im Betrieb).<br><br>
+    Auf diesem Gerät liegen noch Daten von vor dem Umbau (nur auf diesem Gerät, nicht im Betrieb):<br>
+    <span style="font-size:13px">${esc(altDatenZusammenfassung())}</span><br><br>
     <button class="save-btn" onclick="altDatenUebernehmen()">In den Betrieb übernehmen</button>
     <button class="save-btn" onclick="altDatenHerunterladen()">Als Backup herunterladen</button>
   </p>` : ""}
+  ${localStorage.getItem("betriebVorUebernahme") ? `
+  <p style="font-size:13px">Stand des Betriebs vor der Übernahme:
+    <a href="#" onclick="altDatenHerunterladen('betriebVorUebernahme');return false;">als Backup herunterladen</a></p>` : ""}
   <h3>Geräte</h3>
   <div id="verwaltung-hinweis"></div>
   <div id="geraete-liste">lade…</div>
@@ -3862,6 +3866,16 @@ function altDatenSichern(){
 
 // Übernahme über die vorhandene Backup-Funktion (wie „Backup laden“ mit der gesicherten Datei)
 function altDatenUebernehmen(){
+  // Hat der Betrieb schon Daten (z. B. von einem anderen Gerät übernommen), deutlich warnen – sonst würden sie ersetzt
+  const betriebHatDaten = cloud.stand.history.size>0 || cloud.stand.lieferungen.size>0 || !!cloud.stand.lager;
+  if(betriebHatDaten && !confirm(
+    "ACHTUNG: Im Betrieb sind schon Daten (z. B. von einem anderen Gerät übernommen oder neu eingegeben).\n\n"+
+    "Wenn du jetzt übernimmst, werden ALLE Daten des Betriebs durch die alten Daten DIESES Geräts ersetzt.\n"+
+    "Normalerweise übernimmt man nur auf EINEM Gerät – dem mit den neuesten Daten.\n\nTrotzdem ersetzen?")) return;
+  // Stand des Betriebs vorher sichern (falls doch das falsche Gerät gewählt wurde)
+  localStorage.setItem("betriebVorUebernahme", JSON.stringify({
+    data, globalCfg, historyData, lagerData, lieferungen, hiddenWarnings, historyCollapsed
+  }, null, 2));
   // Rückfrage kommt aus importBackup() (F4)
   const datei=new File([localStorage.getItem("datenVorUmbau")||"{}"],"futterrechner-backup-vor-umbau.json",{type:"application/json"});
   if(!importBackup({ target:{ files:[datei] } })) return;
@@ -3869,11 +3883,26 @@ function altDatenUebernehmen(){
   setTimeout(baueBetriebBereich, 500);
 }
 
-function altDatenHerunterladen(){
-  const blob=new Blob([localStorage.getItem("datenVorUmbau")||"{}"],{type:"application/json"});
+// Kurzbeschreibung der alten Daten, damit man das Gerät mit den neuesten Daten erkennt
+function altDatenZusammenfassung(){
+  try{
+    const b=JSON.parse(localStorage.getItem("datenVorUmbau")||"{}");
+    const h=b.historyData||[];
+    const l=b.lagerData||{};
+    const neueste=h.map(e=>(e.datum||"").split(".").reverse().join("-")).sort().pop();
+    const g=b.globalCfg||{};
+    return `${h.length} Tageseinträge` + (neueste ? `, neuester vom ${neueste.split("-").reverse().join(".")}` : "") +
+      `, Lager ${g.agfName||"AGF"} ${((l.agf||{}).bestand||0).toFixed(1)} kg / ${g.mlfName||"MLF"} ${((l.mlf||{}).bestand||0).toFixed(1)} kg` +
+      `, ${(b.lieferungen||[]).length} Lieferungen`;
+  }catch(e){ return ""; }
+}
+
+function altDatenHerunterladen(schluessel){
+  const k = schluessel || "datenVorUmbau";
+  const blob=new Blob([localStorage.getItem(k)||"{}"],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="futterrechner-backup-vor-umbau.json";
+  a.download = k==="datenVorUmbau" ? "futterrechner-backup-vor-umbau.json" : "futterrechner-backup-vor-uebernahme.json";
   a.click();
 }
 

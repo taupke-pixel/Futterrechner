@@ -10,8 +10,11 @@
     "sync": "powershell -NoProfile -File emulator.ps1 \"node tests/sync.js\"",
     "freigabe": "powershell -NoProfile -File emulator.ps1 \"node tests/freigabe.js\"",
     "geraete": "powershell -NoProfile -File emulator.ps1 \"node tests/geraete.js\"",
+    "handy": "powershell -NoProfile -File emulator.ps1 \"node tests/handy.js\"",
+    "uebernahme": "powershell -NoProfile -File emulator.ps1 \"node tests/uebernahme.js\"",
+    "funktionen": "powershell -NoProfile -File emulator.ps1 \"node tests/funktionen.js\"",
     "fehler": "powershell -NoProfile -File emulator.ps1 \"node tests/fehler.js\"",
-    "test": "npm run regeln && npm run vergleich && npm run sync && npm run freigabe && npm run geraete && npm run fehler"
+    "test": "npm run regeln && npm run vergleich && npm run sync && npm run freigabe && npm run geraete && npm run fehler && npm run handy && npm run uebernahme && npm run funktionen"
   },
   "type": "commonjs",
   "devDependencies": {
