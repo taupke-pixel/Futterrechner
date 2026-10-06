@@ -1209,14 +1209,14 @@
   },
   {
    "schritt": "nach-neuladen",
-   "rechner": "⚠ MLF reicht nur noch ca. 1.1 Tage Ausblenden Milchkühe▲ Tiere: FutterkgSummeZeit Maissilage1600.01600.0-AGF200.01800.06 min 40 sMLF120.01920.04 min 0 s Gesamt: 1920.0 kg kilo Gespeichert Färsen▼ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Mastbullen▲ Tiere: FutterkgSummeZeit Maissilage240.0240.0-AGF30.0270.01 min 0 s Gesamt: 270.0 kg kilo Speichern Rest Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 0.0 0.0 - 0.0 AGF 0.0 0.0 0 min 0 s 0.0 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+   "rechner": "⚠ MLF reicht nur noch ca. 1.1 Tage Ausblenden Milchkühe▲ Tiere: FutterkgSummeZeit Maissilage1600.01600.0-AGF200.01800.06 min 40 sMLF120.01920.04 min 0 s Gesamt: 1920.0 kg kilo Gespeichert Färsen▼ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Mastbullen▲ Tiere: FutterkgSummeZeit Maissilage240.0240.0-AGF30.0270.01 min 0 s Gesamt: 270.0 kg kilo Speichern Rest Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 500.0 896.0 - 996.0 AGF 62.5 112.0 1 min 39 s 1045.5 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
    "rechnerFelder": [
     "80",
     "0",
     "15",
-    "0",
-    "0",
-    "0",
+    "600",
+    "1000",
+    "56",
     "5",
     "20"
    ],
@@ -1596,7 +1596,7 @@
   },
   "historyData": [
    {
-    "id": "1811173200000zpb84",
+    "id": "1811173200000s0n33",
     "datum": "24.05.2027",
     "kategorie": "restbullen",
     "tiere": 56,
@@ -1615,7 +1615,7 @@
     ]
    },
    {
-    "id": "1811173200000le5zm",
+    "id": "1811173200000skwmz",
     "datum": "24.05.2027",
     "kategorie": "kuehe",
     "tiere": 80,
@@ -2022,7 +2022,7 @@
   },
   "lieferungen": [
    {
-    "id": "1811173200000c64qk",
+    "id": "1811173200000b87vm",
     "produkt": "agf",
     "datum": "24.05.2027",
     "menge": 3000
@@ -2156,9 +2156,9 @@
     "collapsed": true
    },
    "restbullen": {
-    "rest": 0,
-    "ziel": 0,
-    "anz": 0,
+    "rest": 600,
+    "ziel": 1000,
+    "anz": 56,
     "collapsed": false
    },
    "bullen": {
@@ -2315,7 +2315,7 @@
   },
   "historyData": [
    {
-    "id": "1811173200000zpb84",
+    "id": "1811173200000s0n33",
     "datum": "24.05.2027",
     "kategorie": "restbullen",
     "tiere": 56,
@@ -2334,7 +2334,7 @@
     ]
    },
    {
-    "id": "1811173200000le5zm",
+    "id": "1811173200000skwmz",
     "datum": "24.05.2027",
     "kategorie": "kuehe",
     "tiere": 80,
@@ -2727,21 +2727,21 @@
   ],
   "lagerData": {
    "agf": {
-    "bestand": 3800.5,
     "orange": 7,
     "rot": 4,
-    "lieferzeit": 3
+    "lieferzeit": 3,
+    "bestand": 3800.5
    },
    "mlf": {
-    "bestand": 130,
     "orange": 5,
     "rot": 2,
-    "lieferzeit": 0
+    "lieferzeit": 0,
+    "bestand": 130
    }
   },
   "lieferungen": [
    {
-    "id": "1811173200000c64qk",
+    "id": "1811173200000b87vm",
     "produkt": "agf",
     "datum": "24.05.2027",
     "menge": 3000
@@ -2779,5 +2779,138 @@
  },
  "meldungen": [
   "Backup geladen"
- ]
+ ],
+ "zweitesGeraet": {
+  "rechner": "⚠ MLF reicht nur noch ca. 1.1 Tage Ausblenden Milchkühe▲ Tiere: FutterkgSummeZeit Maissilage1600.01600.0-AGF200.01800.06 min 40 sMLF120.01920.04 min 0 s Gesamt: 1920.0 kg kilo Gespeichert Färsen▼ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Mastbullen▲ Tiere: FutterkgSummeZeit Maissilage240.0240.0-AGF30.0270.01 min 0 s Gesamt: 270.0 kg kilo Speichern Rest Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 500.0 896.0 - 996.0 AGF 62.5 112.0 1 min 39 s 1045.5 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit – Gesamt: 0.0 kg kilo Speichern",
+  "rechnerFelder": [
+   "80",
+   "0",
+   "15",
+   "600",
+   "1000",
+   "56",
+   "5",
+   "20"
+  ],
+  "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Rest Bullen✎ Milchkühe✎ Färsen✎ Mastbullen✎ Trockensteher✎ Kälber✎",
+  "einstellungenFelder": [
+   "Bayern",
+   "AGF",
+   "0.5",
+   "MLF",
+   "0.5",
+   "Maissilage",
+   "20",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "AGF",
+   "2.5",
+   "MLF",
+   "1.5",
+   "Maissilage",
+   "0",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "AGF",
+   "0",
+   "MLF",
+   "0",
+   "Maissilage",
+   "16",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "AGF",
+   "2",
+   "MLF",
+   "0",
+   "Maissilage",
+   "0",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "AGF",
+   "0",
+   "MLF",
+   "0",
+   "Maissilage",
+   "0",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "AGF",
+   "0",
+   "MLF",
+   "0"
+  ],
+  "history": "▼ Tageslog ▼ Milchkühe ▼ 2027 Jahressumme Gesamt: 32748.7 kg Maissilage 27200.0 kg AGF 3502.3 kg MLF 2046.4 kg ▼ 05.2027 Monatssumme Gesamt: 32748.7 kg Maissilage 27200.0 kg AGF 3502.3 kg MLF 2046.4 kg ▼ 22.05 - 28.05 Wochensumme Gesamt: 5770.7 kg Maissilage 4800.0 kg AGF 609.9 kg MLF 360.8 kg 24.05.2027 Tiere: 80 Gesamt: 1920.0 kg Maissilage 1600.0 kg AGF 200.0 kg MLF 120.0 kg 23.05.2027 Tiere: 80 Gesamt: 1923.7 kg Maissilage 1600.0 kg AGF 203.3 kg MLF 120.4 kg 22.05.2027 Tiere: 80 Gesamt: 1927.0 kg Maissilage 1600.0 kg AGF 206.6 kg MLF 120.4 kg ▼ 15.05 - 21.05 Wochensumme Gesamt: 13498.9 kg Maissilage 11200.0 kg AGF 1456.1 kg MLF 842.8 kg 21.05.2027 Tiere: 80 Gesamt: 1930.3 kg Maissilage 1600.0 kg AGF 209.9 kg MLF 120.4 kg 20.05.2027 Tiere: 80 Gesamt: 1933.6 kg Maissilage 1600.0 kg AGF 213.2 kg MLF 120.4 kg 19.05.2027 Tiere: 80 Gesamt: 1920.4 kg Maissilage 1600.0 kg AGF 200.0 kg MLF 120.4 kg 18.05.2027 Tiere: 80 Gesamt: 1923.7 kg Maissilage 1600.0 kg AGF 203.3 kg MLF 120.4 kg 17.05.2027 Tiere: 80 Gesamt: 1927.0 kg Maissilage 1600.0 kg AGF 206.6 kg MLF 120.4 kg 16.05.2027 Tiere: 80 Gesamt: 1930.3 kg Maissilage 1600.0 kg AGF 209.9 kg MLF 120.4 kg 15.05.2027 Tiere: 80 Gesamt: 1933.6 kg Maissilage 1600.0 kg AGF 213.2 kg MLF 120.4 kg ▼ 08.05 - 14.05 Wochensumme Gesamt: 13479.1 kg Maissilage 11200.0 kg AGF 1436.3 kg MLF 842.8 kg 14.05.2027 Tiere: 80 Gesamt: 1920.4 kg Maissilage 1600.0 kg AGF 200.0 kg MLF 120.4 kg 13.05.2027 Tiere: 80 Gesamt: 1923.7 kg Maissilage 1600.0 kg AGF 203.3 kg MLF 120.4 kg 12.05.2027 Tiere: 80 Gesamt: 1927.0 kg Maissilage 1600.0 kg AGF 206.6 kg MLF 120.4 kg 11.05.2027 Tiere: 80 Gesamt: 1930.3 kg Maissilage 1600.0 kg AGF 209.9 kg MLF 120.4 kg 10.05.2027 Tiere: 80 Gesamt: 1933.6 kg Maissilage 1600.0 kg AGF 213.2 kg MLF 120.4 kg 09.05.2027 Tiere: 80 Gesamt: 1920.4 kg Maissilage 1600.0 kg AGF 200.0 kg MLF 120.4 kg 08.05.2027 Tiere: 80 Gesamt: 1923.7 kg Maissilage 1600.0 kg AGF 203.3 kg MLF 120.4 kg ▼ Mastbullen ▼ Färsen ▼ Kälber ▼ Trockensteher ▼ Rest Bullen ▼ 2027 Jahressumme Gesamt: 445.5 kg Maissilage 396.0 kg AGF 49.5 kg ▼ 05.2027 Monatssumme Gesamt: 445.5 kg Maissilage 396.0 kg AGF 49.5 kg ▼ 22.05 - 28.05 Wochensumme Gesamt: 445.5 kg Maissilage 396.0 kg AGF 49.5 kg 24.05.2027 Tiere: 56 Gesamt: 445.5 kg Maissilage 396.0 kg AGF 49.5 kg ▶ 24.05.2027 Rest Bullen Maissilage 396.0 kg AGF 49.5 kg Tiere: 56 Gesamt: 445.5 kg Löschen Milchkühe Maissilage 1600.0 kg AGF 200.0 kg MLF 120.0 kg Tiere: 80 Gesamt: 1920.0 kg Löschen Lagerbestand AGF Bestand: 3800.5 kg Ø Verbrauch: 209.7 kg/Tag Reicht noch ca. 18.1 Tage Bestellen bis: Dienstag, 08.06.2027 MLF Bestand: 130.0 kg Ø Verbrauch: 120.4 kg/Tag Reicht noch ca. 1.1 Tage Bestellen bis: Dienstag, 25.05.2027 Lieferungen AGF MLF Lieferung speichern AGF Datum: 24.05.2027 Menge: 3000.0 kg Löschen Warnstufen AGF Orange AGF Rot MLF Orange MLF Rot Backup erstellen Backup laden",
+  "historyFelder": [
+   "agf",
+   "",
+   "",
+   "7",
+   "4",
+   "5",
+   "2"
+  ],
+  "historyTab": "tab tab-red",
+  "taschenrechner": "0 789/456*123-C0.⌫=+"
+ }
 }

@@ -294,7 +294,8 @@ let data={
 
   faersen: saved.faersen||buildCat(30),
 
-  restbullen:{rest:0,ziel:0,anz:0,collapsed:false},
+  // F3: Restmischung-Eingaben werden jetzt mitgeladen
+  restbullen: saved.restbullen||{rest:0,ziel:0,anz:0,collapsed:false},
 
   bullen: saved.bullen||buildCat(10),
   trocken: saved.trocken||buildCat(5),
@@ -869,7 +870,7 @@ rows += `
       <input type="number"
       value="${rest}"
       oninput="data.restbullen.rest=num(this.value);"
-      onblur="buildCalc()">
+      onblur="save();buildCalc()">
 
       <br><br>
 
@@ -891,7 +892,7 @@ proBulle > 0
 ? Math.round(data.restbullen.ziel / proBulle)
 : 0;
 "
-      onblur="buildCalc()">
+      onblur="save();buildCalc()">
 
 <br><br>
 
@@ -908,6 +909,7 @@ data.bullen.items.forEach(i=>{
 
 data.restbullen.ziel = data.restbullen.anz * proBulle;
 
+save();
 buildCalc();
 ">
 
@@ -3517,7 +3519,7 @@ function futterAusCloud(saved){
   return {
     kuehe: saved.kuehe||buildCat(100),
     faersen: saved.faersen||buildCat(30),
-    restbullen: data.restbullen,   // Restmischung wird wie bisher nicht geladen
+    restbullen: saved.restbullen||{rest:0,ziel:0,anz:0,collapsed:false},   // F3: Restmischung wird mitgeladen
     bullen: saved.bullen||buildCat(10),
     trocken: saved.trocken||buildCat(5),
     kaelber: saved.kaelber||buildCat(20)

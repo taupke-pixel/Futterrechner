@@ -2,6 +2,8 @@
 //
 //   node vergleich.js --basis      Erwartete Ergebnisse aus der Original-Fassung (main, Commit d250375) erzeugen
 //   node vergleich.js              Aktuelle index.html prüfen (muss Zeichen für Zeichen gleich sein)
+//   node vergleich.js --festschreiben   Erwartung aus der aktuellen index.html übernehmen – NUR nach einer von Fritz
+//                                       freigegebenen Fehlerbehebung, nachdem der Unterschied geprüft wurde (FEHLER.md)
 //
 // Ablauf je Szenario: Seite mit fester Uhrzeit laden → Beispieldaten über „Backup laden“ einspielen →
 // Rechner, Restmischung, Speichern, Lieferung, Löschen, Taschenrechner bedienen → nach jedem Schritt alles
@@ -191,6 +193,7 @@ function vergleiche(a, b, pfad, fehler) {
 
 async function main() {
   const basis = process.argv.includes("--basis");
+  const festschreiben = process.argv.includes("--festschreiben");
   let wurzel = path.join(__dirname, "..");
   if (basis) {
     wurzel = path.join(__dirname, ".tmp", "basis");
@@ -211,7 +214,7 @@ async function main() {
       const url = `http://localhost:${PORT}/` + zugang.urlZusatz(modus);
       const erg = await laufeSzenario(browser, url, sz, modus);
       const datei = path.join(ERWARTET, sz.name + ".json");
-      if (basis) {
+      if (basis || festschreiben) {
         fs.mkdirSync(ERWARTET, { recursive: true });
         fs.writeFileSync(datei, JSON.stringify(erg, null, 1));
         console.log(`✔ ${sz.name}: Basis gespeichert (${erg.schritte.length} Schritte)`);
@@ -240,7 +243,7 @@ async function main() {
     server.close();
     await zugang.aufraeumen(modus);
   }
-  if (!basis) console.log(ok ? "\nVERGLEICHSTEST GRÜN – alle Ergebnisse identisch." : "\nVERGLEICHSTEST ROT – Ergebnisse weichen ab!");
+  if (!basis && !festschreiben) console.log(ok ? "\nVERGLEICHSTEST GRÜN – alle Ergebnisse identisch." : "\nVERGLEICHSTEST ROT – Ergebnisse weichen ab!");
   process.exit(ok ? 0 : 1);
 }
 

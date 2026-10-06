@@ -1209,14 +1209,14 @@
   },
   {
    "schritt": "nach-neuladen",
-   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 0.0 0.0 - 0.0 Grassilage 0.0 0.0 - 0.0 Stroh 0.0 0.0 - 0.0 Mineral 0.0 0.0 - 0.0 Kraftfutter AGF 0.0 0.0 0 min 0 s 0.0 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 456.4 162.0 - 555.6 Grassilage 228.2 0.0 - 327.4 Stroh 34.2 7.2 - 300.4 Mineral 5.7 0.0 - 294.7 Kraftfutter AGF 79.9 22.9 1 min 21 s 237.8 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
    "rechnerFelder": [
     "120",
     "31",
     "12",
-    "0",
-    "0",
-    "0",
+    "850",
+    "202.95000000000002",
+    "9",
     "6",
     "22"
    ],
@@ -1596,7 +1596,7 @@
   },
   "historyData": [
    {
-    "id": "17975817000001hkvs",
+    "id": "1797581700000ygf1p",
     "datum": "18.12.2026",
     "kategorie": "restbullen",
     "tiere": 9,
@@ -1606,7 +1606,7 @@
     "futter": []
    },
    {
-    "id": "1797581700000a8f9k",
+    "id": "1797581700000mccsr",
     "datum": "18.12.2026",
     "kategorie": "kuehe",
     "tiere": 120,
@@ -2679,21 +2679,21 @@
   ],
   "lagerData": {
    "agf": {
-    "bestand": 3960.5,
     "orange": 12,
     "rot": 6,
-    "lieferzeit": 3
+    "lieferzeit": 3,
+    "bestand": 3960.5
    },
    "mlf": {
-    "bestand": 1370.75,
     "orange": 5,
     "rot": 2,
-    "lieferzeit": 2
+    "lieferzeit": 2,
+    "bestand": 1370.75
    }
   },
   "lieferungen": [
    {
-    "id": "1797581700000wcp5x",
+    "id": "1797581700000n8msz",
     "produkt": "mlf",
     "datum": "18.12.2026",
     "menge": 1200
@@ -2867,9 +2867,9 @@
     "collapsed": false
    },
    "restbullen": {
-    "rest": 0,
-    "ziel": 0,
-    "anz": 0,
+    "rest": 850,
+    "ziel": 202.95000000000002,
+    "anz": 9,
     "collapsed": false
    },
    "bullen": {
@@ -3026,7 +3026,7 @@
   },
   "historyData": [
    {
-    "id": "17975817000001hkvs",
+    "id": "1797581700000ygf1p",
     "datum": "18.12.2026",
     "kategorie": "restbullen",
     "tiere": 9,
@@ -3036,7 +3036,7 @@
     "futter": []
    },
    {
-    "id": "1797581700000a8f9k",
+    "id": "1797581700000mccsr",
     "datum": "18.12.2026",
     "kategorie": "kuehe",
     "tiere": 120,
@@ -4109,21 +4109,21 @@
   ],
   "lagerData": {
    "agf": {
-    "bestand": 3960.5,
     "orange": 12,
     "rot": 6,
-    "lieferzeit": 3
+    "lieferzeit": 3,
+    "bestand": 3960.5
    },
    "mlf": {
-    "bestand": 1370.75,
     "orange": 5,
     "rot": 2,
-    "lieferzeit": 2
+    "lieferzeit": 2,
+    "bestand": 1370.75
    }
   },
   "lieferungen": [
    {
-    "id": "1797581700000wcp5x",
+    "id": "1797581700000n8msz",
     "produkt": "mlf",
     "datum": "18.12.2026",
     "menge": 1200
@@ -4204,5 +4204,138 @@
  },
  "meldungen": [
   "Backup geladen"
- ]
+ ],
+ "zweitesGeraet": {
+  "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 456.4 162.0 - 555.6 Grassilage 228.2 0.0 - 327.4 Stroh 34.2 7.2 - 300.4 Mineral 5.7 0.0 - 294.7 Kraftfutter AGF 79.9 22.9 1 min 21 s 237.8 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
+  "rechnerFelder": [
+   "120",
+   "31",
+   "12",
+   "850",
+   "202.95000000000002",
+   "9",
+   "6",
+   "22"
+  ],
+  "einstellungen": "Sortierung Sortieren aktivieren Bundesland Baden-Württemberg Bayern Berlin Brandenburg Bremen Hamburg Hessen Mecklenburg-Vorpommern Niedersachsen Nordrhein-Westfalen Rheinland-Pfalz Saarland Sachsen Sachsen-Anhalt Schleswig-Holstein Thüringen AGF / MLF AGF Name kg/s MLF Name kg/s Restmischung Bullen✎ Kühe✎ Färsen✎ Bullen✎ Trockensteher✎ Kälber✎",
+  "einstellungenFelder": [
+   "Niedersachsen",
+   "Kraftfutter AGF",
+   "0.7",
+   "Milchleistungsfutter",
+   "0.45",
+   "Maissilage",
+   "20",
+   "Grassilage",
+   "10",
+   "Stroh",
+   "1.5",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0.25",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "Kraftfutter AGF",
+   "3.5",
+   "Milchleistungsfutter",
+   "2",
+   "Maissilage",
+   "0",
+   "Grassilage",
+   "14",
+   "Stroh",
+   "2",
+   "Rapsschrot",
+   "0.4",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "Kraftfutter AGF",
+   "1",
+   "Milchleistungsfutter",
+   "0",
+   "Maissilage",
+   "18",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0.8",
+   "Rapsschrot",
+   "1.2",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "Kraftfutter AGF",
+   "2.55",
+   "Milchleistungsfutter",
+   "0",
+   "Maissilage",
+   "0",
+   "Grassilage",
+   "6",
+   "Stroh",
+   "4",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0.1",
+   "Futter 6",
+   "0",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "Kraftfutter AGF",
+   "0",
+   "Milchleistungsfutter",
+   "0",
+   "Maissilage",
+   "0",
+   "Grassilage",
+   "0",
+   "Stroh",
+   "0",
+   "Rapsschrot",
+   "0",
+   "Mineral",
+   "0",
+   "Futter 6",
+   "1.5",
+   "Futter 7",
+   "0",
+   "Futter 8",
+   "0",
+   "Kraftfutter AGF",
+   "0",
+   "Milchleistungsfutter",
+   "0.5"
+  ],
+  "history": "▼ Tageslog ▼ Kühe ▼ 2026 Jahressumme Gesamt: 88569.0 kg Maissilage 49818.0 kg Grassilage 24805.0 kg Stroh 180.0 kg Mineral 30.0 kg Kraftfutter AGF 8827.0 kg Milchleistungsfutter 4909.0 kg ▼ 12.2026 Monatssumme Gesamt: 75918.4 kg Maissilage 42679.8 kg Grassilage 21264.3 kg Stroh 180.0 kg Mineral 30.0 kg Kraftfutter AGF 7548.1 kg Milchleistungsfutter 4216.3 kg ▼ 15.12 - 21.12 Wochensumme Gesamt: 17049.2 kg Maissilage 9487.2 kg Grassilage 4740.8 kg Stroh 180.0 kg Mineral 30.0 kg Kraftfutter AGF 1663.2 kg Milchleistungsfutter 948.0 kg 18.12.2026 Tiere: 120 Gesamt: 4470.0 kg Maissilage 2400.0 kg Grassilage 1200.0 kg Stroh 180.0 kg Mineral 30.0 kg Kraftfutter AGF 420.0 kg Milchleistungsfutter 240.0 kg 17.12.2026 Tiere: 119 Gesamt: 4191.6 kg Maissilage 2361.4 kg Grassilage 1180.3 kg Kraftfutter AGF 413.7 kg Milchleistungsfutter 236.3 kg 16.12.2026 Tiere: 120 Gesamt: 4193.1 kg Maissilage 2362.4 kg Grassilage 1180.3 kg Kraftfutter AGF 414.4 kg Milchleistungsfutter 236.0 kg 15.12.2026 Tiere: 118 Gesamt: 4194.4 kg Maissilage 2363.4 kg Grassilage 1180.3 kg Kraftfutter AGF 415.1 kg Milchleistungsfutter 235.7 kg ▼ 08.12 - 14.12 Wochensumme Gesamt: 29400.3 kg Maissilage 16571.8 kg Grassilage 8261.8 kg Kraftfutter AGF 2925.3 kg Milchleistungsfutter 1641.5 kg 14.12.2026 Tiere: 119 Gesamt: 4195.9 kg Maissilage 2364.4 kg Grassilage 1180.3 kg Kraftfutter AGF 415.8 kg Milchleistungsfutter 235.4 kg 13.12.2026 Tiere: 120 Gesamt: 4197.3 kg Maissilage 2365.4 kg Grassilage 1180.3 kg Kraftfutter AGF 416.5 kg Milchleistungsfutter 235.1 kg 12.12.2026 Tiere: 118 Gesamt: 4198.6 kg Maissilage 2366.4 kg Grassilage 1180.3 kg Kraftfutter AGF 417.2 kg Milchleistungsfutter 234.8 kg 11.12.2026 Tiere: 119 Gesamt: 4200.1 kg Maissilage 2367.4 kg Grassilage 1180.3 kg Kraftfutter AGF 417.9 kg Milchleistungsfutter 234.5 kg 10.12.2026 Tiere: 120 Gesamt: 4201.4 kg Maissilage 2368.4 kg Grassilage 1180.3 kg Kraftfutter AGF 418.6 kg Milchleistungsfutter 234.2 kg 09.12.2026 Tiere: 118 Gesamt: 4202.9 kg Maissilage 2369.4 kg Grassilage 1180.3 kg Kraftfutter AGF 419.3 kg Milchleistungsfutter 233.9 kg 08.12.2026 Tiere: 119 Gesamt: 4204.3 kg Maissilage 2370.4 kg Grassilage 1180.3 kg Kraftfutter AGF 420.0 kg Milchleistungsfutter 233.6 kg ▼ 01.12 - 07.12 Wochensumme Gesamt: 29469.0 kg Maissilage 16620.8 kg Grassilage 8261.8 kg Kraftfutter AGF 2959.6 kg Milchleistungsfutter 1626.8 kg 07.12.2026 Tiere: 120 Gesamt: 4205.6 kg Maissilage 2371.4 kg Grassilage 1180.3 kg Kraftfutter AGF 420.7 kg Milchleistungsfutter 233.3 kg 06.12.2026 Tiere: 118 Gesamt: 4207.1 kg Maissilage 2372.4 kg Grassilage 1180.3 kg Kraftfutter AGF 421.4 kg Milchleistungsfutter 233.0 kg 05.12.2026 Tiere: 119 Gesamt: 4208.4 kg Maissilage 2373.4 kg Grassilage 1180.3 kg Kraftfutter AGF 422.1 kg Milchleistungsfutter 232.7 kg 04.12.2026 Tiere: 120 Gesamt: 4209.9 kg Maissilage 2374.4 kg Grassilage 1180.3 kg Kraftfutter AGF 422.8 kg Milchleistungsfutter 232.4 kg 03.12.2026 Tiere: 118 Gesamt: 4211.3 kg Maissilage 2375.4 kg Grassilage 1180.3 kg Kraftfutter AGF 423.5 kg Milchleistungsfutter 232.1 kg 02.12.2026 Tiere: 119 Gesamt: 4212.6 kg Maissilage 2376.4 kg Grassilage 1180.3 kg Kraftfutter AGF 424.2 kg Milchleistungsfutter 231.8 kg 01.12.2026 Tiere: 120 Gesamt: 4214.1 kg Maissilage 2377.4 kg Grassilage 1180.3 kg Kraftfutter AGF 424.9 kg Milchleistungsfutter 231.5 kg ▼ 11.2026 Monatssumme Gesamt: 12650.5 kg Maissilage 7138.2 kg Grassilage 3540.8 kg Kraftfutter AGF 1278.9 kg Milchleistungsfutter 692.7 kg ▼ 29.11 - 35.11 Wochensumme Gesamt: 8432.3 kg Maissilage 4757.8 kg Grassilage 2360.5 kg Kraftfutter AGF 851.9 kg Milchleistungsfutter 462.1 kg 30.11.2026 Tiere: 118 Gesamt: 4215.4 kg Maissilage 2378.4 kg Grassilage 1180.3 kg Kraftfutter AGF 425.6 kg Milchleistungsfutter 231.2 kg 29.11.2026 Tiere: 119 Gesamt: 4216.9 kg Maissilage 2379.4 kg Grassilage 1180.3 kg Kraftfutter AGF 426.3 kg Milchleistungsfutter 230.9 kg ▼ 22.11 - 28.11 Wochensumme Gesamt: 4218.3 kg Maissilage 2380.4 kg Grassilage 1180.3 kg Kraftfutter AGF 427.0 kg Milchleistungsfutter 230.6 kg 28.11.2026 Tiere: 120 Gesamt: 4218.3 kg Maissilage 2380.4 kg Grassilage 1180.3 kg Kraftfutter AGF 427.0 kg Milchleistungsfutter 230.6 kg ▼ 2025 Jahressumme Gesamt: 2805.0 kg Maissilage 2200.0 kg Kraftfutter AGF 385.0 kg Milchleistungsfutter 220.0 kg ▼ 12.2025 Monatssumme Gesamt: 2805.0 kg Maissilage 2200.0 kg Kraftfutter AGF 385.0 kg Milchleistungsfutter 220.0 kg ▼ 29.12 - 35.12 Wochensumme Gesamt: 2805.0 kg Maissilage 2200.0 kg Kraftfutter AGF 385.0 kg Milchleistungsfutter 220.0 kg 30.12.2025 Tiere: 110 Gesamt: 2805.0 kg Maissilage 2200.0 kg Kraftfutter AGF 385.0 kg Milchleistungsfutter 220.0 kg ▼ Bullen ▼ 2026 Jahressumme Gesamt: 1479.6 kg Maissilage 1296.0 kg Kraftfutter AGF 183.6 kg ▼ 12.2026 Monatssumme Gesamt: 1233.0 kg Maissilage 1080.0 kg Kraftfutter AGF 153.0 kg ▼ 15.12 - 21.12 Wochensumme Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg 15.12.2026 Tiere: 12 Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg ▼ 08.12 - 14.12 Wochensumme Gesamt: 493.2 kg Maissilage 432.0 kg Kraftfutter AGF 61.2 kg 12.12.2026 Tiere: 12 Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg 09.12.2026 Tiere: 12 Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg ▼ 01.12 - 07.12 Wochensumme Gesamt: 493.2 kg Maissilage 432.0 kg Kraftfutter AGF 61.2 kg 06.12.2026 Tiere: 12 Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg 03.12.2026 Tiere: 12 Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg ▼ 11.2026 Monatssumme Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg ▼ 29.11 - 35.11 Wochensumme Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg 30.11.2026 Tiere: 12 Gesamt: 246.6 kg Maissilage 216.0 kg Kraftfutter AGF 30.6 kg ▼ Färsen ▼ 2026 Jahressumme Gesamt: 5270.0 kg Grassilage 4340.0 kg Stroh 620.0 kg Kraftfutter AGF 310.0 kg ▼ 12.2026 Monatssumme Gesamt: 4216.0 kg Grassilage 3472.0 kg Stroh 496.0 kg Kraftfutter AGF 248.0 kg ▼ 15.12 - 21.12 Wochensumme Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 16.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg ▼ 08.12 - 14.12 Wochensumme Gesamt: 2108.0 kg Grassilage 1736.0 kg Stroh 248.0 kg Kraftfutter AGF 124.0 kg 14.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 12.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 10.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 08.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg ▼ 01.12 - 07.12 Wochensumme Gesamt: 1581.0 kg Grassilage 1302.0 kg Stroh 186.0 kg Kraftfutter AGF 93.0 kg 06.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 04.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 02.12.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg ▼ 11.2026 Monatssumme Gesamt: 1054.0 kg Grassilage 868.0 kg Stroh 124.0 kg Kraftfutter AGF 62.0 kg ▼ 29.11 - 35.11 Wochensumme Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 30.11.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg ▼ 22.11 - 28.11 Wochensumme Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg 28.11.2026 Tiere: 31 Gesamt: 527.0 kg Grassilage 434.0 kg Stroh 62.0 kg Kraftfutter AGF 31.0 kg ▼ Kälber ▼ 2026 Jahressumme Gesamt: 44.0 kg Heu 33.0 kg Milchleistungsfutter 11.0 kg ▼ 06.2026 Monatssumme Gesamt: 44.0 kg Heu 33.0 kg Milchleistungsfutter 11.0 kg ▼ 15.06 - 21.06 Wochensumme Gesamt: 44.0 kg Heu 33.0 kg Milchleistungsfutter 11.0 kg 15.06.2026 Tiere: 22 Gesamt: 44.0 kg Heu 33.0 kg Milchleistungsfutter 11.0 kg ▼ Trockensteher ▼ 2026 Jahressumme Gesamt: 60.5 kg Stroh 60.5 kg ▼ 06.2026 Monatssumme Gesamt: 60.5 kg Stroh 60.5 kg ▼ 15.06 - 21.06 Wochensumme Gesamt: 60.5 kg Stroh 60.5 kg 16.06.2026 Tiere: 6 Gesamt: 60.5 kg Stroh 60.5 kg ▼ Restmischung Bullen ▼ 2026 Jahressumme Gesamt: 237.8 kg Maissilage 206.5 kg Kraftfutter AGF 31.3 kg ▼ 12.2026 Monatssumme Gesamt: 190.2 kg Maissilage 165.2 kg Kraftfutter AGF 25.0 kg ▼ 15.12 - 21.12 Wochensumme Gesamt: 0.0 kg 18.12.2026 Tiere: 9 Gesamt: 0.0 kg ▼ 08.12 - 14.12 Wochensumme Gesamt: 95.1 kg Maissilage 82.6 kg Kraftfutter AGF 12.5 kg 14.12.2026 Tiere: 9 Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg 10.12.2026 Tiere: 9 Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg ▼ 01.12 - 07.12 Wochensumme Gesamt: 95.1 kg Maissilage 82.6 kg Kraftfutter AGF 12.5 kg 06.12.2026 Tiere: 9 Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg 02.12.2026 Tiere: 9 Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg ▼ 11.2026 Monatssumme Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg ▼ 22.11 - 28.11 Wochensumme Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg 28.11.2026 Tiere: 9 Gesamt: 47.5 kg Maissilage 41.3 kg Kraftfutter AGF 6.3 kg ▶ 18.12.2026 Restmischung Bullen Keine Einzelwerte gespeichert Tiere: 9 Gesamt: 0.0 kg Löschen Kühe Maissilage 2400.0 kg Grassilage 1200.0 kg Stroh 180.0 kg Mineral 30.0 kg Kraftfutter AGF 420.0 kg Milchleistungsfutter 240.0 kg Tiere: 120 Gesamt: 4470.0 kg Löschen Lagerbestand Kraftfutter AGF Bestand: 3960.5 kg Ø Verbrauch: 441.4 kg/Tag Reicht noch ca. 9.0 Tage Bestellen bis: Dienstag, 22.12.2026 Milchleistungsfutter Bestand: 1370.8 kg Ø Verbrauch: 234.9 kg/Tag Reicht noch ca. 5.8 Tage Bestellen bis: Montag, 21.12.2026 Lieferungen Kraftfutter AGF Milchleistungsfutter Lieferung speichern Milchleistungsfutter Datum: 18.12.2026 Menge: 1200.0 kg Löschen Kraftfutter AGF Datum: 10.12.2026 Menge: 6000.0 kg Löschen Milchleistungsfutter Datum: 01.12.2026 Menge: 2500.5 kg Löschen Warnstufen Kraftfutter AGF Orange Kraftfutter AGF Rot Milchleistungsfutter Orange Milchleistungsfutter Rot Backup erstellen Backup laden",
+  "historyFelder": [
+   "agf",
+   "",
+   "",
+   "12",
+   "6",
+   "5",
+   "2"
+  ],
+  "historyTab": "tab tab-orange",
+  "taschenrechner": "0 789/456*123-C0.⌫=+"
+ }
 }
