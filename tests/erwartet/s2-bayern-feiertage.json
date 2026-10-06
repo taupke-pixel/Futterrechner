@@ -1596,7 +1596,7 @@
   },
   "historyData": [
    {
-    "id": "1811173200000qcycb",
+    "id": "1811173200000kwis6",
     "datum": "24.05.2027",
     "kategorie": "restbullen",
     "tiere": 56,
@@ -1615,7 +1615,7 @@
     ]
    },
    {
-    "id": "18111732000009pk70",
+    "id": "18111732000001d108",
     "datum": "24.05.2027",
     "kategorie": "kuehe",
     "tiere": 80,
@@ -2022,7 +2022,7 @@
   },
   "lieferungen": [
    {
-    "id": "1811173200000f71ux",
+    "id": "1811173200000su9vl",
     "produkt": "agf",
     "datum": "24.05.2027",
     "menge": 3000
@@ -2315,7 +2315,7 @@
   },
   "historyData": [
    {
-    "id": "1811173200000qcycb",
+    "id": "1811173200000kwis6",
     "datum": "24.05.2027",
     "kategorie": "restbullen",
     "tiere": 56,
@@ -2334,7 +2334,7 @@
     ]
    },
    {
-    "id": "18111732000009pk70",
+    "id": "18111732000001d108",
     "datum": "24.05.2027",
     "kategorie": "kuehe",
     "tiere": 80,
@@ -2741,7 +2741,7 @@
   },
   "lieferungen": [
    {
-    "id": "1811173200000f71ux",
+    "id": "1811173200000su9vl",
     "produkt": "agf",
     "datum": "24.05.2027",
     "menge": 3000

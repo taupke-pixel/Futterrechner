@@ -757,6 +757,17 @@ function addArbeitstage(starttage,arbeitstage){
   );
 }
 
+  // F10: liegt "Bestellen bis" schon in der Vergangenheit, deutlich darauf hinweisen (Rechnung unverändert)
+  function bestellHinweis(produkt){
+  let d = getBestellDatum(produkt);
+  if(!d) return "";
+  let heute = new Date();
+  heute.setHours(0,0,0,0);
+  let tag = new Date(d);
+  tag.setHours(0,0,0,0);
+  return tag < heute ? "<br><b>⚠ Termin ist vorbei – sofort bestellen!</b>" : "";
+}
+
   function getWarnClass(produkt){
 
   let tage =
@@ -2348,7 +2359,7 @@ Bestellen bis:
 
 ${formatDatum(
   getBestellDatum("agf")
-)}
+)}${bestellHinweis("agf")}
 
       </span>
 
@@ -2384,7 +2395,7 @@ Bestellen bis:
 
 ${formatDatum(
   getBestellDatum("mlf")
-)}
+)}${bestellHinweis("mlf")}
 
       </span>
 
@@ -2732,6 +2743,40 @@ let expr="",history=JSON.parse(localStorage.getItem("calcHist"))||[];
 
   let historyWarnClass = "";
 
+// F8: eigene kleine Rechenlogik statt eval (nur Zahlen und + - * /, Punkt vor Strich).
+// Ergebnis auf 12 gültige Stellen gerundet, damit z. B. 0.1+0.2 = 0.3 angezeigt wird.
+function rechneAusdruck(text){
+  let i=0;
+  const zahl=()=>{
+    const m=/^(\d+\.?\d*|\.\d+)/.exec(text.slice(i));
+    if(!m) throw new Error("Zahl erwartet");
+    i+=m[0].length;
+    return parseFloat(m[0]);
+  };
+  const faktor=()=>{
+    if(text[i]==="-"){ i++; return -faktor(); }
+    if(text[i]==="+"){ i++; return faktor(); }
+    return zahl();
+  };
+  const term=()=>{
+    let w=faktor();
+    while(text[i]==="*" || text[i]==="/"){
+      const op=text[i++];
+      const b=faktor();
+      w = op==="*" ? w*b : w/b;
+    }
+    return w;
+  };
+  let w=term();
+  while(text[i]==="+" || text[i]==="-"){
+    const op=text[i++];
+    const b=term();
+    w = op==="+" ? w+b : w-b;
+  }
+  if(i!==text.length || !isFinite(w)) throw new Error("ungültig");
+  return parseFloat(w.toPrecision(12));
+}
+
 function press(v){
   if(v==="C"){expr="";update();return;}
 
@@ -2743,7 +2788,7 @@ function press(v){
 
   if(v==="="){
     try{
-      let r=eval(expr);
+      let r=rechneAusdruck(expr);
       history.unshift(expr+" = "+r);
       history=history.slice(0,20);
       localStorage.setItem("calcHist",JSON.stringify(history));
