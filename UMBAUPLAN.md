@@ -5,7 +5,7 @@ Stand: 05.10.2026 · Grundlage: `index.html` auf `main` (Commit `d250375`) · Re
 Legende: ✅ fertig · 🧑‍🌾 = macht Fritz selbst · 🔒 = braucht Fritz' ausdrückliche Freigabe · 🧪 = Test
 
 Branches (jeder baut auf dem vorigen auf, alle auf GitHub, **nichts in `main`**):
-`umbau/00-vergleichstest` → `umbau/01-mehrere-betriebe` → `umbau/02-zugangsanfrage` → `umbau/03-mehrere-geraete` → `umbau/04-android-app` → `umbau/05-verwaltungs-pin`
+`umbau/00-vergleichstest` → `umbau/01-mehrere-betriebe` → `umbau/02-zugangsanfrage` → `umbau/03-mehrere-geraete` → `umbau/04-android-app` → `umbau/05-verwaltungs-pin` → `fix/fehler-behebung` (F1–F4, F8, F10, AGB-Entwurf)
 
 ---
 
@@ -94,7 +94,7 @@ geraetezuordnung/{uid}                     betriebId
 2. 🧑‍🌾 Echtes Projekt: Authentication → „Jetzt starten“ → Anmeldemethode „Anonym“ aktivieren.
 3. 🔒 Regeln ins echte Projekt: `firebase deploy --only firestore:rules --project futterrechner`
    (gleichzeitig mit Schritt 4, weil die alte Seite mit den neuen Regeln nicht mehr funktioniert).
-4. 🔒 `umbau/05-verwaltungs-pin` (enthält alles) nach `main` zusammenführen und pushen → GitHub Pages aktualisiert sich.
+4. 🔒 `fix/fehler-behebung` (enthält alles, inkl. Fehlerbehebungen und AGB) nach `main` zusammenführen und pushen → GitHub Pages aktualisiert sich.
 5. 🧑‍🌾 Fritz öffnet die Seite **im selben Browser wie bisher**, stellt eine Anfrage.
    🔒 `node werkzeuge/betreiber-einrichten.js --projekt futterrechner --echt-freigegeben --anfrage <ID>`
 6. 🧑‍🌾 Einstellungen → Betrieb → „In den Betrieb übernehmen“ (alte Daten des Browsers). Prüfen: History-Summen, Lager.

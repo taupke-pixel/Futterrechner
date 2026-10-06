@@ -7,16 +7,20 @@ Status: ⏳ offen · ✅ freigegeben und behoben · ❌ bleibt so
 
 | Nr. | Kurz | Status |
 |---|---|---|
-| F1 | Restmischung speichern: Lagerbestand wird nicht gesichert | ⏳ |
-| F2 | Restmischung kann mehrmals am Tag gespeichert werden | ⏳ |
-| F3 | Restmischung-Eingaben sind nach Neuladen weg | ⏳ |
-| F4 | „Backup laden“ überschreibt alles ohne Rückfrage | ⏳ |
-| F5 | `handleApproval()` steht doppelt im Code | ⏳ (erledigt sich mit Phase 2) |
+| F1 | Restmischung speichern: Lagerbestand wird nicht gesichert | ✅ behoben 06.10.2026 |
+| F2 | Restmischung kann mehrmals am Tag gespeichert werden | ✅ behoben 06.10.2026 |
+| F3 | Restmischung-Eingaben sind nach Neuladen weg | ✅ behoben 06.10.2026 (Werte bleiben, auf allen Geräten gleich) |
+| F4 | „Backup laden“ überschreibt alles ohne Rückfrage | ✅ behoben 06.10.2026 |
+| F5 | `handleApproval()` steht doppelt im Code | ✅ entfernt mit Phase 2 |
 | F6 | Freigabe-Link kann vom Anfragenden selbst benutzt werden | ✅ wird in Phase 2 geschlossen (vom Auftrag verlangt) |
 | F7 | Zugriffsprüfung nur im Browser | ✅ wird in Phase 1 durch Security Rules ersetzt (vom Auftrag verlangt) |
-| F8 | Taschenrechner rechnet mit `eval` | ⏳ |
-| F9 | Durchschnitt zählt nur Tage mit Verbrauch | ⏳ (nur Hinweis) |
-| F10 | Bestelldatum: Lieferzeit 0 und „heute“-Zeitpunkt | ⏳ (nur Hinweis) |
+| F8 | Taschenrechner rechnet mit `eval` | ✅ behoben 06.10.2026 (eigene Rechenlogik, 0.1+0.2 = 0.3) |
+| F9 | Durchschnitt zählt nur Tage mit Verbrauch | ❌ bleibt so – Rechenregel, kein Fehler (siehe unten) |
+| F10 | Bestelldatum in der Vergangenheit ohne Hinweis | ✅ behoben 06.10.2026 (Hinweis „sofort bestellen“, Rechnung gleich) |
+
+Alle Behebungen: Branch `fix/fehler-behebung`, je Fehler ein Commit, eigener Test `tests/fehler.js`.
+Der Vergleichstest wurde nur um die jeweils gewollte Änderung angepasst (F3: Restmischung nach Neuladen, F4: zusätzliche
+Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
 
 ---
@@ -84,6 +88,8 @@ Speichern zählen nicht als „0 kg“. Wurde an einem Tag z. B. nur die Restmis
 Wert voll mit und drückt den Durchschnitt.
 **Was sich ändern würde:** Je nach gewünschter Regel andere Resttage / Bestelldaten. Vermutlich ist das heutige Verhalten gewollt –
 nur zur Info.
+**Entscheidung 06.10.2026:** Bleibt so. Würden Tage ohne Speichern als „0 kg“ zählen, sähe der Verbrauch bei jedem vergessenen
+Speichern kleiner aus und das Bestelldatum käme zu spät. Ändern nur auf ausdrücklichen Wunsch.
 
 ## F10 – Bestelldatum (nur Hinweis)
 **Wo:** `getLeerDatum()` / `getBestellDatum()`

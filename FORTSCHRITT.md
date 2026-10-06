@@ -49,6 +49,20 @@ Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
   Die Datenbank prüft die PIN, nicht nur das Handy. Sich selbst abmelden geht ohne PIN.
 - PIN vergessen? Mir Bescheid sagen – ich setze sie zurück, dann legt der Betrieb eine neue fest.
 
+### Fehler behoben (06.10.2026, von dir freigegeben)
+- **F1** Restmischung speichern zieht AGF/MLF jetzt dauerhaft vom Lager ab.
+- **F2** Restmischung nur einmal pro Tag speicherbar (wie die anderen Gruppen).
+- **F3** Restmischung-Eingaben (vorhanden, Zielgewicht, Bullen) bleiben nach dem Neuladen erhalten.
+- **F4** „Backup laden“ fragt vorher nach („Alle Daten ersetzen?“).
+- **F8** Taschenrechner rechnet ohne Programmier-Trick und zeigt z. B. 0,1 + 0,2 = 0,3.
+- **F10** Liegt „Bestellen bis“ schon in der Vergangenheit, steht dort „⚠ Termin ist vorbei – sofort bestellen!“.
+- **F9** (Durchschnitt) bleibt bewusst so – Erklärung in FEHLER.md.
+- Alle anderen Rechenergebnisse sind unverändert (Vergleichstest).
+
+### AGB
+- Entwurf in `agb.html` (Fassung „AGB-2026-10-06“). **Bitte noch eintragen:** deine Anschrift und E-Mail (rot markiert),
+  und vor dem Livegang einmal rechtlich prüfen lassen. Die **Datenschutzerklärung** ist noch ein Platzhalter.
+
 ### Phase 4 – Android-App
 - Kleine App (49 KB), die die Webseite lädt → Updates kommen automatisch mit der Webseite.
 - Eigener Speicher: Browserverlauf löschen schadet nicht mehr.

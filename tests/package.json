@@ -10,7 +10,8 @@
     "sync": "powershell -NoProfile -File emulator.ps1 \"node tests/sync.js\"",
     "freigabe": "powershell -NoProfile -File emulator.ps1 \"node tests/freigabe.js\"",
     "geraete": "powershell -NoProfile -File emulator.ps1 \"node tests/geraete.js\"",
-    "test": "npm run regeln && npm run vergleich && npm run sync && npm run freigabe && npm run geraete"
+    "fehler": "powershell -NoProfile -File emulator.ps1 \"node tests/fehler.js\"",
+    "test": "npm run regeln && npm run vergleich && npm run sync && npm run freigabe && npm run geraete && npm run fehler"
   },
   "type": "commonjs",
   "devDependencies": {
