@@ -2638,6 +2638,13 @@ function exportBackup(){
 
   if(!file) return;
 
+  // F4: vorher fragen – das Backup ersetzt alle Daten des Betriebs (auf allen Geräten)
+  if(!confirm("Alle Daten des Betriebs durch dieses Backup ersetzen?\n\nDas gilt für alle Geräte des Betriebs.")){
+    if(event.target && "value" in event.target) event.target.value="";
+    return false;
+  }
+  if(event.target && "value" in event.target) event.target.value="";
+
   let reader =
   new FileReader();
 
@@ -2685,6 +2692,7 @@ alert("Backup geladen");
   };
 
   reader.readAsText(file);
+  return true;
 
 }
 function updateHistoryTabColor(){
@@ -3731,9 +3739,9 @@ function altDatenSichern(){
 
 // Übernahme über die vorhandene Backup-Funktion (wie „Backup laden“ mit der gesicherten Datei)
 function altDatenUebernehmen(){
-  if(!confirm("Alle Daten des Betriebs durch die alten Daten dieses Geräts ersetzen?\n\nDas gilt für alle Geräte des Betriebs. Vorher am besten „Backup erstellen“.")) return;
+  // Rückfrage kommt aus importBackup() (F4)
   const datei=new File([localStorage.getItem("datenVorUmbau")||"{}"],"futterrechner-backup-vor-umbau.json",{type:"application/json"});
-  importBackup({ target:{ files:[datei] } });
+  if(!importBackup({ target:{ files:[datei] } })) return;
   localStorage.setItem("datenVorUmbauUebernommen", new Date().toISOString());
   setTimeout(baueBetriebBereich, 500);
 }

@@ -1596,7 +1596,7 @@
   },
   "historyData": [
    {
-    "id": "1797581700000ygf1p",
+    "id": "17975817000000qsdo",
     "datum": "18.12.2026",
     "kategorie": "restbullen",
     "tiere": 9,
@@ -1606,7 +1606,7 @@
     "futter": []
    },
    {
-    "id": "1797581700000mccsr",
+    "id": "179758170000076c55",
     "datum": "18.12.2026",
     "kategorie": "kuehe",
     "tiere": 120,
@@ -2693,7 +2693,7 @@
   },
   "lieferungen": [
    {
-    "id": "1797581700000n8msz",
+    "id": "1797581700000gp6b4",
     "produkt": "mlf",
     "datum": "18.12.2026",
     "menge": 1200
@@ -3026,7 +3026,7 @@
   },
   "historyData": [
    {
-    "id": "1797581700000ygf1p",
+    "id": "17975817000000qsdo",
     "datum": "18.12.2026",
     "kategorie": "restbullen",
     "tiere": 9,
@@ -3036,7 +3036,7 @@
     "futter": []
    },
    {
-    "id": "1797581700000mccsr",
+    "id": "179758170000076c55",
     "datum": "18.12.2026",
     "kategorie": "kuehe",
     "tiere": 120,
@@ -4123,7 +4123,7 @@
   },
   "lieferungen": [
    {
-    "id": "1797581700000n8msz",
+    "id": "1797581700000gp6b4",
     "produkt": "mlf",
     "datum": "18.12.2026",
     "menge": 1200
@@ -4203,6 +4203,7 @@
   }
  },
  "meldungen": [
+  "Alle Daten des Betriebs durch dieses Backup ersetzen?\n\nDas gilt für alle Geräte des Betriebs.",
   "Backup geladen"
  ],
  "zweitesGeraet": {
