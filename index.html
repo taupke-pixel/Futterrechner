@@ -158,6 +158,33 @@ font-size:16px;
   background:#f59e0b !important;
   color:white !important;
 }
+</style>
+<style>
+/* 📱 Handy-Ansicht: nichts darf breiter als der Bildschirm sein, sonst zoomt das Handy heraus (sieht aus wie PC-Seite).
+   Nur Aussehen – keine Änderung an Rechnen oder Inhalten. */
+*,*::before,*::after{box-sizing:border-box}
+input,select,button{max-width:100%}
+td:first-child,th:first-child{overflow-wrap:anywhere}
+@media (max-width:640px){
+  header{font-size:18px;padding:10px}
+  .tab{flex:1 1 0;min-width:0;padding:12px 2px;font-size:14px;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
+  .panel{padding:8px}
+  .cat-header{font-size:17px;padding:12px}
+  .cat-body{padding:10px}
+  table{font-size:15px}
+  th,td{padding:7px 4px}
+  .total{font-size:16px;flex-wrap:wrap;gap:6px;padding:10px}
+  .kilo-btn,.save-btn{font-size:15px;padding:8px 10px;margin-left:0}
+  .inline-total-input{width:110px}
+  .warning-banner{font-size:16px;flex-wrap:wrap;gap:8px}
+  .history-header{font-size:18px}
+  .calc-btn{padding:16px 0}
+}
+@media (max-width:360px){
+  .tab{font-size:12px}
+  table{font-size:13px}
+  th,td{padding:6px 2px}
+}
 </style></head>
 <body><header>🐄 Futterrechner — Stall Ultra<div style="font-size:12px;opacity:.9"><span id="sync-status"></span>
 <a id="betrieb-link" href="#" onclick="zumBetrieb();return false;" style="display:none;color:#fff;margin-left:10px">👥 Betrieb &amp; Geräte</a></div></header><div class="tabs">
@@ -2822,7 +2849,7 @@ function buildCalc2(){
 
 // Fassungen von AGB und Datenschutzerklärung. Bei einer neuen Fassung HIER und in agb.html / datenschutz.html ändern.
 const AGB_FASSUNG = "AGB-2026-10-06";
-const DATENSCHUTZ_FASSUNG = "Datenschutz-Platzhalter-2026-10";
+const DATENSCHUTZ_FASSUNG = "Datenschutz-2026-10-06";
 
 function esc(s){
   return String(s===undefined||s===null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3120,9 +3147,50 @@ function zeigeEinladung(){
       <div id="einladung-qr" style="max-width:240px;margin:auto">${qrSvg}</div>
       <div style="font-size:30px;letter-spacing:4px;font-weight:bold;margin:8px 0" id="einladung-pin">${aktiveEinladung.pin.slice(0,4)} ${aktiveEinladung.pin.slice(4)}</div>
       <div id="einladung-rest" style="color:#555"></div>
+      <div style="margin-top:10px;font-size:13px">Oder diesen Link schicken (z. B. per WhatsApp):</div>
+      <div id="einladung-link" style="font-size:12px;word-break:break-all;background:#fff;padding:6px;border-radius:6px;margin:4px 0">${esc(link)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
+        <button class="save-btn" style="margin:0" onclick="linkTeilen(einladungsLink(),'Einladung zum Futterrechner (10 Minuten gültig, nur einmal nutzbar)')">📤 Teilen</button>
+        <a class="save-btn" style="margin:0;text-decoration:none;background:#25d366" target="_blank" rel="noopener"
+           href="https://wa.me/?text=${encodeURIComponent('Einladung zum Futterrechner (10 Minuten gültig, nur einmal nutzbar): '+link)}">WhatsApp</a>
+        <button class="save-btn" style="margin:0;background:#2f80ed" onclick="linkKopieren(einladungsLink())">Kopieren</button>
+      </div>
       <button class="save-btn" style="background:#888;margin-top:8px" onclick="einladungBeenden(true)">Abbrechen</button>
     </div>`;
   zeigeEinladungRestzeit();
+}
+
+function einladungsLink(){
+  return aktiveEinladung ? seitenAdresse()+"?einladung="+aktiveEinladung.qr : "";
+}
+
+// Link über das Teilen-Menü des Handys verschicken (WhatsApp, SMS, E-Mail …); sonst kopieren
+async function linkTeilen(link, text){
+  if(!link) return;
+  // In der Android-App: Android-Teilen-Menü
+  if(window.FutterrechnerApp && window.FutterrechnerApp.teilen){
+    window.FutterrechnerApp.teilen(text+": "+link);
+    return;
+  }
+  if(navigator.share){
+    try{ await navigator.share({ title:"Futterrechner", text, url:link }); return; }
+    catch(e){ if(e && e.name==="AbortError") return; }
+  }
+  linkKopieren(link);
+}
+
+async function linkKopieren(link){
+  if(!link) return;
+  try{
+    await navigator.clipboard.writeText(link);
+    alert("Link kopiert. Du kannst ihn jetzt z. B. in WhatsApp einfügen.");
+  }catch(e){
+    prompt("Link zum Kopieren:", link);
+  }
+}
+
+function appLink(){
+  return seitenAdresse()+"download.html";
 }
 
 function zeigeEinladungRestzeit(){
@@ -3750,6 +3818,16 @@ function baueBetriebBereich(){
   <div id="geraete-liste">lade…</div>
   <p><button class="save-btn" id="einladen-knopf" onclick="einladungErzeugen()">+ Gerät hinzufügen (QR-Code / PIN)</button></p>
   <div id="einladung-anzeige"></div>
+  <h3>App weitergeben</h3>
+  <p style="font-size:13px;color:#555">Link zur Download-Seite der Android-App. Der Link allein gibt keinen Zugriff auf Daten –
+    dafür braucht es eine Einladung (QR-Code/PIN) oder eine Freigabe.</p>
+  <div style="font-size:12px;word-break:break-all;background:#f5f7fa;padding:6px;border-radius:6px">${esc(appLink())}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+    <button class="save-btn" style="margin:0" onclick="linkTeilen(appLink(),'Futterrechner-App herunterladen')">📤 Teilen</button>
+    <a class="save-btn" style="margin:0;text-decoration:none;background:#25d366" target="_blank" rel="noopener"
+       href="https://wa.me/?text=${encodeURIComponent('Futterrechner-App herunterladen: '+appLink())}">WhatsApp</a>
+    <button class="save-btn" style="margin:0;background:#2f80ed" onclick="linkKopieren(appLink())">Kopieren</button>
+  </div>
   `;
   if(aktiveEinladung) zeigeEinladung();
   if(betriebId){

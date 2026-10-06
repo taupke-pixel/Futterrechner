@@ -92,6 +92,8 @@ geraetezuordnung/{uid}                     betriebId
 ## Livegang 🔒 (alles nur nach ausdrücklicher Freigabe von Fritz)
 1. 🧑‍🌾 Termin ohne Fütterung, auf jedem Gerät mit Daten **„Backup erstellen“**.
 2. 🧑‍🌾 Echtes Projekt: Authentication → „Jetzt starten“ → Anmeldemethode „Anonym“ aktivieren.
+   🧑‍🌾 Außerdem: Projekteinstellungen → Datenschutz → Datenverarbeitungsbedingungen (Auftragsverarbeitung) von Google
+   akzeptieren – die Datenschutzerklärung (4.1) geht davon aus.
 3. 🔒 Regeln ins echte Projekt: `firebase deploy --only firestore:rules --project futterrechner`
    (gleichzeitig mit Schritt 4, weil die alte Seite mit den neuen Regeln nicht mehr funktioniert).
 4. 🔒 `fix/fehler-behebung` (enthält alles, inkl. Fehlerbehebungen und AGB) nach `main` zusammenführen und pushen → GitHub Pages aktualisiert sich.

@@ -8,34 +8,136 @@
 body{font-family:Arial;margin:0;background:#eef1f4;color:#222}
 header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:20px}
 main{max-width:760px;margin:16px auto;background:#fff;padding:20px;border-radius:12px;line-height:1.5}
+h2{font-size:18px;margin-top:26px}
+h3{font-size:16px;margin-top:18px}
 .fassung{background:#fff8e1;padding:10px;border-radius:8px}
+@media (max-width:640px){ main{margin:8px;padding:14px} header{font-size:17px} }
 </style>
 </head>
 <body>
 <header>🐄 Futterrechner — Datenschutzerklärung</header>
 <main>
-  <!-- FASSUNG: muss mit DATENSCHUTZ_FASSUNG in index.html übereinstimmen -->
-  <p class="fassung">Fassung: <b>Datenschutz-Platzhalter-2026-10</b></p>
+  <!-- FASSUNG: muss mit DATENSCHUTZ_FASSUNG in index.html übereinstimmen.
+       ENTWURF – vor dem Livegang rechtlich prüfen lassen. -->
+  <p class="fassung">Fassung: <b>Datenschutz-2026-10-06</b></p>
 
-  <h2>Platzhalter</h2>
-  <p>Hier kommt die Datenschutzerklärung hin. Der Text wird von Fritz geliefert (bitte rechtlich prüfen lassen).</p>
+  <h2>1. Verantwortlicher</h2>
+  <p>Verantwortlich für die Datenverarbeitung im „Futterrechner – Stall Ultra“ (Webseite und Android-App) ist:<br>
+  Fritz Taupke-Westerhaus<br>
+  Bersenbrücker Straße 11<br>
+  49434 Neuenkirchen-Vörden<br>
+  E-Mail: taupkewesterhausfritz@gmail.com</p>
+  <p>Ein Datenschutzbeauftragter ist nicht bestellt, da hierzu keine gesetzliche Pflicht besteht.</p>
 
-  <h3>Hinweise für den endgültigen Text (technisch, was die App speichert)</h3>
+  <h2>2. Das Wichtigste in Kürze</h2>
   <ul>
-    <li>Zugangsanfrage: Vorname, Nachname, Name des Betriebs, E-Mail, Geräte-Kennung, bestätigte Fassungen von AGB und
-        Datenschutzerklärung, Zeitpunkt der Anfrage, Entscheidung (erlaubt/abgelehnt) mit Zeitpunkt.</li>
-    <li>Futterdaten des Betriebs (Rationen, Tierzahlen, Tageslog, Lagerbestand, Lieferungen, Einstellungen).</li>
-    <li>Geräte des Betriebs (Gerätename, seit wann).</li>
-    <li>Speicherort: Google Firebase / Cloud Firestore, Region europe-west1 (Belgien). Anmeldung der Geräte anonym über
-        Firebase Authentication.</li>
-    <li>E-Mail-Versand der Anfrage an den Betreiber über EmailJS.</li>
-    <li>Webseite über GitHub Pages; Android-App lädt dieselbe Seite.</li>
+    <li>Der Futterrechner speichert nur, was für die Nutzung nötig ist: die Angaben aus der Zugangsanfrage, eine
+        anonyme Geräte-Kennung und die Futterdaten Ihres Betriebs.</li>
+    <li>Die Daten jedes Betriebs liegen in einem eigenen, von anderen Betrieben strikt getrennten Bereich.
+        Zugriff haben nur die Geräte, die Ihr Betrieb selbst freigeschaltet hat.</li>
+    <li>Keine Werbung, kein Tracking, keine Analyse-Werkzeuge, kein Verkauf oder Weitergabe von Daten.</li>
+    <li>Gespeichert wird bei Google Firebase in einem Rechenzentrum in Belgien (EU).</li>
   </ul>
 
-  <p><b>Wichtig bei Änderungen:</b> Bekommt der Text eine neue Fassung, wird die Fassungs-Kennung oben <b>und</b>
-  in <code>index.html</code> (<code>DATENSCHUTZ_FASSUNG</code>) geändert.</p>
+  <h2>3. Welche Daten wir verarbeiten und warum</h2>
 
-  <p><a href="./">Zurück zum Futterrechner</a></p>
+  <h3>3.1 Zugangsanfrage</h3>
+  <p>Wenn Sie Zugang anfragen, speichern wir: Vorname, Nachname, Name des Betriebs, E-Mail-Adresse, die anonyme
+  Geräte-Kennung des anfragenden Geräts, ggf. die frühere Geräte-Nummer (falls das Gerät vor der Umstellung schon
+  freigeschaltet war), die Kennungen der von Ihnen bestätigten Fassungen von AGB und Datenschutzerklärung, den
+  Zeitpunkt der Anfrage sowie die Entscheidung (freigegeben/abgelehnt) mit Zeitpunkt.</p>
+  <p><b>Zweck:</b> Prüfung und Freigabe des Zugangs, Kontaktaufnahme bei Rückfragen und Nachweis, wer wann welche Fassung
+  bestätigt hat.<br>
+  <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. b DSGVO (Anbahnung und Durchführung des Nutzungsverhältnisses) und
+  Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am Nachweis der Zustimmung).</p>
+  <p>Über die neue Anfrage wird der Anbieter per E-Mail informiert (siehe 4.3). Die E-Mail enthält Name, E-Mail-Adresse,
+  Betriebsname, die bestätigten Fassungen und Links zum Freigeben oder Ablehnen.</p>
+
+  <h3>3.2 Geräte-Kennung und Geräte des Betriebs</h3>
+  <p>Jedes Gerät meldet sich beim Start unsichtbar und anonym an (Firebase Authentication, „anonyme Anmeldung“) und
+  erhält dabei eine zufällige Kennung. Sie enthält keinen Namen, keine Telefonnummer und keine E-Mail. Für jedes
+  Gerät eines Betriebs speichern wir außerdem den von Ihnen vergebenen Gerätenamen und das Datum der Aufnahme.</p>
+  <p><b>Zweck:</b> Nur freigeschaltete Geräte dürfen auf die Daten des Betriebs zugreifen.<br>
+  <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+  <h3>3.3 Futterdaten des Betriebs</h3>
+  <p>Rationen und Tierzahlen, Restmischung, Einstellungen (z. B. Bezeichnungen, Bundesland), das Tageslog (History),
+  Lagerbestand und Warnstufen sowie Lieferungen. Dies sind überwiegend Betriebsdaten; soweit sie sich einer Person
+  zuordnen lassen, verarbeiten wir sie ausschließlich, um den Futterrechner für Ihren Betrieb bereitzustellen.<br>
+  <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+  <h3>3.4 Verwaltungs-PIN und Einladungen</h3>
+  <p>Von der Verwaltungs-PIN speichern wir nur einen nicht umkehrbaren Prüfwert, nie die PIN selbst. Einladungen für
+  neue Geräte (PIN oder QR-Code) enthalten den Betrieb und den Betriebsnamen, sind höchstens ca. 10 Minuten gültig und
+  werden beim Einlösen oder danach gelöscht.</p>
+
+  <h3>3.5 Speicherung auf Ihrem Gerät</h3>
+  <p>Der Futterrechner legt auf Ihrem Gerät (im Browser bzw. in der App) einen Zwischenspeicher der Betriebsdaten an,
+  damit er auch ohne Internet im Stall funktioniert, sowie reine Bedienzustände (z. B. ausgeblendete Warnungen,
+  aufgeklappte Bereiche, Verlauf des Taschenrechners) und die anonyme Anmeldung. Diese Speicherung ist für den von
+  Ihnen gewünschten Dienst unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Cookies zu Werbe- oder Analysezwecken
+  werden nicht gesetzt.</p>
+
+  <h3>3.6 Aufruf der Webseite / App</h3>
+  <p>Beim Aufruf werden technisch bedingt Verbindungsdaten (insbesondere IP-Adresse, Datum und Uhrzeit, aufgerufene
+  Datei, Browser-Kennung) an die Server übertragen, von denen die Seite und die benötigten Programmteile geladen werden
+  (siehe 4.). Das ist nötig, um die Seite auszuliefern und sicher zu betreiben (Art. 6 Abs. 1 lit. f DSGVO).</p>
+
+  <h2>4. Eingesetzte Dienstleister</h2>
+  <h3>4.1 Google Firebase (Datenbank und anonyme Anmeldung)</h3>
+  <p>Anbieter: Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland. Die Datenbank (Cloud Firestore)
+  liegt in der Region europe-west1 (Belgien). Für die Anmeldung und den Betrieb kann Google Daten auch in den USA
+  verarbeiten; Google LLC ist nach dem EU-US Data Privacy Framework zertifiziert. Mit Google besteht ein Vertrag zur
+  Auftragsverarbeitung (Art. 28 DSGVO).</p>
+
+  <h3>4.2 GitHub Pages (Auslieferung der Webseite und der App-Datei)</h3>
+  <p>Anbieter: GitHub, Inc., 88 Colin P Kelly Jr St, San Francisco, CA 94107, USA. GitHub verarbeitet beim Aufruf die
+  Verbindungsdaten (3.6). GitHub ist nach dem EU-US Data Privacy Framework zertifiziert.</p>
+
+  <h3>4.3 EmailJS (Benachrichtigung über neue Zugangsanfragen)</h3>
+  <p>Für die E-Mail an den Anbieter über eine neue Zugangsanfrage wird der Dienst EmailJS (emailjs.com) genutzt.
+  Übermittelt werden nur die in 3.1 genannten Angaben der Anfrage. Dabei kann eine Übermittlung in ein Land außerhalb
+  der EU stattfinden.</p>
+
+  <h3>4.4 Programmbibliotheken</h3>
+  <p>Einzelne Programmteile werden beim Aufruf von folgenden Servern geladen: www.gstatic.com (Google, für Firebase),
+  cdn.jsdelivr.net (jsDelivr, für EmailJS) und cdnjs.cloudflare.com (Cloudflare, für die Erzeugung des QR-Codes; der
+  QR-Code selbst wird auf Ihrem Gerät erzeugt). Dabei wird Ihre IP-Adresse an diese Server übertragen
+  (Art. 6 Abs. 1 lit. f DSGVO – berechtigtes Interesse an einer zuverlässigen Auslieferung).</p>
+
+  <h2>5. Weitergabe von Daten</h2>
+  <p>Eine Weitergabe an Dritte findet nicht statt, außer an die oben genannten Dienstleister im Rahmen des Betriebs des
+  Futterrechners oder wenn wir gesetzlich dazu verpflichtet sind. Andere Betriebe sehen Ihre Daten nicht. Der Anbieter
+  sieht in der App nur Name und Angaben der Zugangsanfragen und die Namen der Betriebe, nicht aber deren Futterdaten.</p>
+
+  <h2>6. Speicherdauer</h2>
+  <ul>
+    <li>Futterdaten und Geräte eines Betriebs: solange der Betrieb den Futterrechner nutzt. Auf Wunsch löschen wir sie.</li>
+    <li>Ein entferntes Gerät verliert sofort den Zugriff; sein Geräte-Eintrag wird gelöscht. Der Zwischenspeicher auf dem
+        Gerät wird beim nächsten Start gelöscht.</li>
+    <li>Zugangsanfragen (einschließlich der bestätigten Fassungen): für die Dauer der Nutzung und danach bis zum Ablauf
+        von drei Jahren (Nachweis der Zustimmung, regelmäßige Verjährungsfrist). Abgelehnte Anfragen: drei Jahre.</li>
+    <li>Einladungen: höchstens ca. 10 Minuten.</li>
+  </ul>
+
+  <h2>7. Ihre Rechte</h2>
+  <p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der
+  Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20 – hierfür steht auch der Knopf „Backup erstellen“ zur
+  Verfügung) und Widerspruch gegen Verarbeitungen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO (Art. 21).
+  Wenden Sie sich dazu an die oben genannte E-Mail-Adresse.</p>
+  <p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, z. B. bei der für den Anbieter
+  zuständigen Behörde: Die Landesbeauftragte für den Datenschutz Niedersachsen, Prinzenstraße 5, 30159 Hannover.</p>
+
+  <h2>8. Datensicherheit</h2>
+  <p>Alle Verbindungen sind verschlüsselt (HTTPS). Der Zugriff auf die Daten eines Betriebs wird von der Datenbank selbst
+  geprüft (Sicherheitsregeln), nicht nur vom Gerät. Geräte lassen sich nur mit einem kurzlebigen Einmal-Code hinzufügen,
+  Hinzufügen und Entfernen ist zusätzlich durch die Verwaltungs-PIN geschützt.</p>
+
+  <h2>9. Änderungen</h2>
+  <p>Wird die App erweitert oder ändern sich die Dienstleister, passen wir diese Datenschutzerklärung an. Jede Fassung
+  erhält eine eigene Kennung (siehe oben).</p>
+
+  <p style="margin-top:30px"><a href="./">Zurück zum Futterrechner</a></p>
 </main>
 </body>
 </html>

@@ -71,8 +71,12 @@ App als APK-Link (`download.html`).
   Kein Rollensystem – wer die PIN kennt, darf es. Details UMBAUPLAN.md Phase 3b. Branch `umbau/05-verwaltungs-pin`.
 - 06.10.2026: Fritz hat F1–F4, F8, F10 freigegeben (behoben auf `fix/fehler-behebung`, Test `tests/fehler.js`), F9 bleibt.
   Vergleichstest-Erwartung wurde dafür bewusst festgeschrieben (`vergleich.js --festschreiben`) – sonst nie.
-  AGB-Entwurf in `agb.html` (Fassung AGB-2026-10-06, Platzhalter für Anschrift/E-Mail, rechtlich prüfen lassen).
-  Datenschutzerklärung ist noch Platzhalter.
+  AGB (`agb.html`, AGB-2026-10-06) und Datenschutzerklärung (`datenschutz.html`, Datenschutz-2026-10-06) ausgefüllt
+  (Anbieter: Fritz Taupke-Westerhaus, Bersenbrücker Straße 11, 49434 Neuenkirchen-Vörden, taupkewesterhausfritz@gmail.com),
+  rechtliche Prüfung steht aus. Neue Dienstleister/Datenarten → Datenschutzerklärung + Fassung anpassen.
+- Handy-Ansicht: zweiter `<style>`-Block in index.html (nur Aussehen). Test `tests/handy.js` (nichts breiter als Bildschirm).
+- Teilen: Einladungs-Link + WhatsApp/Kopieren unter dem QR-Code, „App weitergeben“; in der App über `FutterrechnerApp.teilen`.
+  App-Version bei Änderungen am Android-Teil erhöhen (`android/app/build.gradle`, zuletzt 2 / 1.1).
 - Android: `android/` (WebView, Varianten live/probe). Signatur-Schlüssel `android/futterrechner.jks` + `keystore.properties`
   sind **nicht im Repo** (gitignored) – nie löschen. Werkzeuge: JDK Temurin 21, Android SDK in `%LOCALAPPDATA%\Android\Sdk`.
 - Kostenloser Firebase-Tarif: keine APK-Dateien auf Firebase Hosting (Test-APK kommt aus dem GitHub-Branch).

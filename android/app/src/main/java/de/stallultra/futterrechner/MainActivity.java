@@ -169,6 +169,17 @@ public class MainActivity extends Activity {
 
     /** Wird aus der Webseite aufgerufen (window.FutterrechnerApp). */
     private class Bruecke {
+        /** Text über das Android-Teilen-Menü verschicken (WhatsApp, SMS, E-Mail …). */
+        @JavascriptInterface
+        public void teilen(String text) {
+            runOnUiThread(() -> {
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("text/plain");
+                i.putExtra(Intent.EXTRA_TEXT, text == null ? "" : text);
+                startActivity(Intent.createChooser(i, "Teilen über"));
+            });
+        }
+
         @JavascriptInterface
         public void speichern(String dateiname, String base64, String typ) {
             runOnUiThread(() -> {

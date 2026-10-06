@@ -68,6 +68,9 @@ async function main() {
       pin = (await A.page.textContent("#einladung-pin")).replace(/\D/g, "");
       assert.strictEqual(pin.length, 8);
       assert(await A.page.$("#einladung-qr svg"), "QR-Code fehlt");
+      const teilLink = await A.page.textContent("#einladung-link");
+      assert(teilLink.includes("?einladung=") && teilLink.length > 40, "Teilen-Link fehlt: " + teilLink);
+      assert(await A.page.$("#einladung-anzeige a[href^='https://wa.me/']"), "WhatsApp-Knopf fehlt");
       await N.page.click("text=Ich habe eine PIN");
       await N.page.fill("#pin-eingabe", pin.slice(0, 4) + " " + pin.slice(4));
       await N.page.fill("#pin-geraetename", "Handy Stall");

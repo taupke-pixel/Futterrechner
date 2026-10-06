@@ -59,9 +59,16 @@ Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
 - **F9** (Durchschnitt) bleibt bewusst so – Erklärung in FEHLER.md.
 - Alle anderen Rechenergebnisse sind unverändert (Vergleichstest).
 
-### AGB
-- Entwurf in `agb.html` (Fassung „AGB-2026-10-06“). **Bitte noch eintragen:** deine Anschrift und E-Mail (rot markiert),
-  und vor dem Livegang einmal rechtlich prüfen lassen. Die **Datenschutzerklärung** ist noch ein Platzhalter.
+### AGB und Datenschutzerklärung
+- `agb.html` (Fassung „AGB-2026-10-06“) und `datenschutz.html` (Fassung „Datenschutz-2026-10-06“) sind fertig ausgefüllt,
+  mit deiner Anschrift und E-Mail. **Vor dem Livegang einmal rechtlich prüfen lassen** (z. B. Bauernverband).
+
+### Handy-Ansicht und Teilen (06.10.2026)
+- Die Seite passt sich jetzt dem Handy-Bildschirm an (vorher war sie breiter und wirkte wie eine PC-Seite).
+  Geprüft auf drei Handy-Größen (320, 390, 412 Pixel breit).
+- Unter dem QR-Code steht jetzt der **Einladungs-Link** mit Knöpfen **Teilen**, **WhatsApp** und **Kopieren**.
+- Unter „👥 Betrieb & Geräte“ → **„App weitergeben“**: Download-Link der App teilen (gibt allein keinen Zugriff).
+- Android-App Version 1.1 (Teilen über das Android-Teilen-Menü).
 
 ### Phase 4 – Android-App
 - Kleine App (49 KB), die die Webseite lädt → Updates kommen automatisch mit der Webseite.
