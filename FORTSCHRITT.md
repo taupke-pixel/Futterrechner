@@ -1,7 +1,16 @@
 # Fortschritt Futterrechner-Umbau
 
 Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
-**Die echte Seite und die echte Datenbank sind bisher unverändert.** Alles läuft im Testprojekt.
+
+## 🚀 LIVE seit 06.10.2026 (ca. 14:30 Uhr)
+- Neue Version auf https://taupke-pixel.github.io/Futterrechner/ (main = Commit 782e30d), neue Sicherheitsregeln im
+  echten Projekt aktiv, alte Lücke (Anfragen für jeden lesbar) geschlossen – geprüft.
+- Anonyme Anmeldung im echten Projekt aktiv. Fritz' Betrieb „Taupke-Westerhaus“ angelegt, Fritz ist Betreiber.
+- Fritz' alte Daten übernommen und geprüft („alles da“).
+- Offen: Verwaltungs-PIN festlegen, echte App installieren, übrige Nutzer fragen neu an und übernehmen ihre Daten
+  (im bisherigen Browser, nur auf einem Gerät pro Betrieb).
+- Zurück zur alten Version (nur im Notfall, mit Fritz): `main` auf d250375 zurücksetzen und alte Regeln
+  (Ruleset 3e6b2518-1081-44b4-b118-d308884acea2) wieder aktivieren – Daten im Betrieb bleiben erhalten.
 
 ## Wo was liegt
 - Code auf GitHub, Branches `umbau/00-…` bis `umbau/04-android-app` (jeder baut auf dem vorigen auf). `main` ist unverändert.

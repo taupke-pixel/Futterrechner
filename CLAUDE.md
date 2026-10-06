@@ -9,9 +9,10 @@ Eigentümer: Fritz (Milchviehhalter, kein Programmierer). Sprache im Umgang mit 
   https://taupke-pixel.github.io/Futterrechner/
 - Bibliotheken per `<script>`-Tag: Firebase JS SDK **8.10.0** (app, **auth**, firestore; Namespaced-API), EmailJS (`emailjs-com@3`),
   qrcode-generator 1.4.4 (cdnjs, QR wird im Gerät erzeugt). Weitere Seiten: `agb.html`, `datenschutz.html`, `download.html`.
-- **Stand Umbau (05.10.2026):** Phasen 0–4 fertig auf Branches `umbau/00…04` (gestapelt, alle auf GitHub). `main` und die echte
-  Datenbank sind **unverändert** – der Livegang (UMBAUPLAN.md, Abschnitt Livegang) wartet auf Fritz' Freigabe.
-  Auf `main` liegen die Futterdaten noch nur im localStorage; ab Branch 01 im Betrieb in Firestore.
+- **LIVE seit 06.10.2026** (von Fritz freigegeben): `main` = 782e30d (alles aus `fix/fehler-behebung`), neue
+  `firestore.rules` im echten Projekt `futterrechner` aktiv, anonyme Anmeldung dort an. Fritz' Betrieb „Taupke-Westerhaus“
+  (afDp00bdLNdynQ) ist `system/betreiber`. Ab jetzt gelten Regel 4/5 wieder streng: Änderungen erst auf Branch + Testprojekt,
+  `main`/echte Rules/echte Daten nur mit ausdrücklicher Freigabe. Alte Fassung zum Vergleich: Commit d250375.
 - Echtes Firebase-Projekt: `futterrechner` (**nicht anfassen ohne Freigabe**, siehe unten).
 - Testprojekt: `futterrechner-test-stall` (Default in `.firebaserc`), Test-Webseite https://futterrechner-test-stall.web.app
   (`firebase deploy --only firestore:rules,hosting --project futterrechner-test-stall`). Anonyme Anmeldung dort muss Fritz einschalten.
