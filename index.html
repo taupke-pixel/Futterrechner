@@ -948,7 +948,13 @@ ${alreadySavedToday('restbullen')
 }
  
 function saveRestBullenHistory(){
- 
+
+  // F2: wie bei saveHistory() nur einmal pro Tag speichern
+  if(alreadySavedToday("restbullen")){
+    alert("Heute bereits gespeichert");
+    return;
+  }
+
   let eintrag = {
 
     id: Date.now()+Math.random().toString(36).substr(2,5),
@@ -1027,6 +1033,9 @@ cow.forEach(it=>{
 historyData.unshift(eintrag);
 
 saveHistoryStorage();
+
+// F1: den abgezogenen Lagerbestand auch speichern
+saveLagerStorage();
 
 buildCalc();
 
