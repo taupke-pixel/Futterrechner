@@ -49,7 +49,7 @@ beforeEach(async () => {
 });
 after(async () => { await env.cleanup(); });
 
-const als = uid => env.authenticatedContext(uid).firestore();
+const als = uid => { const db = env.authenticatedContext(uid).firestore(); db.__uid = uid; return db; };
 const crypto = require("crypto");
 const sha = s => crypto.createHash("sha256").update(s).digest("hex");
 // Nachweis wie in der App: sha256("futterrechner:" + Betrieb + ":" + PIN); gespeichert wird sha256(Nachweis)
@@ -156,12 +156,21 @@ const gueltigeAnfrage = uid => ({
   alteGeraeteId: "abc", agbFassung: "AGB-1", datenschutzFassung: "DS-1", zeitpunkt: serverTimestamp(), status: "offen"
 });
 
+const uidVon = db => db.__uid;
+function ablehnen(db, anfrageId, eigeneUid) {
+  const b = writeBatch(db);
+  b.update(doc(db, `anfragen/${anfrageId}`), { status: "abgelehnt", entschieden: serverTimestamp() });
+  b.set(doc(db, `approvals/${anfrageId}`), { aktion: "deny", zeit: serverTimestamp(), geraet: eigeneUid });
+  return b.commit();
+}
+
 function freigabePaket(db, anfrageId, uid, betriebId, neuerBetrieb) {
   const b = writeBatch(db);
   if (neuerBetrieb) b.set(doc(db, `betriebe/${betriebId}`), { name: "Hof Neu", angelegt: serverTimestamp(), anfrageId });
   b.set(doc(db, `betriebe/${betriebId}/geraete/${uid}`), { name: "Gerät von Rita", seit: serverTimestamp(), anfrageId });
   b.set(doc(db, `geraetezuordnung/${uid}`), { betriebId });
   b.update(doc(db, `anfragen/${anfrageId}`), { status: "erlaubt", betriebId, entschieden: serverTimestamp() });
+  b.set(doc(db, `approvals/${anfrageId}`), { aktion: "approve", zeit: serverTimestamp(), geraet: uidVon(db) });
   return b.commit();
 }
 
@@ -270,7 +279,7 @@ test("Betreiber: Freigabe nur passend zur Anfrage", async () => {
 
 test("Betreiber lehnt ab", async () => {
   const f = als("f1");
-  await assertSucceeds(updateDoc(doc(f, "anfragen/anf1"), { status: "abgelehnt", entschieden: serverTimestamp() }));
+  await assertSucceeds(ablehnen(f, "anf1", "f1"));
   const z = await assertSucceeds(getDoc(doc(als("r1"), "geraetezuordnung/r1")));
   if (z.exists()) throw new Error("abgelehntes Gerät hat trotzdem einen Betrieb");
   await assertFails(setDoc(doc(als("r1"), "betriebe/A/daten/futter"), { inhalt: {} }));
@@ -426,4 +435,69 @@ test("PIN festlegen: einmal am Anfang; ändern nur mit alter PIN", async () => {
 test("PIN vergessen: nur der Betreiber kann sie zurücksetzen", async () => {
   await assertFails(deleteDoc(doc(als("a1"), "betriebe/A/geheim/verwaltung")));
   await assertSucceeds(deleteDoc(doc(als("f1"), "betriebe/A/geheim/verwaltung")));
+});
+
+// ---------- Betreiber-PIN: Freigabe auf jedem Gerät ----------
+const betreiberNachweis = pin => sha("futterrechner-betreiber:" + pin);
+async function betreiberPinAnlegen(pin) {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "config/admin"), { pruefwert: sha(betreiberNachweis(pin)), gesetzt: new Date() });
+  });
+}
+const betreiberFreischalten = (db, uid, pin) =>
+  setDoc(doc(db, `betreiberFreischaltung/${uid}`), { nachweis: betreiberNachweis(pin), zeit: serverTimestamp() });
+
+test("Betreiber-PIN: fremdes Gerät (z. B. PC im Gmail-Fenster) kann mit richtiger PIN freigeben", async () => {
+  await betreiberPinAnlegen("12345678");
+  const pc = als("pc1");
+  await assertFails(getDoc(doc(pc, "anfragen/anf1")));                      // ohne PIN: nichts
+  await assertSucceeds(betreiberFreischalten(pc, "pc1", "12345678"));
+  await assertSucceeds(getDoc(doc(pc, "anfragen/anf1")));
+  await assertSucceeds(freigabePaket(pc, "anf1", "r1", "PC1", true));
+  await assertSucceeds(getDoc(doc(als("r1"), "betriebe/PC1/daten/futter")));
+  // Ablehnen geht genauso
+  await assertSucceeds(ablehnen(pc, "anf2", "pc1"));
+});
+
+test("Betreiber-PIN: falsche PIN, abgelaufene Freischaltung → nichts", async () => {
+  await betreiberPinAnlegen("12345678");
+  const pc = als("pc2");
+  await assertFails(betreiberFreischalten(pc, "pc2", "87654321"));
+  await assertFails(freigabePaket(pc, "anf1", "r1", "X1", true));
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "betreiberFreischaltung/pc3"), { nachweis: betreiberNachweis("12345678"), zeit: new Date(Date.now() - 31 * 60000) });
+  });
+  await assertFails(freigabePaket(als("pc3"), "anf1", "r1", "X2", true));
+});
+
+test("Betreiber-PIN: Anfragender kann sich auch mit PIN nicht selbst freigeben", async () => {
+  await betreiberPinAnlegen("12345678");
+  const r = als("r1");
+  await assertSucceeds(betreiberFreischalten(r, "r1", "12345678"));        // angenommen, er kennt die PIN
+  await assertFails(freigabePaket(r, "anf1", "r1", "SELBST", true));
+  await assertFails(freigabePaket(r, "anf1", "r1", "A", false));
+  await assertFails(ablehnen(r, "anf1", "r1"));
+});
+
+test("Betreiber-PIN: Prüfwert, Freischaltung und Protokoll kann niemand lesen", async () => {
+  await betreiberPinAnlegen("12345678");
+  const pc = als("pc4");
+  await assertSucceeds(betreiberFreischalten(pc, "pc4", "12345678"));
+  await assertSucceeds(freigabePaket(pc, "anf1", "r1", "P4", true));
+  for (const p of ["config/admin", "betreiberFreischaltung/pc4", "approvals/anf1"]) {
+    await assertFails(getDoc(doc(pc, p)));
+    await assertFails(getDoc(doc(als("f1"), p)));
+  }
+});
+
+test("Betreiber-PIN festlegen: nur auf Betreiber-Gerät; ändern auch mit PIN; Entscheidung nur mit Protokoll", async () => {
+  const neu = { pruefwert: sha(betreiberNachweis("11112222")), gesetzt: serverTimestamp() };
+  await assertFails(setDoc(doc(als("a1"), "config/admin"), neu));            // normales Gerät
+  await assertFails(setDoc(doc(als("fremd"), "config/admin"), neu));
+  await assertSucceeds(setDoc(doc(als("f1"), "config/admin"), neu));         // Fritz' Gerät
+  const pc = als("pc5");
+  await assertSucceeds(betreiberFreischalten(pc, "pc5", "11112222"));
+  await assertSucceeds(setDoc(doc(pc, "config/admin"), { pruefwert: sha(betreiberNachweis("33334444")), gesetzt: serverTimestamp() }));
+  // Entscheidung ohne Protokolleintrag geht nicht
+  await assertFails(updateDoc(doc(als("f1"), "anfragen/anf1"), { status: "abgelehnt", entschieden: serverTimestamp() }));
 });

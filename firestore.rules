@@ -16,10 +16,24 @@ service cloud.firestore {
       return angemeldet() && exists(/databases/$(database)/documents/betriebe/$(betriebId)/geraete/$(request.auth.uid));
     }
 
-    function istBetreiber() {
+    // Betreiber-Gerät: ein Gerät des Betriebs, der in system/betreiber eingetragen ist (Fritz' Geräte)
+    function istBetreiberGeraet() {
       return angemeldet()
         && exists(/databases/$(database)/documents/system/betreiber)
         && istGeraet(get(/databases/$(database)/documents/system/betreiber).data.betriebId);
+    }
+
+    // Betreiber per PIN: irgendein Gerät, auf dem in den letzten 30 Minuten die richtige Betreiber-PIN eingegeben wurde
+    // (betreiberFreischaltung/{uid}). Damit kann Fritz Freigabe-Links aus der E-Mail auf jedem Gerät bestätigen.
+    function istBetreiberPerPin() {
+      return angemeldet()
+        && exists(/databases/$(database)/documents/betreiberFreischaltung/$(request.auth.uid))
+        && request.time < get(/databases/$(database)/documents/betreiberFreischaltung/$(request.auth.uid)).data.zeit
+                          + duration.value(30, 'm');
+    }
+
+    function istBetreiber() {
+      return istBetreiberGeraet() || istBetreiberPerPin();
     }
 
     // Nur diese Felder ändern sich (alle anderen bleiben gleich)
@@ -132,6 +146,7 @@ service cloud.firestore {
         allow delete: if (istGeraet(betriebId) && geraetUid == request.auth.uid) || freigeschaltet(betriebId);
         // Gerät hinzufügen: (a) Betreiber bei Freigabe einer Anfrage dieses Geräts
         allow create: if istBetreiber()
+                      && geraetUid != request.auth.uid
                       && request.resource.data.keys().hasOnly(['name', 'seit', 'anfrageId'])
                       && text(request.resource.data.name, 60)
                       && request.resource.data.seit == request.time
@@ -191,6 +206,10 @@ service cloud.firestore {
       // Der Anfragende selbst kann seine Anfrage nie ändern oder löschen (Nachweis der Zustimmung bleibt).
       allow update: if istBetreiber()
                     && resource.data.status == 'offen'
+                    // nie die eigene Anfrage (auch nicht mit Betreiber-PIN)
+                    && resource.data.uid != request.auth.uid
+                    // jede Entscheidung wird im selben Schritt protokolliert
+                    && existsAfter(/databases/$(database)/documents/approvals/$(anfrageId))
                     && nurFelder(['status', 'betriebId', 'entschieden'])
                     && request.resource.data.entschieden == request.time
                     && (
@@ -219,6 +238,43 @@ service cloud.firestore {
                     || (angemeldet()
                         && request.time < resource.data.erstellt + duration.value(10, 'm')
                         && existsAfter(/databases/$(database)/documents/betriebe/$(resource.data.betriebId)/geraete/$(request.auth.uid)));
+    }
+
+    // ---------- Betreiber-PIN (Freigabe auf jedem Gerät) ----------
+    // config/admin: nur Prüfwert der Betreiber-PIN. Lesen kann ihn niemand.
+    // Festlegen nur auf einem Betreiber-Gerät; ändern auch mit gültiger Betreiber-PIN.
+    match /config/{dokId} {
+      allow create: if dokId == 'admin' && istBetreiberGeraet()
+                    && request.resource.data.keys().hasOnly(['pruefwert', 'gesetzt'])
+                    && request.resource.data.pruefwert is string && request.resource.data.pruefwert.size() == 64
+                    && request.resource.data.gesetzt == request.time;
+      allow update: if dokId == 'admin' && istBetreiber()
+                    && request.resource.data.keys().hasOnly(['pruefwert', 'gesetzt'])
+                    && request.resource.data.pruefwert is string && request.resource.data.pruefwert.size() == 64
+                    && request.resource.data.gesetzt == request.time;
+    }
+
+    // Betreiber-PIN eingeben: gelingt nur mit passendem Nachweis. Lesen kann es niemand.
+    match /betreiberFreischaltung/{geraetUid} {
+      allow create, update: if angemeldet() && geraetUid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['nachweis', 'zeit'])
+                    && request.resource.data.zeit == request.time
+                    && request.resource.data.nachweis is string && request.resource.data.nachweis.size() == 64
+                    && exists(/databases/$(database)/documents/config/admin)
+                    && pruefwertVon(request.resource.data.nachweis)
+                       == get(/databases/$(database)/documents/config/admin).data.pruefwert;
+      allow delete: if angemeldet() && geraetUid == request.auth.uid;
+    }
+
+    // Protokoll der Entscheidungen (wer/wann), ohne PIN. Lesen kann es niemand, ändern auch nicht.
+    match /approvals/{anfrageId} {
+      allow create: if istBetreiber()
+                    && request.resource.data.keys().hasOnly(['aktion', 'zeit', 'geraet'])
+                    && request.resource.data.aktion in ['approve', 'deny']
+                    && request.resource.data.zeit == request.time
+                    && request.resource.data.geraet == request.auth.uid
+                    && getAfter(/databases/$(database)/documents/anfragen/$(anfrageId)).data.status
+                       == (request.resource.data.aktion == 'approve' ? 'erlaubt' : 'abgelehnt');
     }
 
     // ---------- Altes Zugangssystem (vor dem Umbau) ----------

@@ -24,6 +24,13 @@ async function neuesGeraet(browser, url = URL) {
 const uidVon = page => page.evaluate(async () => { while (!geraeteUid) await new Promise(r => setTimeout(r, 50)); return geraeteUid; });
 const sichtbar = (page, id) => page.waitForFunction(i => { const e = document.getElementById(i); return e && getComputedStyle(e).display !== "none" && e.offsetParent !== null; }, id, { timeout: 20000 });
 
+async function pinEingeben(page, pin) {
+  await page.waitForFunction(() => document.getElementById("pinDialog").style.display === "flex", null, { timeout: 20000 });
+  await page.fill("#pinDialog-feld", pin);
+  await page.click("#pinDialog-ok");
+  await new Promise(r => setTimeout(r, 500));
+}
+
 async function anfrageAusfuellen(page, betrieb, haken = true) {
   await sichtbar(page, "zugang-formular");
   await page.fill("#vorname", "Rita");
@@ -106,7 +113,7 @@ async function main() {
       await FP.goto(link);
       await FP.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("Hof Rita"), null, { timeout: 20000 });
       await FP.click("text=Freigeben – neuer Betrieb");
-      await FP.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("Freigegeben"), null, { timeout: 20000 });
+      await FP.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("wurde freigegeben"), null, { timeout: 20000 });
       await FP.close();
       await zugang.warteAufApp(R.page, "emulator", true);
       await R.page.evaluate(() => showTab("settings"));
@@ -145,8 +152,68 @@ async function main() {
       assert.strictEqual(ergebnis, "permission-denied");
     });
 
-    await pruefe("Keine Seitenfehler", async () => {
-      assert.deepStrictEqual([...F.meldungen, ...R.meldungen].filter(m => m.startsWith("SEITENFEHLER")), []);
+    await pruefe("Fritz legt auf seinem Handy die Betreiber-PIN fest", async () => {
+      await F.page.evaluate(() => showTab("settings"));
+      await F.page.waitForSelector("text=Betreiber-PIN festlegen / ändern", { timeout: 20000 });
+      await F.page.click("text=Betreiber-PIN festlegen / ändern");
+      await pinEingeben(F.page, "1234567890");
+      await pinEingeben(F.page, "1234567890");
+      await F.page.waitForTimeout(1500);
+      assert(F.meldungen.some(m => m.includes("Betreiber-PIN gespeichert")), F.meldungen.join(" | "));
+    });
+
+    let pcLink;
+    await pruefe("Freigabe-Link auf fremdem Gerät (PC/Gmail): falsche PIN abgelehnt, richtige PIN → freigegeben", async () => {
+      const Y = await neuesGeraet(browser);
+      await anfrageAusfuellen(Y.page, "Hof Lamping");
+      await Y.page.waitForFunction(() => window.__mails.length > 0, null, { timeout: 15000 });
+      pcLink = await Y.page.evaluate(() => window.__mails[0].approve_link);
+      const PC = await neuesGeraet(browser, pcLink);
+      await pinEingeben(PC.page, "1111111111");
+      assert(PC.meldungen.some(m => m.includes("Falsche Betreiber-PIN")), "keine Meldung bei falscher PIN");
+      await pinEingeben(PC.page, "1234567890");
+      await PC.page.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("Hof Lamping"), null, { timeout: 20000 });
+      await PC.page.click("text=Freigeben – neuer Betrieb");
+      await PC.page.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("wurde freigegeben"), null, { timeout: 20000 });
+      await zugang.warteAufApp(Y.page, "emulator", true);
+      // Zweiter Link auf demselben PC: PIN ist gemerkt, keine Abfrage mehr
+      const Z = await neuesGeraet(browser);
+      await anfrageAusfuellen(Z.page, "Hof Zwei");
+      await Z.page.waitForFunction(() => window.__mails.length > 0, null, { timeout: 15000 });
+      const deny2 = await Z.page.evaluate(() => window.__mails[0].deny_link);
+      const p2 = await PC.context.newPage();
+      p2.on("dialog", d => d.accept());
+      await p2.goto(deny2);
+      await p2.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("Hof Zwei"), null, { timeout: 20000 });
+      assert.strictEqual(await p2.evaluate(() => document.getElementById("pinDialog").style.display), "none", "PIN wurde erneut abgefragt");
+      await p2.click("text=Ablehnen");
+      await p2.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("wurde abgelehnt"), null, { timeout: 20000 });
+      await Y.context.close(); await Z.context.close(); await PC.context.close();
+    });
+
+    await pruefe("Gemerkte PIN ist falsch (z. B. PIN geändert) → wird gelöscht und neu abgefragt", async () => {
+      const W = await neuesGeraet(browser);
+      await anfrageAusfuellen(W.page, "Hof Drei");
+      await W.page.waitForFunction(() => window.__mails.length > 0, null, { timeout: 15000 });
+      const l = await W.page.evaluate(() => window.__mails[0].approve_link);
+      const PC2 = await neuesGeraet(browser, BASIS + "?emulator=1");
+      await PC2.page.evaluate(() => localStorage.setItem("betreiberNachweis", "0".repeat(64)));
+      await PC2.page.goto(l);
+      await pinEingeben(PC2.page, "1234567890");
+      await PC2.page.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("Hof Drei"), null, { timeout: 20000 });
+      assert.notStrictEqual(await PC2.page.evaluate(() => localStorage.getItem("betreiberNachweis")), "0".repeat(64));
+      await W.context.close(); await PC2.context.close();
+    });
+
+    await pruefe("Ohne Internet: verständliche Meldung", async () => {
+      const O = await neuesGeraet(browser, BASIS + "?emulator=1");
+      await O.context.route(/:(8080|9099)\//, r => r.abort());
+      await O.page.goto(pcLink);
+      await O.page.waitForFunction(() => document.getElementById("freigabe-inhalt").textContent.includes("Keine Internetverbindung"), null, { timeout: 40000 });
+      await O.context.close();
+    });
+
+    await pruefe("Keine Seitenfehler", async () => {      assert.deepStrictEqual([...F.meldungen, ...R.meldungen].filter(m => m.startsWith("SEITENFEHLER")), []);
     });
   } finally {
     await browser.close();

@@ -2943,34 +2943,82 @@ function beobachteEigeneAnfrage(){
 }
 
 // ---------- Freigabe-Seite (Link aus der E-Mail an Fritz) ----------
+// Freigeben geht auf JEDEM Gerät: entweder ist es ein Gerät von Fritz' Betrieb, oder es wird die Betreiber-PIN eingegeben.
+// Auf dem Gerät gemerkt wird nur ein Nachweis (Prüfsumme), nie die PIN. Die Datenbank prüft ihn (Security Rules).
+const BETREIBER_MERKER = "betreiberNachweis";
+const ZUR_APP = `<p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
+const KEIN_NETZ = `<p><b>Keine Internetverbindung.</b></p><p>Bitte mit Internet den Link aus der E-Mail noch einmal öffnen.</p>`;
+
+function betreiberNachweis(pin){
+  return sha256hex("futterrechner-betreiber:"+pin);
+}
+
+// Firestore wartet ohne Netz endlos – nach einer Weile lieber eine klare Meldung zeigen
+function mitZeitlimit(versprechen, ms){
+  return Promise.race([versprechen, new Promise((_,nein)=>setTimeout(()=>nein({ code:"unavailable" }), ms))]);
+}
+
+function merkerLesen(){ try{ return localStorage.getItem(BETREIBER_MERKER); }catch(e){ return null; } }
+function merkerSetzen(w){ try{ if(w) localStorage.setItem(BETREIBER_MERKER,w); else localStorage.removeItem(BETREIBER_MERKER); }catch(e){} }
+
+// Anfrage lesen; fehlt die Berechtigung, Betreiber-PIN abfragen (gemerkten Nachweis zuerst probieren)
+async function anfrageMitBerechtigungLesen(id, inhalt){
+  let gemerktProbiert=false;
+  for(let versuch=0; versuch<6; versuch++){
+    try{
+      return await mitZeitlimit(db.collection("anfragen").doc(id).get({ source:"server" }), 15000);
+    }catch(e){
+      if(!e || e.code!=="permission-denied"){ inhalt.innerHTML=KEIN_NETZ+ZUR_APP; return null; }
+    }
+    // Keine Berechtigung → mit Betreiber-PIN freischalten
+    let nachweis=null, ausMerker=false;
+    if(!gemerktProbiert && merkerLesen()){ nachweis=merkerLesen(); ausMerker=true; gemerktProbiert=true; }
+    else{
+      inhalt.innerHTML=`<p>Zum Freigeben oder Ablehnen bitte die <b>Betreiber-PIN</b> eingeben.</p>`;
+      const pin=await pinDialog("Betreiber-PIN", "Bitte die Betreiber-PIN eingeben. Sie wird auf diesem Gerät gemerkt, damit du sie nur einmal eingeben musst.");
+      if(pin===null || pin===""){ inhalt.innerHTML=`<p>Abgebrochen.</p>`+ZUR_APP; return null; }
+      nachweis=await betreiberNachweis(pin);
+    }
+    try{
+      await mitZeitlimit(db.collection("betreiberFreischaltung").doc(geraeteUid).set({
+        nachweis, zeit: firebase.firestore.FieldValue.serverTimestamp()
+      }), 15000);
+      merkerSetzen(nachweis);
+    }catch(e){
+      if(e && e.code==="permission-denied"){
+        merkerSetzen(null);
+        if(!ausMerker) alert("Falsche Betreiber-PIN.");
+        continue;
+      }
+      inhalt.innerHTML=KEIN_NETZ+ZUR_APP;
+      return null;
+    }
+  }
+  inhalt.innerHTML=`<p><b>Keine Berechtigung.</b></p><p>Zu viele falsche Versuche.</p>`+ZUR_APP;
+  return null;
+}
+
 async function zeigeFreigabe(){
   const id=approveID||denyID;
   const block=document.getElementById("freigabeBlock");
   const inhalt=document.getElementById("freigabe-inhalt");
   block.style.display="flex";
-  const zurApp=`<p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
+  if(!geraeteUid || !navigator.onLine){ inhalt.innerHTML=KEIN_NETZ+ZUR_APP; return; }
 
-  let a;
-  try{
-    const s=await db.collection("anfragen").doc(id).get({source:"server"});
-    if(!s.exists){ inhalt.innerHTML="<p>Diese Anfrage gibt es nicht.</p>"+zurApp; return; }
-    a=s.data();
-  }catch(e){
-    inhalt.innerHTML=`<p><b>Keine Berechtigung.</b></p>
-      <p>Anfragen freigeben oder ablehnen kann nur der Betreiber – auf seinem eigenen, freigeschalteten Gerät
-      (und mit Internet).</p>`+zurApp;
-    return;
-  }
+  const s=await anfrageMitBerechtigungLesen(id, inhalt);
+  if(!s) return;
+  if(!s.exists){ inhalt.innerHTML="<p>Diese Anfrage gibt es nicht.</p>"+ZUR_APP; return; }
+  const a=s.data();
 
   if(a.uid===geraeteUid){
     inhalt.innerHTML=`<p><b>Keine Berechtigung.</b></p>
-      <p>Das ist deine eigene Anfrage. Freigeben kann nur der Betreiber. Status: <b>${esc(a.status)}</b></p>`+zurApp;
+      <p>Das ist deine eigene Anfrage. Freigeben kann nur der Betreiber. Status: <b>${esc(a.status)}</b></p>`+ZUR_APP;
     return;
   }
 
   if(!a.uid){
     inhalt.innerHTML=`<p>Das ist eine alte Anfrage (vor dem Umbau). Bitte ${esc(a.vorname)} ${esc(a.nachname)} bitten,
-      in der App neu anzufragen.</p>`+zurApp;
+      in der App neu anzufragen.</p>`+ZUR_APP;
     return;
   }
 
@@ -2996,7 +3044,7 @@ async function zeigeFreigabe(){
     </table>`;
 
   if(a.status!=="offen"){
-    inhalt.innerHTML=html+`<p>Diese Anfrage wurde bereits entschieden.</p>`+zurApp;
+    inhalt.innerHTML=html+`<p>Diese Anfrage wurde bereits entschieden.</p>`+ZUR_APP;
     return;
   }
 
@@ -3012,7 +3060,7 @@ async function zeigeFreigabe(){
       </details>
       <p><button class="save-btn" style="background:#c40000" onclick="anfrageAblehnen()">Ablehnen</button></p>`;
   }
-  inhalt.innerHTML=html+zurApp;
+  inhalt.innerHTML=html+ZUR_APP;
 
   if(!denyID){
     db.collection("betriebe").get().then(q=>{
@@ -3029,8 +3077,9 @@ async function zeigeFreigabe(){
 async function anfrageFreigeben(zielBetrieb){
   if(zielBetrieb===""){ alert("Bitte einen Betrieb wählen"); return; }
   const inhalt=document.getElementById("freigabe-inhalt");
+  if(!navigator.onLine){ inhalt.innerHTML=KEIN_NETZ+ZUR_APP; return; }
   try{
-    const s=await db.collection("anfragen").doc(approveID).get({source:"server"});
+    const s=await mitZeitlimit(db.collection("anfragen").doc(approveID).get({source:"server"}), 15000);
     const a=s.data();
     const FV=firebase.firestore.FieldValue;
     const betriebRef = zielBetrieb ? db.collection("betriebe").doc(zielBetrieb) : db.collection("betriebe").doc();
@@ -3040,28 +3089,63 @@ async function anfrageFreigeben(zielBetrieb){
     b.set(betriebRef.collection("geraete").doc(a.uid),{ name:"Gerät von "+a.vorname, seit:FV.serverTimestamp(), anfrageId:approveID });
     b.set(db.collection("geraetezuordnung").doc(a.uid),{ betriebId:betriebRef.id });
     b.update(db.collection("anfragen").doc(approveID),{ status:"erlaubt", betriebId:betriebRef.id, entschieden:FV.serverTimestamp() });
-    await b.commit();
-    inhalt.innerHTML=`<p>✅ <b>Freigegeben.</b> ${esc(a.vorname)} ${esc(a.nachname)} kann die App jetzt benutzen
-      (die App auf dem Gerät startet von selbst).</p><p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
+    b.set(db.collection("approvals").doc(approveID),{ aktion:"approve", zeit:FV.serverTimestamp(), geraet:geraeteUid });
+    await mitZeitlimit(b.commit(), 20000);
+    inhalt.innerHTML=`<p>✅ <b>${esc(a.vorname)} ${esc(a.nachname)} wurde freigegeben.</b></p>
+      <p>Der Futterrechner auf dem Gerät von ${esc(a.vorname)} startet von selbst.</p>`+ZUR_APP;
   }catch(e){
     console.log("Freigabe fehlgeschlagen:", e);
-    alert("Freigabe fehlgeschlagen. Ist das Gerät schon in einem Betrieb, oder fehlt das Internet?");
+    if(e && e.code==="unavailable") inhalt.innerHTML=KEIN_NETZ+ZUR_APP;
+    else alert("Freigabe fehlgeschlagen. Ist das Gerät schon in einem Betrieb, oder ist die Betreiber-PIN abgelaufen (Seite neu öffnen)?");
   }
 }
 
 async function anfrageAblehnen(){
   if(!confirm("Anfrage wirklich ablehnen?")) return;
   const id=approveID||denyID;
+  const inhalt=document.getElementById("freigabe-inhalt");
+  if(!navigator.onLine){ inhalt.innerHTML=KEIN_NETZ+ZUR_APP; return; }
   try{
-    await db.collection("anfragen").doc(id).update({
-      status:"abgelehnt", entschieden:firebase.firestore.FieldValue.serverTimestamp()
-    });
-    document.getElementById("freigabe-inhalt").innerHTML=`<p>Anfrage abgelehnt.</p>
-      <p><button class="save-btn" onclick="location.href=location.origin+location.pathname">Zur App</button></p>`;
+    const s=await mitZeitlimit(db.collection("anfragen").doc(id).get({source:"server"}), 15000);
+    const a=s.data()||{};
+    const FV=firebase.firestore.FieldValue;
+    const b=db.batch();
+    b.update(db.collection("anfragen").doc(id),{ status:"abgelehnt", entschieden:FV.serverTimestamp() });
+    b.set(db.collection("approvals").doc(id),{ aktion:"deny", zeit:FV.serverTimestamp(), geraet:geraeteUid });
+    await mitZeitlimit(b.commit(), 20000);
+    inhalt.innerHTML=`<p><b>${esc(a.vorname)} ${esc(a.nachname)} wurde abgelehnt.</b></p>`+ZUR_APP;
   }catch(e){
     console.log(e);
-    alert("Ablehnen fehlgeschlagen (Internet? Berechtigung?)");
+    if(e && e.code==="unavailable") inhalt.innerHTML=KEIN_NETZ+ZUR_APP;
+    else alert("Ablehnen fehlgeschlagen (Berechtigung? Seite neu öffnen)");
   }
+}
+
+// Betreiber-PIN festlegen oder ändern (nur auf Fritz' Geräten sichtbar; mindestens 8 Ziffern)
+async function betreiberPinFestlegen(){
+  const p1=await pinDialog("Betreiber-PIN festlegen",
+    "Mit dieser PIN kannst du Freigabe-Links auf jedem Gerät bestätigen (PC, Tablet, Gmail). Mindestens 8 Ziffern.");
+  if(p1===null) return;
+  if(!/^[0-9]{8,20}$/.test(p1)){ alert("Bitte 8 bis 20 Ziffern eingeben."); return; }
+  const p2=await pinDialog("PIN wiederholen", "Bitte dieselbe PIN noch einmal eingeben.");
+  if(p2!==p1){ alert("Die beiden PINs stimmen nicht überein."); return; }
+  try{
+    const nachweis=await betreiberNachweis(p1);
+    await mitZeitlimit(db.collection("config").doc("admin").set({
+      pruefwert: await sha256hex(nachweis), gesetzt: firebase.firestore.FieldValue.serverTimestamp()
+    }), 15000);
+    merkerSetzen(nachweis);
+    alert("Betreiber-PIN gespeichert. Bitte gut merken – damit gibst du neue Betriebe frei.");
+  }catch(e){
+    console.log(e);
+    alert(e && e.code==="unavailable" ? "Keine Internetverbindung." : "Speichern nicht erlaubt (nur auf deinem Betreiber-Gerät).");
+  }
+}
+
+// Ist dieses Gerät ein Betreiber-Gerät? (Nur der Betreiber darf die Liste der Betriebe sehen.)
+async function istBetreiberGeraetHier(){
+  try{ await db.collection("betriebe").limit(1).get({ source:"server" }); return true; }
+  catch(e){ return false; }
 }
 
 // 📱 GERÄTE: weitere Geräte per PIN oder QR-Code hinzufügen, Geräte entfernen
@@ -3822,6 +3906,7 @@ function baueBetriebBereich(){
   <div id="geraete-liste">lade…</div>
   <p><button class="save-btn" id="einladen-knopf" onclick="einladungErzeugen()">+ Gerät hinzufügen (QR-Code / PIN)</button></p>
   <div id="einladung-anzeige"></div>
+  <div id="betreiber-bereich"></div>
   <h3>App weitergeben</h3>
   <p style="font-size:13px;color:#555">Link zur Download-Seite der Android-App. Der Link allein gibt keinen Zugriff auf Daten –
     dafür braucht es eine Einladung (QR-Code/PIN) oder eine Freigabe.</p>
@@ -3835,6 +3920,15 @@ function baueBetriebBereich(){
   `;
   if(aktiveEinladung) zeigeEinladung();
   if(betriebId){
+    // Nur auf Fritz' Geräten: Betreiber-PIN für die Freigabe auf anderen Geräten
+    istBetreiberGeraetHier().then(ja=>{
+      const b=document.getElementById("betreiber-bereich");
+      if(!b || !ja) return;
+      b.innerHTML=`<h3>Betreiber</h3>
+        <p style="font-size:13px;color:#555">Mit der Betreiber-PIN kannst du Freigabe-Links aus der E-Mail auf jedem Gerät
+          bestätigen (PC, Tablet, Gmail-Fenster).</p>
+        <button class="save-btn" style="margin:0" onclick="betreiberPinFestlegen()">Betreiber-PIN festlegen / ändern</button>`;
+    });
     verwaltungsPinGesetzt().then(gesetzt=>{
       const h=document.getElementById("verwaltung-hinweis");
       if(!h) return;
@@ -4052,7 +4146,7 @@ function zeigeZugangsseite(){
   <div style="background:#fff;padding:20px;border-radius:12px;width:300px;max-width:90%;text-align:center">
     <h3 id="pinDialog-titel" style="margin-top:0"></h3>
     <p id="pinDialog-text" style="font-size:14px"></p>
-    <input id="pinDialog-feld" type="password" inputmode="numeric" autocomplete="off" maxlength="12"
+    <input id="pinDialog-feld" type="password" inputmode="numeric" autocomplete="off" maxlength="20"
       style="font-size:24px;letter-spacing:4px;width:100%;padding:8px;box-sizing:border-box;text-align:center">
     <p>
       <button id="pinDialog-abbrechen" class="save-btn" style="background:#888">Abbrechen</button>
