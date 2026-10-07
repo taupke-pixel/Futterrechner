@@ -2,6 +2,13 @@
 
 Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
 
+## 🔑 07.10.2026: Betreiber-PIN live (main = bf8f299)
+- Freigabe-Links aus der E-Mail funktionieren auf jedem Gerät: beim ersten Mal Betreiber-PIN eingeben, danach gemerkt.
+- Betreiber-PIN festlegen: „👥 Betrieb & Geräte“ → „Betreiber“ (nur auf Fritz' Geräten sichtbar), mindestens 8 Ziffern.
+- Variante „Link allein schaltet frei (ohne PIN)“ wurde bewusst NICHT gebaut (schwächt den Schutz, z. B. bei weitergeleiteten
+  E-Mails). Nur auf ausdrücklichen Wunsch mit eigener Berechtigung.
+- E-Mail-Versand von der Test-Webseite kommt vermutlich nicht an (EmailJS erlaubt wohl nur die echte Adresse).
+
 ## 🚀 LIVE seit 06.10.2026 (ca. 14:30 Uhr)
 - Neue Version auf https://taupke-pixel.github.io/Futterrechner/ (main = Commit 782e30d), neue Sicherheitsregeln im
   echten Projekt aktiv, alte Lücke (Anfragen für jeden lesbar) geschlossen – geprüft.
