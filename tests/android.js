@@ -27,7 +27,7 @@ async function verbinde() {
       adb(`forward tcp:9223 localabstract:${sockets[0].slice(1)}`);
       try {
         const ziele = await (await fetch("http://127.0.0.1:9223/json", { signal: AbortSignal.timeout(5000) })).json();
-        const ziel = ziele.find(z => z.type === "page" && z.webSocketDebuggerUrl);
+        const ziel = ziele.find(z => z.type === "page" && z.webSocketDebuggerUrl && /localhost:\d+/.test(z.url || ""));
         if (ziel) return await seite(ziel.webSocketDebuggerUrl);
       } catch (e) {}
     }
@@ -65,8 +65,39 @@ function seite(wsUrl) {
     ws.onopen = () => ok({ browser: { close: async () => ws.close() }, page });
   });
 }
-async function main() {
-  const server = await starteServer(path.join(__dirname, ".."), PORT);
+// Bildschirm-Elemente über die Android-Bedienungshilfe finden (Text → Position in Bildschirmpunkten)
+function uiDump() {
+  for (let i = 0; i < 6; i++) {
+    try { adb("shell uiautomator dump /sdcard/ui.xml"); return adb("shell cat /sdcard/ui.xml"); }
+    catch (e) { execSync("ping -n 3 127.0.0.1 > nul"); }   // Android ist gerade beschäftigt – kurz warten
+  }
+  throw new Error("Bildschirmliste nicht lesbar");
+}
+function knotenAlle(text) {
+  const xml = uiDump();
+  const ent = s => s.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const r = [];
+  for (const m of xml.matchAll(/<node [^>]*>/g)) {
+    const tag = m[0];
+    const t = ent((/ text="([^"]*)"/.exec(tag) || [])[1] || "") + " " + ent((/ content-desc="([^"]*)"/.exec(tag) || [])[1] || "");
+    const b = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(tag);
+    if (b && t.includes(text)) r.push({ text: t.trim(), x1: +b[1], y1: +b[2], x2: +b[3], y2: +b[4] });
+  }
+  return r;
+}const knoten = text => knotenAlle(text)[0];
+function bildschirm() { const m = /(\d+)x(\d+)/.exec(adb("shell wm size")); return { b: +m[1], h: +m[2] }; }
+function statusleisteUnten() {
+  const d = adb("shell dumpsys window windows");
+  const m = /statusBars[^\n]*?frame=\[\d+,\d+\]\[\d+,(\d+)\]/.exec(d) || /StatusBar[\s\S]*?mFrame=\[\d+,\d+\]\[\d+,(\d+)\]/.exec(d);
+  return m ? +m[1] : 0;
+}
+function bedienleisteOben() {
+  const d = adb("shell dumpsys window windows");
+  const m = /navigationBars[^\n]*?frame=\[\d+,(\d+)\]\[\d+,\d+\]/.exec(d);
+  return m ? +m[1] : bildschirm().h;
+}
+
+async function main() {  const server = await starteServer(path.join(__dirname, ".."), PORT);
   let fehler = 0;
   const pruefe = async (name, fn) => {
     try { await fn(); console.log("✔ " + name); }
@@ -114,8 +145,41 @@ async function main() {
       assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 55);
     });
 
-    await pruefe("„Backup erstellen“ öffnet die Android-Speichern-Auswahl", async () => {
-      adb("logcat -c");
+    await pruefe("Kopfzeile: „Betrieb & Geräte“ lässt sich antippen (nicht unter der Statusleiste)", async () => {
+      await page.evaluate(() => { showTab("calc"); window.scrollTo(0, 0); return true; });
+      let k = null;
+      for (let i = 0; i < 10 && !k; i++) { await warte(1000); k = knoten("Betrieb & Geräte"); }
+      assert(k, "Link nicht gefunden");
+      const statusleiste = statusleisteUnten();
+      assert(k.y1 >= statusleiste, `Link liegt unter der Statusleiste (y=${k.y1}, Statusleiste bis ${statusleiste})`);
+      adb(`shell input tap ${Math.round((k.x1 + k.x2) / 2)} ${Math.round((k.y1 + k.y2) / 2)}`);
+      await warte(1500);
+      const ok = await page.evaluate(() => !document.getElementById("settings").classList.contains("hidden") &&
+        document.getElementById("betrieb").getBoundingClientRect().top < window.innerHeight);
+      assert(ok, "Tippen hat den Bereich Betrieb & Geräte nicht geöffnet");
+      adb("shell screencap -p /sdcard/oben.png"); adb(`pull /sdcard/oben.png "${path.join(__dirname, ".tmp", "app-oben.png")}"`);
+    });
+
+    await pruefe("Unten: „Teilen“ (App weitergeben) liegt über der Bedienleiste und öffnet das Teilen-Menü", async () => {
+      // Hinweisbalken des Firebase-Emulators (gibt es nur im Test) ausblenden
+      await page.evaluate(() => { const s = document.createElement("style"); s.textContent = ".firebase-emulator-warning{display:none!important}"; document.head.appendChild(s);
+        showTab("settings"); window.scrollTo(0, document.body.scrollHeight); return true; });
+      await warte(1500);
+      adb("shell screencap -p /sdcard/unten.png"); adb(`pull /sdcard/unten.png "${path.join(__dirname, ".tmp", "app-unten.png")}"`);
+      const alle = knotenAlle("Teilen");
+      assert(alle.length, "Teilen-Knopf nicht gefunden");
+      const k = alle.sort((a, b) => b.y1 - a.y1)[0];
+      const leiste = bedienleisteOben();
+      assert(k.y2 <= leiste, `Teilen-Knopf unter der Bedienleiste (unten=${k.y2}, Bedienleiste ab ${leiste})`);
+      adb(`shell input tap ${Math.round((k.x1 + k.x2) / 2)} ${Math.round((k.y1 + k.y2) / 2)}`);
+      await warte(2500);
+      const akt = adb("shell dumpsys activity activities").split("\n").filter(l => /topResumedActivity|mResumedActivity/.test(l)).join(" ");
+      assert(/Chooser|ResolverActivity|intentresolver/i.test(akt), "Teilen-Menü nicht offen: " + akt);
+      adb("shell input keyevent KEYCODE_BACK");
+      await warte(1000);
+    });
+
+    await pruefe("„Backup erstellen“ öffnet die Android-Speichern-Auswahl", async () => {      adb("logcat -c");
       await page.evaluate(() => exportBackup());
       await warte(3000);
       const akt = adb("shell dumpsys activity activities").split("\n").filter(l => /topResumedActivity|mResumedActivity/.test(l)).join(" ");

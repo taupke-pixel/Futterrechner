@@ -7,7 +7,11 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
 import android.util.Base64;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -44,7 +48,25 @@ public class MainActivity extends Activity {
         // Nur Debug-Versionen: Fernsteuerung für automatische Tests erlauben
         if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true);
         webView = new WebView(this);
-        setContentView(webView);
+        // Ab Android 15 zeichnen Apps bis unter Statusleiste (oben) und Bedienleiste (unten). Damit nichts verdeckt wird
+        // (z. B. „Betrieb & Geräte“ oben, Teilen-Knöpfe unten), bekommt die Seite genau so viel Abstand wie diese Leisten.
+        FrameLayout rahmen = new FrameLayout(this);
+        rahmen.setBackgroundColor(Color.parseColor("#2f3b45"));   // Farbe der Kopfzeile hinter den Leisten
+        rahmen.addView(webView, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        rahmen.setOnApplyWindowInsetsListener((v, insets) -> {
+            int links, oben, rechts, unten;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets i = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+                links = i.left; oben = i.top; rechts = i.right; unten = i.bottom;
+            } else {
+                links = insets.getSystemWindowInsetLeft(); oben = insets.getSystemWindowInsetTop();
+                rechts = insets.getSystemWindowInsetRight(); unten = insets.getSystemWindowInsetBottom();
+            }
+            v.setPadding(links, oben, rechts, unten);
+            return insets;
+        });
+        setContentView(rahmen);
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
