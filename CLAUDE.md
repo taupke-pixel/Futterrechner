@@ -77,7 +77,9 @@ App als APK-Link (`download.html`).
   rechtliche Prüfung steht aus. Neue Dienstleister/Datenarten → Datenschutzerklärung + Fassung anpassen.
 - Handy-Ansicht: zweiter `<style>`-Block in index.html (nur Aussehen). Test `tests/handy.js` (nichts breiter als Bildschirm).
 - Teilen: Einladungs-Link + WhatsApp/Kopieren unter dem QR-Code, „App weitergeben“; in der App über `FutterrechnerApp.teilen`.
-  App-Version bei Änderungen am Android-Teil erhöhen (`android/app/build.gradle`, zuletzt 2 / 1.1).
+  App-Version bei Änderungen am Android-Teil erhöhen (`android/app/build.gradle`, zuletzt 3 / 1.2).
+- 08.10.2026 live (main = efcd436): Abstand zu Status-/Bedienleiste (Android 15). App 1.2 macht es selbst; für alte Apps 1.0/1.1
+  gleicht die Webseite aus (Klasse `app-rand`). Nur Aussehen, keine Daten/Regeln geändert.
 - Android: `android/` (WebView, Varianten live/probe). Signatur-Schlüssel `android/futterrechner.jks` + `keystore.properties`
   sind **nicht im Repo** (gitignored) – nie löschen. Werkzeuge: JDK Temurin 21, Android SDK in `%LOCALAPPDATA%\Android\Sdk`.
 - Kostenloser Firebase-Tarif: keine APK-Dateien auf Firebase Hosting (Test-APK kommt aus dem GitHub-Branch).
