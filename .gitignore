@@ -8,3 +8,4 @@ android/app/build/
 android/local.properties
 android/*.jks
 android/keystore.properties
+.claude/scheduled_tasks.lock
