@@ -2,6 +2,15 @@
 
 Kurz und einfach: Was ist fertig, was kommt als Nächstes, was du testen kannst.
 
+## 📱 08.10.2026: Randabstand live (main = efcd436)
+- „Betrieb & Geräte“ war in der App unter der Statusleiste, Teilen-Knöpfe unter der Bedienleiste (Android 15).
+  Behoben über die Webseite – wirkt ohne Neuinstallation. Neue App 1.2 auf der Download-Seite für neue Nutzer.
+  Nur Aussehen geändert, keine Daten, keine Sicherheitsregeln.
+
+## 🔑 07.10.2026: Betreiber-PIN live (main = bf8f299)
+- Freigabe-Links aus der E-Mail auf jedem Gerät: beim ersten Mal Betreiber-PIN eingeben, danach gemerkt.
+- Betreiber-PIN festlegen unter „👥 Betrieb & Geräte“ → „Betreiber“ (nur auf Fritz' Geräten sichtbar).
+
 ## 🚀 LIVE seit 06.10.2026 (ca. 14:30 Uhr)
 - Neue Version auf https://taupke-pixel.github.io/Futterrechner/ (main = Commit 782e30d), neue Sicherheitsregeln im
   echten Projekt aktiv, alte Lücke (Anfragen für jeden lesbar) geschlossen – geprüft.
