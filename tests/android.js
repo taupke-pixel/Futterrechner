@@ -9,7 +9,7 @@ const zugang = require("./zugang");
 
 const SDK = path.join(process.env.LOCALAPPDATA, "Android", "Sdk");
 const ADB = `"${path.join(SDK, "platform-tools", "adb.exe")}"`;
-const APK = path.join(__dirname, "..", "android", "app", "build", "outputs", "apk", "probe", "debug", "app-probe-debug.apk");
+const APK = process.env.APK || path.join(__dirname, "..", "android", "app", "build", "outputs", "apk", "probe", "debug", "app-probe-debug.apk");
 const PAKET = "de.stallultra.futterrechner.test";
 const PORT = 5055;
 const adb = cmd => execSync(`${ADB} ${cmd}`, { encoding: "utf8" }).trim();
