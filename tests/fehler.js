@@ -49,7 +49,7 @@ async function main() {
     const rm = i => p.locator(".cat-restbullen + .cat-body input").nth(i);
 
     await pruefe("F1: Restmischung speichern zieht AGF dauerhaft vom Lager ab (auch nach Neuladen)", async () => {
-      await rm(0).fill("850"); await rm(0).blur();
+      await rm(0).fill("100"); await rm(0).blur();   // wenig Restmischung → AGF muss dazu
       await rm(2).fill("9"); await rm(2).blur();
       const vorher = await p.evaluate(() => lagerData.agf.bestand);
       await p.click(`button[onclick="saveRestBullenHistory()"]`);
@@ -68,14 +68,7 @@ async function main() {
       assert(g.meldungen.includes("Heute bereits gespeichert"));
     });
 
-    await pruefe("F3: Restmischung-Eingaben bleiben nach Neuladen erhalten", async () => {
-      await rm(0).fill("612.5"); await rm(0).blur();
-      await rm(1).fill("700"); await rm(1).blur();
-      const soll = await p.evaluate(() => JSON.stringify(data.restbullen));
-      await neuLaden(p);
-      assert.strictEqual(await p.evaluate(() => JSON.stringify(data.restbullen)), soll);
-      assert.strictEqual(await rm(0).inputValue(), "612.5");
-    });
+    // F3 (Restmischung merken) wurde am 13.10.2026 auf Wunsch von Fritz zurückgenommen – Verhalten wie im Original.
 
     await pruefe("F4: „Backup laden“ fragt vorher – Abbrechen lässt alles unverändert", async () => {
       const vorher = await p.evaluate(() => historyData.length);

@@ -946,7 +946,7 @@
     "100",
     "30",
     "10",
-    "100",
+    "0",
     "0",
     "0",
     "5",
@@ -1328,7 +1328,7 @@
   },
   "historyData": [
    {
-    "id": "1791172800000ittjj",
+    "id": "179117280000096a22",
     "datum": "05.10.2026",
     "kategorie": "restbullen",
     "tiere": 0,
@@ -1338,7 +1338,7 @@
     "futter": []
    },
    {
-    "id": "1791172800000jiyub",
+    "id": "1791172800000l7uws",
     "datum": "05.10.2026",
     "kategorie": "kuehe",
     "tiere": 100,
@@ -1489,7 +1489,7 @@
     "collapsed": false
    },
    "restbullen": {
-    "rest": 100,
+    "rest": 0,
     "ziel": 0,
     "anz": 0,
     "collapsed": false
@@ -1648,7 +1648,7 @@
   },
   "historyData": [
    {
-    "id": "1791172800000ittjj",
+    "id": "179117280000096a22",
     "datum": "05.10.2026",
     "kategorie": "restbullen",
     "tiere": 0,
@@ -1658,7 +1658,7 @@
     "futter": []
    },
    {
-    "id": "1791172800000jiyub",
+    "id": "1791172800000l7uws",
     "datum": "05.10.2026",
     "kategorie": "kuehe",
     "tiere": 100,
@@ -1718,7 +1718,7 @@
    "100",
    "30",
    "10",
-   "100",
+   "0",
    "0",
    "0",
    "5",

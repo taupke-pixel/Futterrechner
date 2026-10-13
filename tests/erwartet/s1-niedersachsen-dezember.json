@@ -1209,14 +1209,14 @@
   },
   {
    "schritt": "nach-neuladen",
-   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 456.4 162.0 - 555.6 Grassilage 228.2 0.0 - 327.4 Stroh 34.2 7.2 - 300.4 Mineral 5.7 0.0 - 294.7 Kraftfutter AGF 79.9 22.9 1 min 21 s 237.8 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
+   "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 0.0 0.0 - 0.0 Grassilage 0.0 0.0 - 0.0 Stroh 0.0 0.0 - 0.0 Mineral 0.0 0.0 - 0.0 Kraftfutter AGF 0.0 0.0 0 min 0 s 0.0 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
    "rechnerFelder": [
     "120",
     "31",
     "12",
-    "850",
-    "202.95000000000002",
-    "9",
+    "0",
+    "0",
+    "0",
     "6",
     "22"
    ],
@@ -1596,7 +1596,7 @@
   },
   "historyData": [
    {
-    "id": "17975817000008l8ct",
+    "id": "17975817000001zwqd",
     "datum": "18.12.2026",
     "kategorie": "restbullen",
     "tiere": 9,
@@ -1606,7 +1606,7 @@
     "futter": []
    },
    {
-    "id": "1797581700000zdt2h",
+    "id": "1797581700000t85ap",
     "datum": "18.12.2026",
     "kategorie": "kuehe",
     "tiere": 120,
@@ -2693,7 +2693,7 @@
   },
   "lieferungen": [
    {
-    "id": "1797581700000qqojj",
+    "id": "17975817000008exct",
     "produkt": "mlf",
     "datum": "18.12.2026",
     "menge": 1200
@@ -2867,9 +2867,9 @@
     "collapsed": false
    },
    "restbullen": {
-    "rest": 850,
-    "ziel": 202.95000000000002,
-    "anz": 9,
+    "rest": 0,
+    "ziel": 0,
+    "anz": 0,
     "collapsed": false
    },
    "bullen": {
@@ -3026,7 +3026,7 @@
   },
   "historyData": [
    {
-    "id": "17975817000008l8ct",
+    "id": "17975817000001zwqd",
     "datum": "18.12.2026",
     "kategorie": "restbullen",
     "tiere": 9,
@@ -3036,7 +3036,7 @@
     "futter": []
    },
    {
-    "id": "1797581700000zdt2h",
+    "id": "1797581700000t85ap",
     "datum": "18.12.2026",
     "kategorie": "kuehe",
     "tiere": 120,
@@ -4123,7 +4123,7 @@
   },
   "lieferungen": [
    {
-    "id": "1797581700000qqojj",
+    "id": "17975817000008exct",
     "produkt": "mlf",
     "datum": "18.12.2026",
     "menge": 1200
@@ -4207,14 +4207,14 @@
   "Backup geladen"
  ],
  "zweitesGeraet": {
-  "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 456.4 162.0 - 555.6 Grassilage 228.2 0.0 - 327.4 Stroh 34.2 7.2 - 300.4 Mineral 5.7 0.0 - 294.7 Kraftfutter AGF 79.9 22.9 1 min 21 s 237.8 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
+  "rechner": "Kühe▲ Tiere: FutterkgSummeZeit Maissilage2400.02400.0-Grassilage1200.03600.0-Stroh180.03780.0-Mineral30.03810.0-Kraftfutter AGF420.04230.010 min 0 sMilchleistungsfutter240.04470.08 min 53 s Gesamt: 4470.0 kg kilo Gespeichert Färsen▲ Tiere: FutterkgSummeZeit Grassilage434.0434.0-Stroh62.0496.0-Rapsschrot12.4508.4-Kraftfutter AGF31.0539.40 min 44 s Gesamt: 539.4 kg kilo Speichern Bullen▲ Tiere: FutterkgSummeZeit Maissilage216.0216.0-Stroh9.6225.6-Rapsschrot14.4240.0-Kraftfutter AGF30.6270.60 min 44 s Gesamt: 270.6 kg kilo Speichern Restmischung Bullen ▲ Restmischung vorhanden (kg) Zielgewicht Bullenration (kg) Bullen (Anzahl) Futter Ist kg Soll kg Zeit Summe Maissilage 0.0 0.0 - 0.0 Grassilage 0.0 0.0 - 0.0 Stroh 0.0 0.0 - 0.0 Mineral 0.0 0.0 - 0.0 Kraftfutter AGF 0.0 0.0 0 min 0 s 0.0 Gespeichert Trockensteher▲ Tiere: FutterkgSummeZeit Grassilage36.036.0-Stroh24.060.0-Mineral0.660.6- Gesamt: 60.6 kg kilo Speichern Kälber▲ Tiere: FutterkgSummeZeit Futter 633.033.0-Milchleistungsfutter11.044.00 min 24 s Gesamt: 44.0 kg kilo Speichern",
   "rechnerFelder": [
    "120",
    "31",
    "12",
-   "850",
-   "202.95000000000002",
-   "9",
+   "0",
+   "0",
+   "0",
    "6",
    "22"
   ],

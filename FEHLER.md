@@ -9,7 +9,7 @@ Status: ⏳ offen · ✅ freigegeben und behoben · ❌ bleibt so
 |---|---|---|
 | F1 | Restmischung speichern: Lagerbestand wird nicht gesichert | ✅ behoben 06.10.2026 |
 | F2 | Restmischung kann mehrmals am Tag gespeichert werden | ✅ behoben 06.10.2026 |
-| F3 | Restmischung-Eingaben sind nach Neuladen weg | ✅ behoben 06.10.2026 (Werte bleiben, auf allen Geräten gleich) |
+| F3 | Restmischung-Eingaben sind nach Neuladen weg | ❌ 06.10. behoben, am 13.10.2026 auf Wunsch von Fritz zurückgenommen – wieder wie im Original |
 | F4 | „Backup laden“ überschreibt alles ohne Rückfrage | ✅ behoben 06.10.2026 |
 | F5 | `handleApproval()` steht doppelt im Code | ✅ entfernt mit Phase 2 |
 | F6 | Freigabe-Link kann vom Anfragenden selbst benutzt werden | ✅ wird in Phase 2 geschlossen (vom Auftrag verlangt) |
@@ -46,6 +46,8 @@ erzeugen. Dann wird doppelt vom Lager abgezogen und die History-Summen sind zu h
 **Was passiert:** „Restmischung vorhanden“, „Zielgewicht“ und „Bullen (Anzahl)“ werden nach dem Neuladen auf 0 zurückgesetzt.
 **Was sich nach dem Beheben ändert:** Die zuletzt eingegebenen Werte stehen nach dem Neuladen wieder da.
 **Frage an dich:** Ist das Zurücksetzen vielleicht gewollt (jeden Tag neu eingeben)? Dann bleibt es so.
+**Entscheidung 13.10.2026:** Zurückgenommen. Mit gemerkten Werten flossen alte Eingaben (Vortag/anderes Gerät) in die neue
+Restmischung ein. Jetzt wieder wie im Original: nach dem Öffnen leer, jedes Gerät rechnet nur mit den aktuellen Eingaben.
 
 ## F4 – „Backup laden“ überschreibt alles ohne Rückfrage
 **Wo:** `importBackup()`
