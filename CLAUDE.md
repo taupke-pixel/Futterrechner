@@ -70,6 +70,8 @@ App als APK-Link (`download.html`).
 - Betreiber = Geräte des Betriebs in `system/betreiber` (kein Rollensystem). Einrichten: `werkzeuge/betreiber-einrichten.js`.
 - Verwaltungs-PIN (Wunsch Fritz 05.10.2026): Geräte hinzufügen/andere entfernen nur nach PIN-Eingabe, von jedem Gerät aus.
   Kein Rollensystem – wer die PIN kennt, darf es. Details UMBAUPLAN.md Phase 3b. Branch `umbau/05-verwaltungs-pin`.
+- 13.10.2026 live (main = 698ff5f): F3 (Restmischung merken) auf Wunsch von Fritz ZURÜCKGENOMMEN – Restmischung wieder exakt wie
+  im Original (nicht speichern/laden). Nicht wieder einführen ohne ausdrücklichen Wunsch.
 - 06.10.2026: Fritz hat F1–F4, F8, F10 freigegeben (behoben auf `fix/fehler-behebung`, Test `tests/fehler.js`), F9 bleibt.
   Vergleichstest-Erwartung wurde dafür bewusst festgeschrieben (`vergleich.js --festschreiben`) – sonst nie.
   AGB (`agb.html`, AGB-2026-10-06) und Datenschutzerklärung (`datenschutz.html`, Datenschutz-2026-10-06) ausgefüllt
