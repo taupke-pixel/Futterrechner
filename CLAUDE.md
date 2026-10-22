@@ -75,6 +75,9 @@ App als APK-Link (`download.html`).
   AGB (`agb.html`, AGB-2026-10-06) und Datenschutzerklärung (`datenschutz.html`, Datenschutz-2026-10-06) ausgefüllt
   (Anbieter: Fritz Taupke-Westerhaus, Bersenbrücker Straße 11, 49434 Neuenkirchen-Vörden, taupkewesterhausfritz@gmail.com),
   rechtliche Prüfung steht aus. Neue Dienstleister/Datenarten → Datenschutzerklärung + Fassung anpassen.
+- Live-Stand 22.10.2026 (main = 059315e): Restmischung aus 1–2 Mischungen (globalCfg.restQuellen, Test restmischung.js) und
+  drittes Futter type "wasser" (globalCfg.wasserName/wasserKg, lagerData.wasser; Klasse `drittes-futter` wird in Vergleichstests
+  ausgeblendet; Test wasser.js). Restmischung-Felder werden wie im Original NICHT gespeichert (F3 zurückgenommen).
 - Handy-Ansicht: zweiter `<style>`-Block in index.html (nur Aussehen). Test `tests/handy.js` (nichts breiter als Bildschirm).
 - Teilen: Einladungs-Link + WhatsApp/Kopieren unter dem QR-Code, „App weitergeben“; in der App über `FutterrechnerApp.teilen`.
   App-Version bei Änderungen am Android-Teil erhöhen (`android/app/build.gradle`, zuletzt 2 / 1.1).
