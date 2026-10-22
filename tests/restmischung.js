@@ -134,6 +134,43 @@ async function main() {
       assert.deepStrictEqual(await page.evaluate(() => restQuellen()), ["faersen"]);
     });
 
+    await pruefe("Eingaben der Restmischung bleiben nach dem Neuladen stehen (wie am nächsten Tag)", async () => {
+      // nach dem Neuladen oben: Färsen-Rest 250 kg, 12 Bullen (eingegeben im Schritt „Nur Färsen gewählt“)
+      assert.deepStrictEqual(await page.evaluate(() => [data.restbullen.rest, data.restbullen.anz]), [250, 12]);
+      assert.strictEqual(await feld(0).inputValue(), "250");
+      assert.strictEqual(await feld(2).inputValue(), "12");
+      const soll = erwartet(S1.backup, ["faersen"], [250], 12).tabelle;
+      assert.deepStrictEqual(await tabelleLesen(page), soll);
+    });
+
+    await pruefe("Zweites Gerät öffnet → sieht die letzte Restmischung; danach überschreibt es die Eingaben des ersten NICHT", async () => {
+      const bid = await page.evaluate(() => betriebId);
+      const ctxB = await browser.newContext({ timezoneId: "Europe/Berlin", locale: "de-DE" });
+      const B = await ctxB.newPage();
+      B.on("dialog", d => d.accept());
+      await B.clock.setFixedTime(new Date(S1.heute));
+      await zugang.vorbereiten(ctxB, B, "emulator");
+      await B.goto(`http://localhost:${PORT}/?emulator=1`);
+      const uidB = await B.evaluate(async () => { while (!geraeteUid) await new Promise(r => setTimeout(r, 50)); return geraeteUid; });
+      await zugang.geraetEintragenOeffentlich(bid, uidB, "Gerät B");
+      await B.reload();
+      await zugang.warteAufApp(B, "emulator", true);
+      await B.waitForTimeout(800);
+      assert.deepStrictEqual(await B.evaluate(() => [data.restbullen.rest, data.restbullen.anz]), [250, 12], "Gerät B sieht die letzte Restmischung nicht");
+      // Gerät A tippt eine neue Restmischung ein …
+      await page.evaluate(() => showTab("calc"));
+      await feld(0).fill("333"); await feld(0).blur();
+      await page.evaluate(() => cloudSyncFertig());
+      // … Gerät B ändert danach etwas anderes (Tierzahl) und speichert dabei seine (alte) Restmischung mit
+      await B.evaluate(() => { data.kuehe.anz = 121; save(); });
+      await B.evaluate(() => cloudSyncFertig());
+      await page.waitForFunction(() => data.kuehe.anz === 121, null, { timeout: 15000 });
+      await page.waitForTimeout(500);
+      assert.strictEqual(await page.evaluate(() => data.restbullen.rest), 333, "Eingabe von Gerät A wurde überschrieben");
+      assert.strictEqual(await feld(0).inputValue(), "333");
+      await ctxB.close();
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       assert.deepStrictEqual(meldungen.filter(m => m.startsWith("SEITENFEHLER")), []);
     });
