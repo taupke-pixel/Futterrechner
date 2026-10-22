@@ -24,13 +24,16 @@ BACKUP.lieferungen = [
 
 function schnappschuss(page) {
   return page.evaluate(() => {
-    const sortiert = o => Array.isArray(o) ? o.map(sortiert) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).sort().map(k => [k, sortiert(o[k])])) : o;
+    // drittes Futter (wasser) nicht mitvergleichen – gibt es in der alten Fassung nicht
+    const sortiert = o => Array.isArray(o) ? o.filter(x => !(x && typeof x === "object" && x.type === "wasser")).map(sortiert) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).filter(k => k !== "wasser").sort().map(k => [k, sortiert(o[k])])) : o;
     const norm = s => s.replace(/⚠ Termin ist vorbei – sofort bestellen!/g, "").replace(/\s+/g, " ").trim();
     // neue Auswahl „Mischung(en) für die Restmischung“ gibt es in der alten Fassung nicht – nicht mitvergleichen
     const wahl = document.getElementById("restquellen-wahl");
-    const text = id => norm(id === "settings" && wahl ? document.getElementById(id).textContent.replace(wahl.textContent, "") : document.getElementById(id).textContent);
+    // ebenso das neue dritte Futter (Klasse „drittes-futter“)
+    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".drittes-futter, #restquellen-wahl").forEach(e => e.remove()); return c.textContent; };
+    const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e))).map(e => e.value);
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter")).map(e => e.value);
     return JSON.stringify({
       rechner: text("calc"), rechnerFelder: werte("calc"),
       einstellungen: text("settings"), einstellungenFelder: werte("settings"),

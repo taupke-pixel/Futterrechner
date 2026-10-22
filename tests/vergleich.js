@@ -43,11 +43,15 @@ async function schnappschuss(page) {
     const norm = s => s.replace(/\s+/g, " ").trim();
     // Neue Auswahl „Mischung(en) für die Restmischung“ (Einstellungen) nicht mitvergleichen – alles andere streng
     const wahl = document.getElementById("restquellen-wahl");
-    const text = id => norm(id === "settings" && wahl
-      ? document.getElementById(id).textContent.replace(wahl.textContent, "")
-      : document.getElementById(id).textContent);
+    // Ebenso das neue dritte Futter (Elemente mit Klasse „drittes-futter“) – alles andere streng
+    const ohneNeues = id => {
+      const c = document.getElementById(id).cloneNode(true);
+      c.querySelectorAll(".drittes-futter, #restquellen-wahl").forEach(e => e.remove());
+      return c.textContent;
+    };
+    const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)))
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter"))
       .map(e => (e.type === "checkbox" ? String(e.checked) : e.value));
     return {
       rechner: text("calc"), rechnerFelder: werte("calc"),
@@ -156,11 +160,12 @@ async function laufeSzenario(browser, url, sz, modus) {
 }
 
 // ---------- Vergleich ----------
+// IDs zählen nicht; das neue dritte Futter („wasser“: Ration-Zeile mit 0 kg, Lager, Name/kg/s) wird nicht mitverglichen
 function ohneIds(o) {
-  if (Array.isArray(o)) return o.map(ohneIds);
+  if (Array.isArray(o)) return o.filter(x => !(x && typeof x === "object" && x.type === "wasser")).map(ohneIds);
   if (o && typeof o === "object") {
     const r = {};
-    Object.keys(o).sort().forEach(k => { if (k !== "id") r[k] = ohneIds(o[k]); });
+    Object.keys(o).sort().forEach(k => { if (k !== "id" && k !== "wasser" && k !== "wasserName" && k !== "wasserKg") r[k] = ohneIds(o[k]); });
     return r;
   }
   return o;

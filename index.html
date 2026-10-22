@@ -44,6 +44,7 @@ th:first-child,td:first-child{text-align:left;font-weight:bold}
 .inline-total-input{width:140px;font-size:18px}
 .agf{color:#b30000;font-weight:bold}
 .mlf{color:#003399;font-weight:bold}
+.wasser{color:#00838f;font-weight:bold}
 .plus{color:#008000;font-weight:bold}
 .minus{color:#c40000;font-weight:bold}
 .calc-box{max-width:380px;margin:auto;background:#fff;padding:14px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
@@ -307,6 +308,7 @@ const defaultGlobal={
   agfName:"AGF",mlfName:"MLF",
     bundesland:"Niedersachsen",
   agfKg:0.5,mlfKg:0.5,
+  wasserName:"Wasser",wasserKg:0.5,
   kueheName:"Kühe",
   faersenName:"Färsen",
   bullenName:"Bullen",
@@ -314,6 +316,16 @@ const defaultGlobal={
   trockenName:"Trockensteher",
   kaelberName:"Kälber"
 };
+
+// Drittes Futter (Start-Name „Wasser“, in den Einstellungen änderbar) – funktioniert wie AGF/MLF.
+// Vorhandene Rationen und Lager bekommen es mit 0 kg dazu (0 kg wird nirgends mitgerechnet).
+function drittesFutterErgaenzen(){
+  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(c=>{
+    if(data[c] && Array.isArray(data[c].items) && !data[c].items.some(i=>i.type==="wasser"))
+      data[c].items.push({type:"wasser",kg:0});
+  });
+  if(lagerData && !lagerData.wasser) lagerData.wasser={bestand:0,orange:5,rot:2,lieferzeit:2};
+}
 
 function defItems(){
   let a=[];
@@ -515,6 +527,7 @@ function saveHistory(cat){
       it.type==="agf" ? globalCfg.agfName :
 
       it.type==="mlf" ? globalCfg.mlfName :
+    it.type==="wasser" ? globalCfg.wasserName :
 
       it.name;
 
@@ -541,6 +554,13 @@ function saveHistory(cat){
       lagerData.mlf.bestand -= ges;
     }
 
+    if(it.type==="wasser"){
+
+      eintrag.wasser = (eintrag.wasser||0) + ges;
+
+      lagerData.wasser.bestand -= ges;
+    }
+
   });
 
   historyData.unshift(eintrag);
@@ -562,6 +582,8 @@ function calcAverage(produkt){
 
     let wert = produkt==="agf"
       ? (h.agf || 0)
+      : produkt==="wasser"
+      ? (h.wasser || 0)
       : (h.mlf || 0);
 
     if(wert<=0) return;
@@ -907,7 +929,7 @@ let bull = data.bullen.items;
 restMischungZeilen().forEach(({it, ist})=>{
 
   // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
-  if(it.type==="agf" || it.type==="mlf"){
+  if(it.type==="agf" || it.type==="mlf" || it.type==="wasser"){
     let exists = bull.some(b => b.type===it.type && b.kg>0);
     if(!exists) return;
   }
@@ -931,6 +953,9 @@ zeit=`<span class="agf">${fmt(Math.abs(diff)/globalCfg.agfKg)}</span>`;
 if(it.type==="mlf")
 zeit=`<span class="mlf">${fmt(Math.abs(diff)/globalCfg.mlfKg)}</span>`;
 
+if(it.type==="wasser")
+zeit=`<span class="wasser">${fmt(Math.abs(diff)/globalCfg.wasserKg)}</span>`;
+
 
   lauf += diff;
 let summe = lauf;
@@ -942,6 +967,7 @@ let summe = lauf;
   let name =
     it.type==="agf" ? globalCfg.agfName :
     it.type==="mlf" ? globalCfg.mlfName :
+    it.type==="wasser" ? globalCfg.wasserName :
     it.name;
 
 rows += `
@@ -1084,7 +1110,7 @@ let ziel = data.restbullen.ziel;
 
 restMischungZeilen().forEach(({it, ist})=>{
 
-  if(it.type==="agf" || it.type==="mlf"){
+  if(it.type==="agf" || it.type==="mlf" || it.type==="wasser"){
     let exists = bull.some(b=>b.type===it.type && b.kg>0);
     if(!exists) return;
   }
@@ -1105,6 +1131,7 @@ restMischungZeilen().forEach(({it, ist})=>{
   let name =
     it.type==="agf" ? globalCfg.agfName :
     it.type==="mlf" ? globalCfg.mlfName :
+    it.type==="wasser" ? globalCfg.wasserName :
     it.name;
 
   eintrag.futter.push({
@@ -1122,6 +1149,11 @@ restMischungZeilen().forEach(({it, ist})=>{
   if(it.type==="mlf"){
     eintrag.mlf += diff;
     lagerData.mlf.bestand -= diff;
+  }
+
+  if(it.type==="wasser"){
+    eintrag.wasser = (eintrag.wasser||0) + diff;
+    lagerData.wasser.bestand -= diff;
   }
 
 });
@@ -1151,7 +1183,7 @@ function buildWarnings(){
 
   let html = "";
 
-  ["agf","mlf"].forEach(produkt=>{
+  ["agf","mlf","wasser"].forEach(produkt=>{
 
 let resttage = calcResttage(produkt);
 
@@ -1167,6 +1199,8 @@ if(warn !== "warn-red")
    let text =
 produkt === "agf"
 ? globalCfg.agfName
+: produkt === "wasser"
+? globalCfg.wasserName
 : globalCfg.mlfName;
     html += `
 
@@ -1193,6 +1227,7 @@ produkt === "agf"
 //rechner//
 
 function buildCalc(){
+  drittesFutterErgaenzen();
   let el=document.getElementById("calc");
   el.innerHTML="";
   el.innerHTML += buildWarnings();
@@ -1205,10 +1240,12 @@ function buildCalc(){
       if(it.kg<=0)return;
       let g=it.kg*data[cat].anz;
       let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+               it.type==="mlf"?globalCfg.mlfName:
+               it.type==="wasser"?globalCfg.wasserName:it.name;
       let zeit="-";
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+      if(it.type==="wasser")zeit=`<span class="wasser">${fmt(g/globalCfg.wasserKg)}</span>`;
       lauf+=g;sum+=g;
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
@@ -1267,10 +1304,12 @@ ${alreadySavedToday(cat)?
       if(it.kg<=0)return;
       let g=it.kg*data[cat].anz;
       let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+               it.type==="mlf"?globalCfg.mlfName:
+               it.type==="wasser"?globalCfg.wasserName:it.name;
       let zeit="-";
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+      if(it.type==="wasser")zeit=`<span class="wasser">${fmt(g/globalCfg.wasserKg)}</span>`;
       lauf+=g;sum+=g;
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
@@ -1329,10 +1368,12 @@ ${alreadySavedToday(cat)?
       if(it.kg<=0)return;
       let g=it.kg*data[cat].anz;
       let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+               it.type==="mlf"?globalCfg.mlfName:
+               it.type==="wasser"?globalCfg.wasserName:it.name;
       let zeit="-";
       if(it.type==="agf")zeit=`<span class="agf">${fmt(g/globalCfg.agfKg)}</span>`;
       if(it.type==="mlf")zeit=`<span class="mlf">${fmt(g/globalCfg.mlfKg)}</span>`;
+      if(it.type==="wasser")zeit=`<span class="wasser">${fmt(g/globalCfg.wasserKg)}</span>`;
       lauf+=g;sum+=g;
       rows+=`<tr><td>${name}</td><td>${g.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zeit}</td></tr>`;
     });
@@ -1387,6 +1428,7 @@ ${alreadySavedToday(cat)?
 /* === SETTINGS === */
 
   function buildSettings(){
+  drittesFutterErgaenzen();
   let s=document.getElementById("settings");
 
   s.innerHTML=`
@@ -1498,7 +1540,14 @@ Thüringen
     onblur="buildSettings();"><br>
 
   kg/s <input type="number" value="${globalCfg.mlfKg}" 
-    oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><hr>
+    oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();">
+  <span class="drittes-futter"><br><br>
+  3. Futter Name <input value="${globalCfg.wasserName}" 
+    oninput="globalCfg.wasserName=this.value;saveGlobal();buildCalc();" 
+    onblur="buildSettings();"><br>
+
+  kg/s <input type="number" value="${globalCfg.wasserKg}" 
+    oninput="globalCfg.wasserKg=num(this.value)||0.01;saveGlobal();buildCalc();"></span><hr>
   `;
 
   // 👉 Restmischung Name
@@ -1526,10 +1575,11 @@ Thüringen
 
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
-               it.type==="mlf"?globalCfg.mlfName:it.name;
+               it.type==="mlf"?globalCfg.mlfName:
+               it.type==="wasser"?globalCfg.wasserName:it.name;
 
       s.innerHTML+=`
-      <div class="sort-row">
+      <div class="sort-row ${it.type==='wasser'?'drittes-futter':''}">
         ${sortMode?`
         <div class="sort-arrows">
           <button class="sort-btn" onclick="moveItem('${cat}',${i},-1)">▲</button>
@@ -1540,6 +1590,7 @@ Thüringen
           <input type="text" value="${name}" oninput="
             if('${it.type}'==='agf'){globalCfg.agfName=this.value;saveGlobal();}
             else if('${it.type}'==='mlf'){globalCfg.mlfName=this.value;saveGlobal();}
+            else if('${it.type}'==='wasser'){globalCfg.wasserName=this.value;saveGlobal();}
             else{data['${cat}'].items[${i}].name=this.value;save();}
             buildCalc();
           ">
@@ -1669,6 +1720,10 @@ function deleteHistory(id){
 
   lagerData.mlf.bestand +=
   eintrag.mlf || 0;
+
+  if(lagerData.wasser)
+  lagerData.wasser.bestand +=
+  eintrag.wasser || 0;
 
   historyData =
   historyData.filter(h=>h.id!==id);
@@ -1834,11 +1889,15 @@ function getKategorieName(cat){
   
 function buildHistory(){
 
+  drittesFutterErgaenzen();
+
   let h = document.getElementById("history");
 
   let agfRest = calcResttage("agf");
 
   let mlfRest = calcResttage("mlf");
+
+  let wasserRest = calcResttage("wasser");
 
   h.innerHTML = `
 
@@ -2491,6 +2550,42 @@ ${formatDatum(
 
       </div>
 
+
+      <div class="lager-card drittes-futter">
+
+      <b>${globalCfg.wasserName}</b><br>
+
+      Bestand:
+      ${lagerData.wasser.bestand.toFixed(1)} kg<br>
+
+      Ø Verbrauch:
+      ${calcAverage("wasser").toFixed(1)} kg/Tag<br>
+
+      <span class="${getWarnClass("wasser")}">
+
+  ${wasserRest<=0
+
+?"Bestand leer"
+
+:`Reicht noch ca.
+${wasserRest.toFixed(1)} Tage`
+
+}
+
+<br><br>
+
+Bestellen bis:
+
+<br>
+
+${formatDatum(
+  getBestellDatum("wasser")
+)}${bestellHinweis("wasser")}
+
+      </span>
+
+      </div>
+
     </div>
 
   </div>
@@ -2518,6 +2613,10 @@ ${globalCfg.agfName}
 
 <option value="mlf">
 ${globalCfg.mlfName}
+</option>
+
+<option value="wasser" class="drittes-futter">
+${globalCfg.wasserName}
 </option>
 
       </select>
@@ -2561,6 +2660,8 @@ margin-bottom:8px;
 
 ${l.produkt==="agf"
 ?globalCfg.agfName
+:l.produkt==="wasser"
+?globalCfg.wasserName
 :globalCfg.mlfName}
 
 </div>
@@ -2667,6 +2768,41 @@ onblur="
 buildHistory();
 buildCalc();
 ">
+<span class="drittes-futter">
+    <br><br>
+
+   ${globalCfg.wasserName} Orange
+
+    <input
+    type="number"
+    value="${lagerData.wasser.orange}"
+
+    oninput="
+lagerData.wasser.orange=num(this.value);
+saveLagerStorage();
+"
+
+onblur="
+buildHistory();
+buildCalc();
+">
+
+${globalCfg.wasserName} Rot
+
+<input
+type="number"
+value="${lagerData.wasser.rot}"
+
+oninput="
+lagerData.wasser.rot=num(this.value);
+saveLagerStorage();
+"
+
+onblur="
+buildHistory();
+buildCalc();
+">
+</span>
     </div>
 <br><br>
 
@@ -2798,6 +2934,8 @@ alert("Backup geladen");
 }
 function updateHistoryTabColor(){
 
+  drittesFutterErgaenzen();
+
   let tab =
   document.getElementById("history-tab");
 
@@ -2814,16 +2952,21 @@ function updateHistoryTabColor(){
   let mlf =
   getWarnClass("mlf");
 
+  let wasser =
+  getWarnClass("wasser");
+
   if(
     agf==="warn-red" ||
-    mlf==="warn-red"
+    mlf==="warn-red" ||
+    wasser==="warn-red"
   ){
     tab.classList.add("tab-red");
   }
 
   else if(
     agf==="warn-orange" ||
-    mlf==="warn-orange"
+    mlf==="warn-orange" ||
+    wasser==="warn-orange"
   ){
     tab.classList.add("tab-orange");
   }
@@ -3795,7 +3938,7 @@ function futterAusCloud(saved){
 }
 
 function lagerStandard(){
-  return { agf:{bestand:0,orange:5,rot:2,lieferzeit:2}, mlf:{bestand:0,orange:5,rot:2,lieferzeit:2} };
+  return { agf:{bestand:0,orange:5,rot:2,lieferzeit:2}, mlf:{bestand:0,orange:5,rot:2,lieferzeit:2}, wasser:{bestand:0,orange:5,rot:2,lieferzeit:2} };
 }
 
 // Daten aus der Cloud übernehmen (art = futter | einstellungen | lager | history | lieferungen)
@@ -3811,7 +3954,7 @@ function cloudUebernehmen(art, wert){
   if(art==="lager"){
     const neu = wert ? kopie(wert) : lagerStandard();
     // Winzige Rundungsreste aus „Abziehen/Hinzufügen“ ignorieren → Anzeige bleibt Zeichen für Zeichen gleich
-    ["agf","mlf"].forEach(p=>{
+    ["agf","mlf","wasser"].forEach(p=>{
       if(neu[p] && lagerData[p] && typeof neu[p].bestand==="number" && typeof lagerData[p].bestand==="number"
          && Math.abs(neu[p].bestand-lagerData[p].bestand) < 1e-6) neu[p].bestand=lagerData[p].bestand;
     });
