@@ -46,12 +46,12 @@ async function schnappschuss(page) {
     // Ebenso das neue dritte Futter (Elemente mit Klasse „drittes-futter“) – alles andere streng
     const ohneNeues = id => {
       const c = document.getElementById(id).cloneNode(true);
-      c.querySelectorAll(".drittes-futter, #restquellen-wahl").forEach(e => e.remove());
+      c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl").forEach(e => e.remove());
       return c.textContent;
     };
     const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter"))
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl"))
       .map(e => (e.type === "checkbox" ? String(e.checked) : e.value));
     return {
       rechner: text("calc"), rechnerFelder: werte("calc"),

@@ -1225,6 +1225,31 @@ produkt === "agf"
   return html;
 }
   
+/* === KATEGORIEN EIN/AUS (Einstellungen) === */
+// Nur Anzeige auf dem Start: abgewählte Kategorien werden ausgeblendet. Daten, Rationen, Lager und Rechnung bleiben unverändert.
+// Reihenfolge wie auf dem Start; die Restmischung Bullen ist einzeln abwählbar.
+const ALLE_KATEGORIEN = ["kuehe","faersen","bullen","restbullen","trocken","kaelber"];
+function kategorieAn(cat){ return !(Array.isArray(globalCfg.kategorienAus) && globalCfg.kategorienAus.includes(cat)); }
+function kategorienAusblenden(){
+  let el=document.getElementById("calc"); if(!el) return;
+  el.querySelectorAll(".category").forEach(k=>{
+    let h=k.querySelector(".cat-header"); if(!h) return;
+    let cat=ALLE_KATEGORIEN.find(c=>h.classList.contains("cat-"+c));
+    if(cat && !kategorieAn(cat)) k.style.display="none";
+  });
+}
+function kategorieUmschalten(cat, feld){
+  let an = ALLE_KATEGORIEN.filter(kategorieAn);
+  if(feld.checked){ if(!an.includes(cat)) an.push(cat); }
+  else {
+    if(an.length<=1 && an.includes(cat)){ alert("Mindestens eine Kategorie muss angezeigt werden."); feld.checked=true; return; }
+    an = an.filter(c=>c!==cat);
+  }
+  globalCfg.kategorienAus = ALLE_KATEGORIEN.filter(c=>!an.includes(c));
+  saveGlobal();
+  buildCalc();
+}
+
 //rechner//
 
 function buildCalc(){
@@ -1422,6 +1447,7 @@ ${alreadySavedToday(cat)?
       </div>
     </div>`;
   });
+  kategorienAusblenden();
 }
 
 
@@ -1549,6 +1575,19 @@ Thüringen
 
   kg/s <input type="number" value="${globalCfg.wasserKg}" 
     oninput="globalCfg.wasserKg=num(this.value)||0.01;saveGlobal();buildCalc();"></span><hr>
+  `;
+
+  // 👉 Kategorien auf dem Start anzeigen (Häkchen)
+  s.innerHTML+=`
+  <div id="kategorien-wahl" style="margin:6px 0 14px 0">
+    <b>Kategorien auf dem Start anzeigen:</b><br>
+    ${ALLE_KATEGORIEN.map(c=>`
+    <label style="display:inline-block;margin:6px 12px 0 0">
+      <input type="checkbox" ${kategorieAn(c)?"checked":""} onchange="kategorieUmschalten('${c}',this)">
+      ${globalCfg[c+"Name"]}
+    </label>`).join("")}
+    <hr>
+  </div>
   `;
 
   // 👉 Restmischung Name
