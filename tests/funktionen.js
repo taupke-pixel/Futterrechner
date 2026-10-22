@@ -26,9 +26,11 @@ function schnappschuss(page) {
   return page.evaluate(() => {
     const sortiert = o => Array.isArray(o) ? o.map(sortiert) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).sort().map(k => [k, sortiert(o[k])])) : o;
     const norm = s => s.replace(/⚠ Termin ist vorbei – sofort bestellen!/g, "").replace(/\s+/g, " ").trim();
-    const text = id => norm(document.getElementById(id).textContent);
+    // neue Auswahl „Mischung(en) für die Restmischung“ gibt es in der alten Fassung nicht – nicht mitvergleichen
+    const wahl = document.getElementById("restquellen-wahl");
+    const text = id => norm(id === "settings" && wahl ? document.getElementById(id).textContent.replace(wahl.textContent, "") : document.getElementById(id).textContent);
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file").map(e => e.value);
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e))).map(e => e.value);
     return JSON.stringify({
       rechner: text("calc"), rechnerFelder: werte("calc"),
       einstellungen: text("settings"), einstellungenFelder: werte("settings"),

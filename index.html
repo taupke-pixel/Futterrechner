@@ -840,24 +840,71 @@ function addArbeitstage(starttage,arbeitstage){
   return "warn-green";
 }
 /* === RESTMISCHUNG BULLEN === */
+// Welche Mischungen gehen in die Restmischung? (Einstellungen, eine oder zwei; Standard: nur Kühe)
+const RESTMISCHUNG_GRUPPEN = ["kuehe","faersen","trocken","kaelber"];
+function restQuellen(){
+  let q = Array.isArray(globalCfg.restQuellen) ? globalCfg.restQuellen.filter(c=>RESTMISCHUNG_GRUPPEN.includes(c)) : [];
+  if(q.length===0) q=["kuehe"];
+  return q.slice(0,2);
+}
+function restMenge(i){ return i===0 ? data.restbullen.rest : (data.restbullen.rest2||0); }
+
+// Häkchen in den Einstellungen: eine oder zwei Mischungen
+function restQuelleUmschalten(cat, feld){
+  let q = restQuellen().slice();
+  if(feld.checked){
+    if(q.includes(cat)) return;
+    if(q.length>=2){ alert("Höchstens zwei Mischungen. Bitte zuerst eine abwählen."); feld.checked=false; return; }
+    q.push(cat);
+  } else {
+    if(q.length<=1){ alert("Mindestens eine Mischung muss ausgewählt sein."); feld.checked=true; return; }
+    q = q.filter(c=>c!==cat);
+  }
+  // Reihenfolge wie in der Liste (erstes Feld = erste Mischung)
+  globalCfg.restQuellen = RESTMISCHUNG_GRUPPEN.filter(c=>q.includes(c));
+  data.restbullen.rest2 = 0;
+  saveGlobal();
+  buildCalc();
+}
+
+// Zeilen der Restmischung: je Futter, wie viel davon schon in der/den vorhandenen Mischung(en) ist (Ist kg).
+// Bei EINER Mischung genau wie bisher (je Futter der Ration: Anteil × Restmenge).
+// Bei ZWEI Mischungen wird gleiches Futter (gleicher Name bzw. AGF/MLF) aus beiden Resten zusammengezählt.
+function restMischungZeilen(){
+  let zeilen=[];
+  restQuellen().forEach((cat,qi)=>{
+    let items=data[cat].items;
+    let total=0;
+    items.forEach(i=>total+=i.kg);
+    let rest=restMenge(qi);
+    items.forEach(it=>{
+      if(it.kg<=0) return;
+      let anteil = it.kg / total;
+      let ist = anteil * rest;
+      if(qi>0){
+        let z = zeilen.find(z=>(it.type||z.it.type) ? it.type===z.it.type : z.it.name===it.name);
+        if(z){ z.ist += ist; return; }
+      }
+      zeilen.push({ it, ist });
+    });
+  });
+  return zeilen;
+}
+
 function buildRestBullen(){
   let el=document.getElementById("calc");
-  let cow=data.kuehe.items;
-  let total=0;
-  cow.forEach(i=>total+=i.kg);
+  let quellen=restQuellen();
 
   let rest=data.restbullen.rest;
   let ziel=data.restbullen.ziel;
 
   let rows="";
-let lauf = rest;
+let lauf = rest + (quellen.length>1 ? (data.restbullen.rest2||0) : 0);
   
 
 let bull = data.bullen.items;
 
-cow.forEach(it=>{
-
-  if(it.kg<=0) return;
+restMischungZeilen().forEach(({it, ist})=>{
 
   // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
   if(it.type==="agf" || it.type==="mlf"){
@@ -873,9 +920,6 @@ let bullItem = bull.find(b=>{
 let soll = bullItem
   ? bullItem.kg * (data.restbullen.anz || ziel / (bullItem.kg||1))
   : 0;
-
-let anteil = it.kg / total;
-let ist = anteil * rest;
 
 let diff = soll - ist;
 
@@ -919,11 +963,18 @@ rows += `
     </div>
 
     <div class="cat-body">
-      Restmischung vorhanden (kg)
+      ${quellen.length>1 ? `Restmischung ${globalCfg[quellen[0]+"Name"]} vorhanden (kg)` : "Restmischung vorhanden (kg)"}
       <input type="number"
       value="${rest}"
       oninput="data.restbullen.rest=num(this.value);"
       onblur="buildCalc()">
+      ${quellen.length>1 ? `
+      <br><br>
+      Restmischung ${globalCfg[quellen[1]+"Name"]} vorhanden (kg)
+      <input type="number"
+      value="${data.restbullen.rest2||0}"
+      oninput="data.restbullen.rest2=num(this.value);"
+      onblur="buildCalc()">` : ""}
 
       <br><br>
 
@@ -1027,18 +1078,11 @@ function saveRestBullenHistory(){
 
     futter:[]
   };
-let cow = data.kuehe.items;
 let bull = data.bullen.items;
 
-let total = 0;
-cow.forEach(i => total += i.kg);
-
-let rest = data.restbullen.rest;
 let ziel = data.restbullen.ziel;
 
-cow.forEach(it=>{
-
-  if(it.kg<=0) return;
+restMischungZeilen().forEach(({it, ist})=>{
 
   if(it.type==="agf" || it.type==="mlf"){
     let exists = bull.some(b=>b.type===it.type && b.kg>0);
@@ -1053,9 +1097,6 @@ cow.forEach(it=>{
   let soll = bullItem
     ? bullItem.kg * (data.restbullen.anz || ziel / (bullItem.kg||1))
     : 0;
-
-  let anteil = it.kg / total;
-  let ist = anteil * rest;
 
   let diff = soll - ist;
 
@@ -1465,6 +1506,14 @@ Thüringen
   <h3 class="editable" id="edit-restbullen">
   ${globalCfg.restbullenName}<span class="stift">✎</span>
   </h3>
+  <div id="restquellen-wahl" style="margin:6px 0 14px 0">
+    Mischung(en) für die Restmischung (eine oder zwei):<br>
+    ${RESTMISCHUNG_GRUPPEN.map(c=>`
+    <label style="display:inline-block;margin:6px 12px 0 0">
+      <input type="checkbox" ${restQuellen().includes(c)?"checked":""} onchange="restQuelleUmschalten('${c}',this)">
+      ${globalCfg[c+"Name"]}
+    </label>`).join("")}
+  </div>
   `;
 
   // 👉 Kategorien aufbauen

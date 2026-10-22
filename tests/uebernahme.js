@@ -32,9 +32,11 @@ function schnappschuss(page) {
     });
     buildCalc(); buildSettings(); buildHistory();
     const norm = s => s.replace(/⚠ Termin ist vorbei – sofort bestellen!/g, "").replace(/\s+/g, " ").trim(); // F10-Hinweis ist neu
-    const text = id => norm(document.getElementById(id).textContent);
+    // neue Auswahl „Mischung(en) für die Restmischung“ gibt es in der alten Fassung nicht – nicht mitvergleichen
+    const wahl = document.getElementById("restquellen-wahl");
+    const text = id => norm(id === "settings" && wahl ? document.getElementById(id).textContent.replace(wahl.textContent, "") : document.getElementById(id).textContent);
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file").map(e => e.value);
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e))).map(e => e.value);
     return {
       rechner: text("calc"), rechnerFelder: werte("calc"),
       einstellungen: text("settings"), einstellungenFelder: werte("settings"),

@@ -41,9 +41,13 @@ async function schnappschuss(page) {
     });
     buildHistory();
     const norm = s => s.replace(/\s+/g, " ").trim();
-    const text = id => norm(document.getElementById(id).textContent);
+    // Neue Auswahl „Mischung(en) für die Restmischung“ (Einstellungen) nicht mitvergleichen – alles andere streng
+    const wahl = document.getElementById("restquellen-wahl");
+    const text = id => norm(id === "settings" && wahl
+      ? document.getElementById(id).textContent.replace(wahl.textContent, "")
+      : document.getElementById(id).textContent);
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file")
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)))
       .map(e => (e.type === "checkbox" ? String(e.checked) : e.value));
     return {
       rechner: text("calc"), rechnerFelder: werte("calc"),
