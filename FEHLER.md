@@ -23,6 +23,7 @@ Der Vergleichstest wurde nur um die jeweils gewollte Änderung angepasst (F3: Re
 Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
 | F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ⏳ gefunden 22.10.2026, wartet auf Freigabe |
+| F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ⏳ gefunden 22.10.2026, nur Anzeige |
 
 ---
 
@@ -117,4 +118,11 @@ Gleiches beim „Backup laden“ und sofort neu laden (Lager verdoppelt). Ursach
 Änderungen werden 0,4 s gesammelt und erst dann geschickt; der Lagerbestand geht als „abziehen/hinzufügen“ (increment).
 Wird die Seite in diesem Moment beendet, geht die Änderung verloren bzw. wird nach dem Neustart ein zweites Mal geschickt.
 Rechenfunktionen sind nicht betroffen. Im Alltag selten (App muss innerhalb ca. ½ Sekunde nach dem Tippen ganz beendet werden).
+Behebung nur mit Freigabe von Fritz.
+
+## F13 – Altes Backup laden → 3. Futter heißt „undefined“ (gefunden 22.10.2026)
+
+`importBackup()` übernimmt `backup.globalCfg` ohne die Standardwerte; in Backups von vor dem 3. Futter fehlen `wasserName`/`wasserKg`.
+Folge: In den Einstellungen steht beim 3. Futter „undefined“, bis die App neu geöffnet wird (dann kommen die Standardwerte
+„Wasser“/0,5 aus dem Betrieb dazu). Keine Auswirkung auf Rechnung oder Lager (3. Futter steht in alten Backups überall auf 0 kg).
 Behebung nur mit Freigabe von Fritz.
