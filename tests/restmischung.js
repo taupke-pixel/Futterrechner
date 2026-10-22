@@ -68,6 +68,8 @@ async function main() {
   await zugang.warteAufApp(page, "emulator");
   await page.setInputFiles("#backupFile", { name: "b.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(S1.backup)) });
   await page.waitForFunction(() => historyData.length > 10);
+  // die neuen Einstellungs-Bereiche sind zugeklappt (Standard) – für diesen Test aufklappen (bleibt auf dem Gerät gemerkt)
+  await page.evaluate(() => { einstellungenZu = { kategorien: false, restmischung: false }; localStorage.setItem("einstellungenZu", JSON.stringify(einstellungenZu)); });
   const feld = i => page.locator(".cat-restbullen + .cat-body input").nth(i);
 
   try {

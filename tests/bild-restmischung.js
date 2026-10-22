@@ -16,6 +16,8 @@ const szenarien = require("./szenarien");
   await zugang.warteAufApp(page, "emulator");
   await page.setInputFiles("#backupFile", { name: "b.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(szenarien[0].backup)) });
   await page.waitForFunction(() => historyData.length > 10);
+  // die neuen Einstellungs-Bereiche sind zugeklappt (Standard) – für diesen Test aufklappen (bleibt auf dem Gerät gemerkt)
+  await page.evaluate(() => { einstellungenZu = { kategorien: false, restmischung: false }; localStorage.setItem("einstellungenZu", JSON.stringify(einstellungenZu)); });
   await page.evaluate(() => showTab("settings"));
   await page.locator("#restquellen-wahl label", { hasText: "Färsen" }).locator("input").click();
   await page.locator("#restquellen-wahl").scrollIntoViewIfNeeded();

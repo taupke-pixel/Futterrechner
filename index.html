@@ -869,6 +869,19 @@ function restQuellen(){
   if(q.length===0) q=["kuehe"];
   return q.slice(0,2);
 }
+// Für welche Gruppe wird die Restmischung gemacht? (Einstellungen; Standard: Bullen = genau wie bisher)
+const RESTMISCHUNG_ZIELE = ["bullen","kuehe","faersen","trocken","kaelber"];
+function restZiel(){ return RESTMISCHUNG_ZIELE.includes(globalCfg.restZiel) ? globalCfg.restZiel : "bullen"; }
+function restZielUmschalten(cat){
+  globalCfg.restZiel = cat;
+  // Tierzahl bleibt, Zielgewicht passend zur neuen Ration (wie bei Eingabe der Tierzahl)
+  let proTier = 0;
+  data[restZiel()].items.forEach(i=>{ if(i.kg>0) proTier += i.kg; });
+  data.restbullen.ziel = data.restbullen.anz * proTier;
+  saveGlobal();
+  save();
+  buildCalc();
+}
 function restMenge(i){ return i===0 ? data.restbullen.rest : (data.restbullen.rest2||0); }
 
 // Häkchen in den Einstellungen: eine oder zwei Mischungen
@@ -924,7 +937,7 @@ function buildRestBullen(){
 let lauf = rest + (quellen.length>1 ? (data.restbullen.rest2||0) : 0);
   
 
-let bull = data.bullen.items;
+let bull = data[restZiel()].items;
 
 restMischungZeilen().forEach(({it, ist})=>{
 
@@ -1005,7 +1018,7 @@ rows += `
       <br><br>
 
 
-      Zielgewicht Bullenration (kg)
+      ${restZiel()==="bullen" ? "Zielgewicht Bullenration (kg)" : `Zielgewicht Ration ${globalCfg[restZiel()+"Name"]} (kg)`}
       <input type="number"
       value="${ziel}"
 oninput="
@@ -1013,7 +1026,7 @@ data.restbullen.ziel=num(this.value);
 
 let proBulle = 0;
 
-data.bullen.items.forEach(i=>{
+data[restZiel()].items.forEach(i=>{
   if(i.kg>0) proBulle += i.kg;
 });
 
@@ -1026,14 +1039,14 @@ proBulle > 0
 
 <br><br>
 
-Bullen (Anzahl)
+${restZiel()==="bullen" ? "Bullen" : globalCfg[restZiel()+"Name"]} (Anzahl)
 <input type="number"
 value="${data.restbullen.anz}"
 onblur="
 data.restbullen.anz = num(this.value);
 
 let proBulle = 0;
-data.bullen.items.forEach(i=>{
+data[restZiel()].items.forEach(i=>{
   if(i.kg>0) proBulle += i.kg;
 });
 
@@ -1105,7 +1118,7 @@ function saveRestBullenHistory(){
 
     futter:[]
   };
-let bull = data.bullen.items;
+let bull = data[restZiel()].items;
 
 let ziel = data.restbullen.ziel;
 
@@ -1237,6 +1250,14 @@ function kategorienAusblenden(){
     let cat=ALLE_KATEGORIEN.find(c=>h.classList.contains("cat-"+c));
     if(cat && !kategorieAn(cat)) k.style.display="none";
   });
+}
+// Neue Einstellungs-Bereiche auf- und zuklappen (nur auf diesem Gerät gemerkt, Standard: zugeklappt)
+let einstellungenZu = (()=>{ try{ return JSON.parse(localStorage.getItem("einstellungenZu")||"{}"); }catch(e){ return {}; } })();
+function einstellungZu(k){ return einstellungenZu[k]!==false; }
+function einstellungUmklappen(k){
+  einstellungenZu[k] = !einstellungZu(k);
+  try{ localStorage.setItem("einstellungenZu", JSON.stringify(einstellungenZu)); }catch(e){}
+  buildSettings();
 }
 function kategorieUmschalten(cat, feld){
   let an = ALLE_KATEGORIEN.filter(kategorieAn);
@@ -1579,14 +1600,17 @@ Thüringen
 
   // 👉 Kategorien auf dem Start anzeigen (Häkchen)
   s.innerHTML+=`
-  <div id="kategorien-wahl" style="margin:6px 0 14px 0">
-    <b>Kategorien auf dem Start anzeigen:</b><br>
+  <div id="kategorien-wahl" class="history-box">
+    <div class="history-header" style="margin-bottom:0" onclick="einstellungUmklappen('kategorien')">
+    ${einstellungZu('kategorien') ? "▶" : "▼"} Kategorien auf dem Start anzeigen
+    </div>
+    <div class="klapp-inhalt" style="display:${einstellungZu('kategorien') ? 'none' : 'block'};margin-top:6px">
     ${ALLE_KATEGORIEN.map(c=>`
     <label style="display:inline-block;margin:6px 12px 0 0">
       <input type="checkbox" ${kategorieAn(c)?"checked":""} onchange="kategorieUmschalten('${c}',this)">
       ${globalCfg[c+"Name"]}
     </label>`).join("")}
-    <hr>
+    </div>
   </div>
   `;
 
@@ -1595,13 +1619,23 @@ Thüringen
   <h3 class="editable" id="edit-restbullen">
   ${globalCfg.restbullenName}<span class="stift">✎</span>
   </h3>
-  <div id="restquellen-wahl" style="margin:6px 0 14px 0">
+  <div id="restquellen-wahl" class="history-box" style="margin-top:10px">
+    <div class="history-header" style="margin-bottom:0" onclick="einstellungUmklappen('restmischung')">
+    ${einstellungZu('restmischung') ? "▶" : "▼"} Reste für die Restmischung
+    </div>
+    <div class="klapp-inhalt" style="display:${einstellungZu('restmischung') ? 'none' : 'block'};margin-top:6px">
     Mischung(en) für die Restmischung (eine oder zwei):<br>
     ${RESTMISCHUNG_GRUPPEN.map(c=>`
     <label style="display:inline-block;margin:6px 12px 0 0">
       <input type="checkbox" ${restQuellen().includes(c)?"checked":""} onchange="restQuelleUmschalten('${c}',this)">
       ${globalCfg[c+"Name"]}
     </label>`).join("")}
+    <br><br>
+    Restmischung ist für:
+    <select id="restziel-wahl" onchange="restZielUmschalten(this.value)">
+      ${RESTMISCHUNG_ZIELE.map(c=>`<option value="${c}" ${restZiel()===c?"selected":""}>${globalCfg[c+"Name"]}</option>`).join("")}
+    </select>
+    </div>
   </div>
   `;
 

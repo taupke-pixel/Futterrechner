@@ -50,6 +50,38 @@ async function main() {
       assert.deepStrictEqual(await sichtbar(page), ALLE);
     });
 
+    await pruefe("Auf-/Zuklappen: beide Bereiche starten zugeklappt, Klick öffnet und schließt (▶/▼), Daten bleiben gleich", async () => {
+      const einst = () => page.evaluate(() => JSON.stringify(globalCfg));
+      const einstVorher = await einst();
+      await page.evaluate(() => showTab("settings"));
+      for (const [id, titel] of [["kategorien-wahl", "Kategorien auf dem Start anzeigen"], ["restquellen-wahl", "Reste für die Restmischung"]]) {
+        const kopf = page.locator("#" + id + " .history-header");
+        const inhalt = page.locator("#" + id + " .klapp-inhalt");
+        assert.strictEqual((await kopf.innerText()).trim(), "▶ " + titel);
+        assert(!(await inhalt.isVisible()), id + " sollte zu sein");
+        await kopf.click();
+        assert.strictEqual((await page.locator("#" + id + " .history-header").innerText()).trim(), "▼ " + titel);
+        assert(await page.locator("#" + id + " .klapp-inhalt").isVisible(), id + " sollte offen sein");
+        await page.locator("#" + id + " .history-header").click();
+        assert(!(await page.locator("#" + id + " .klapp-inhalt").isVisible()), id + " sollte wieder zu sein");
+        await page.locator("#" + id + " .history-header").click();
+        assert(await page.locator("#" + id + " .klapp-inhalt").isVisible());
+      }
+      assert.strictEqual(await einst(), einstVorher, "Klappen hat Einstellungen verändert");
+      assert.strictEqual(await stand(page), vorher, "Klappen hat Daten verändert");
+      assert.deepStrictEqual(await sichtbar(page), ALLE);
+    });
+
+    await pruefe("Aufgeklappt bleibt nach dem Neuladen aufgeklappt (nur auf diesem Gerät)", async () => {
+      await page.evaluate(() => cloudSyncFertig());   // erst neu laden, wenn alles im Betrieb gespeichert ist (siehe FEHLER.md F12)
+      await page.reload();
+      await zugang.warteAufApp(page, "emulator", true);
+      await page.waitForTimeout(800);
+      await page.evaluate(() => showTab("settings"));
+      assert(await page.locator("#kategorien-wahl .klapp-inhalt").isVisible());
+      assert(await page.locator("#restquellen-wahl .klapp-inhalt").isVisible());
+    });
+
     await pruefe("Kälber und Restmischung abwählen → verschwinden vom Start, Rest bleibt", async () => {
       await page.evaluate(() => showTab("settings"));
       await haken(page, "Kälber").click();
