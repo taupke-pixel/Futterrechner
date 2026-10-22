@@ -22,6 +22,7 @@ Alle Behebungen: Branch `fix/fehler-behebung`, je Fehler ein Commit, eigener Tes
 Der Vergleichstest wurde nur um die jeweils gewollte Änderung angepasst (F3: Restmischung nach Neuladen, F4: zusätzliche
 Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
+| F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ⏳ gefunden 22.10.2026, wartet auf Freigabe |
 
 ---
 
@@ -98,3 +99,22 @@ Speichern kleiner aus und das Bestelldatum käme zu spät. Ändern nur auf ausdr
 **Was passiert:** Das Leer-Datum wird ab „jetzt“ (mit Uhrzeit) gerechnet und die Resttage abgerundet. Fällt das Bestelldatum
 in die Vergangenheit, wird trotzdem das vergangene Datum angezeigt (kein Hinweis „sofort bestellen“).
 **Was sich ändern würde:** Optional Anzeige „sofort bestellen“, wenn das Datum vorbei ist. Rechnung bliebe gleich.
+
+---
+
+## F12 – Lager: App direkt nach „Speichern“ geschlossen → Abzug fehlt oder doppelt (gefunden 22.10.2026)
+
+Gefunden beim Testen der Klapp-Kästen; steckt schon in der Live-Fassung (main 9675cba), nicht in den Änderungen vom 22.10.
+Nachgestellt mit `tests/lager-speichern.js` (Kühe „Speichern“, dann Seite neu laden):
+
+| neu geladen nach | Ergebnis |
+|---|---|
+| 0,1 s / 0,3 s | AGF/MLF-Abzug ist weg (Lager wie vor dem Speichern) |
+| 0,5 s | Abzug **doppelt** (AGF 3540,5 statt 3960,5; MLF −69,25 statt 170,75) |
+| 0,7 s und später | richtig |
+
+Gleiches beim „Backup laden“ und sofort neu laden (Lager verdoppelt). Ursache in der Speicherschicht (CLOUD-SPEICHER):
+Änderungen werden 0,4 s gesammelt und erst dann geschickt; der Lagerbestand geht als „abziehen/hinzufügen“ (increment).
+Wird die Seite in diesem Moment beendet, geht die Änderung verloren bzw. wird nach dem Neustart ein zweites Mal geschickt.
+Rechenfunktionen sind nicht betroffen. Im Alltag selten (App muss innerhalb ca. ½ Sekunde nach dem Tippen ganz beendet werden).
+Behebung nur mit Freigabe von Fritz.
