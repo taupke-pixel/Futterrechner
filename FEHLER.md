@@ -23,7 +23,7 @@ Der Vergleichstest wurde nur um die jeweils gewollte Änderung angepasst (F3: Re
 Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
 | F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ✅ behoben 23.10.2026 (main 2168769, Test `tests/f12.js`) |
-| F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ⏳ gefunden 22.10.2026, nur Anzeige |
+| F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ➖ wird nicht behoben (Entscheidung Fritz 23.10.2026) |
 
 ---
 
