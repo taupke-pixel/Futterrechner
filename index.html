@@ -3848,7 +3848,12 @@ const cloud = {
     lager:null
   },
   abos:[],
-  wartetAufBlur:false
+  wartetAufBlur:false,
+  // F12: Lagerbestand je Gerät als SUMME aller eigenen Änderungen (wird absolut geschickt → doppelt ankommen schadet nicht;
+  // sofort im Gerät gemerkt → geht beim Schließen der App nicht verloren und wird beim nächsten Öffnen nachgeschickt)
+  lagerEigene:null,            // { agf: Summe, mlf: Summe, … } dieses Geräts
+  lagerGebucht:{},             // Bestand, der seit dem letzten bekannten Cloud-Stand schon in lagerEigene gebucht ist
+  eilig:false                  // History/Lieferungen sofort schicken (nicht 0,4 s sammeln)
 };
 
 function kopie(o){ return o===undefined ? null : JSON.parse(JSON.stringify(o)); }
@@ -3856,9 +3861,45 @@ function kopie(o){ return o===undefined ? null : JSON.parse(JSON.stringify(o)); 
 function cloudSpeichern(art){
   if(!cloud.aktiv) return;
   cloud.offen[art]=true;
+  if(art==="lager") lagerBuchen();
+  if(art==="history" || art==="lieferungen") cloud.eilig=true;
   clearTimeout(cloud.timer);
-  cloud.timer=setTimeout(cloudSchreiben,400);
+  cloud.timer=setTimeout(cloudSchreiben, cloud.eilig ? 0 : 400);
   zeigeSyncStatus();
+}
+
+// F12: Bestandsänderung sofort in die eigene Summe dieses Geräts buchen und im Gerät merken
+function lagerBuchen(){
+  const neu=lagerData||{}, alt=cloud.stand.lager||{};
+  cloud.lagerEigene=cloud.lagerEigene||{};
+  Object.keys(neu).forEach(p=>{
+    const n=neu[p];
+    if(!n || typeof n.bestand!=="number") return;
+    const vorher = (p in cloud.lagerGebucht) ? cloud.lagerGebucht[p] : ((alt[p] && typeof alt[p].bestand==="number") ? alt[p].bestand : 0);
+    const delta=n.bestand-vorher;
+    if(delta!==0) cloud.lagerEigene[p]=(cloud.lagerEigene[p]||0)+delta;
+    cloud.lagerGebucht[p]=n.bestand;
+  });
+  lagerEigeneMerken();
+}
+function lagerEigeneMerken(){
+  try{ localStorage.setItem("lagerEigene", JSON.stringify({ betrieb:betriebId, geraet:geraeteUid, werte:cloud.lagerEigene||{} })); }catch(e){}
+}
+function lagerEigeneAusGeraet(){
+  try{
+    const g=JSON.parse(localStorage.getItem("lagerEigene")||"null");
+    return (g && g.betrieb===betriebId && g.geraet===geraeteUid && g.werte) ? g.werte : null;
+  }catch(e){ return null; }
+}
+// Gesamtbestand = Grundbestand im Dokument + Summen aller Geräte (für dieses Gerät gilt die eigene, im Gerät gemerkte Summe)
+function lagerZusammen(inhalt, buchungen){
+  const neu=kopie(inhalt)||{};
+  const alle={...(buchungen||{})};
+  alle[geraeteUid]=cloud.lagerEigene||{};
+  Object.values(alle).forEach(b=>Object.keys(b||{}).forEach(p=>{
+    if(neu[p] && typeof neu[p].bestand==="number" && typeof b[p]==="number") neu[p].bestand+=b[p];
+  }));
+  return neu;
 }
 
 // Monat eines Eintrags ("TT.MM.JJJJ" → "JJJJ-MM") = Dokument, in dem er gespeichert wird
@@ -3890,6 +3931,7 @@ function eintragDokIds(liste){
 function cloudSchreiben(){
   clearTimeout(cloud.timer);
   if(!cloud.aktiv || !betriebId) return;
+  cloud.eilig=false;
   const offen=cloud.offen;
   cloud.offen={};
   const ref=db.collection("betriebe").doc(betriebId);
@@ -3907,7 +3949,8 @@ function cloudSchreiben(){
     const lagerDok=ref.collection("daten").doc("lager");
     const neu=kopie(lagerData)||{};
     const alt=cloud.stand.lager||{};   // gibt es noch kein Lager in der Cloud, zählt der Bestand dort als 0
-    // Bestand als „Abziehen/Hinzufügen“ schicken, damit gleichzeitige Änderungen mehrerer Geräte nicht verloren gehen
+    // Bestand: jedes Gerät schickt die Summe seiner eigenen Änderungen (buchungen.{Gerät}) – so gehen gleichzeitige
+    // Änderungen mehrerer Geräte nicht verloren, und ein doppelt ankommendes Paket zählt nicht doppelt (F12)
     const inhalt={};
     new Set([...Object.keys(neu),...Object.keys(alt)]).forEach(p=>{
       if(!(p in neu)){ inhalt[p]=FV.delete(); return; }
@@ -3917,17 +3960,20 @@ function cloudSchreiben(){
       new Set([...Object.keys(n),...Object.keys(a)]).forEach(k=>{
         if(!(k in n)) w[k]=FV.delete();
         else if(k==="bestand" && typeof n[k]==="number" && (typeof a[k]==="number" || !(k in a))){
-          const delta=n[k]-(a[k]||0);
-          if(delta!==0 || !(k in a)) w[k]=FV.increment(delta);
+          if(!(k in a)) w[k]=FV.increment(0);   // Grundbestand anlegen, falls es ihn noch nicht gibt (vorhandenen nie überschreiben)
         }
         else if(JSON.stringify(n[k])!==JSON.stringify(a[k])) w[k]=n[k];
       });
       // Nur geänderte Produkte schicken – ein leeres {} würde beim Zusammenführen das ganze Produkt leeren
       if(Object.keys(w).length) inhalt[p]=w;
     });
-    if(Object.keys(inhalt).length)
-      ops.push(b=>b.set(lagerDok, {...kopf, inhalt}, {merge:true}));
+    const lagerSchreiben={...kopf};
+    if(Object.keys(inhalt).length) lagerSchreiben.inhalt=inhalt;
+    if(cloud.lagerEigene && Object.keys(cloud.lagerEigene).length) lagerSchreiben.buchungen={ [geraeteUid]:kopie(cloud.lagerEigene) };
+    if(lagerSchreiben.inhalt || lagerSchreiben.buchungen)
+      ops.push(b=>b.set(lagerDok, lagerSchreiben, {merge:true}));
     cloud.stand.lager=neu;
+    cloud.lagerGebucht={};
   }
 
   // History und Lieferungen: je Monat EIN Dokument mit allen Einträgen des Monats.
@@ -4029,7 +4075,18 @@ function cloudUebernehmen(art, wert){
     localStorage.setItem("gCfg",JSON.stringify(globalCfg));
   }
   if(art==="lager"){
-    const neu = wert ? kopie(wert) : lagerStandard();
+    // wert = ganzes Lager-Dokument { inhalt, buchungen }
+    const roh = wert || {};
+    if(cloud.lagerEigene===null){
+      // Beim Öffnen: eigene Summe aus dem Gerät (falls beim letzten Mal noch nicht verschickt) – sonst aus dem Betrieb
+      const imGeraet=lagerEigeneAusGeraet();
+      const imBetrieb=(roh.buchungen && roh.buchungen[geraeteUid]) || {};
+      cloud.lagerEigene = imGeraet || kopie(imBetrieb);
+      if(imGeraet && Object.keys({...imGeraet, ...imBetrieb}).some(p=>(imGeraet[p]||0)!==(imBetrieb[p]||0))) cloud.lagerNachsenden=true;
+      lagerEigeneMerken();
+    }
+    wert = roh.inhalt || null;
+    const neu = lagerZusammen(wert || lagerStandard(), roh.buchungen);
     // Winzige Rundungsreste aus „Abziehen/Hinzufügen“ ignorieren → Anzeige bleibt Zeichen für Zeichen gleich
     ["agf","mlf","wasser"].forEach(p=>{
       if(neu[p] && lagerData[p] && typeof neu[p].bestand==="number" && typeof lagerData[p].bestand==="number"
@@ -4037,6 +4094,7 @@ function cloudUebernehmen(art, wert){
     });
     lagerData=neu;
     cloud.stand.lager = wert ? kopie(lagerData) : null;
+    cloud.lagerGebucht={};
     localStorage.setItem("lager",JSON.stringify(lagerData));
   }
   if(art==="history" || art==="lieferungen"){
@@ -4098,7 +4156,7 @@ function cloudAbonnieren(){
     };
     ["futter","einstellungen","lager"].forEach(art=>{
       cloud.abos.push(ref.collection("daten").doc(art).onSnapshot({includeMetadataChanges:true}, s=>{
-        empfangen(art, s.exists ? s.data().inhalt : null, s.metadata, !s.exists);
+        empfangen(art, s.exists ? (art==="lager" ? s.data() : s.data().inhalt) : null, s.metadata, !s.exists);
       }, e=>{ cloudFehler(e); fehler(e); }));
     });
     ["history","lieferungen"].forEach(art=>{
@@ -4131,7 +4189,7 @@ async function geraetEntfernt(){
   cloud.entfernt=true;
   cloud.aktiv=false;
   cloud.abos.forEach(a=>a()); cloud.abos=[];
-  ["futter","gCfg","history","lager","lieferungen","betriebId"].forEach(k=>localStorage.removeItem(k));
+  ["futter","gCfg","history","lager","lieferungen","betriebId","lagerEigene"].forEach(k=>localStorage.removeItem(k));
   try{ await db.terminate(); await db.clearPersistence(); }catch(e){}
   alert("Dieses Gerät wurde aus dem Betrieb entfernt.");
   location.reload();
@@ -4349,6 +4407,7 @@ async function starten(){
     return;
   }
   cloud.aktiv=true;
+  if(cloud.lagerNachsenden){ cloud.lagerNachsenden=false; cloudSpeichern("lager"); }
   zeigeSyncStatus();
   zeigeApp();
 }

@@ -51,7 +51,8 @@ async function main() {
     });
 
     await pruefe("Auf-/Zuklappen: beide Bereiche starten zugeklappt, Klick öffnet und schließt (▶/▼), Daten bleiben gleich", async () => {
-      const einst = () => page.evaluate(() => JSON.stringify(globalCfg));
+      // wasserName/wasserKg ausgenommen: nach dem Laden eines alten Backups ergänzt die App sie kurz danach aus dem Betrieb (FEHLER.md F13)
+      const einst = () => page.evaluate(() => JSON.stringify({ ...globalCfg, wasserName: undefined, wasserKg: undefined }));
       const einstVorher = await einst();
       await page.evaluate(() => showTab("settings"));
       for (const [id, titel] of [["kategorien-wahl", "Kategorien auf dem Start anzeigen"], ["restquellen-wahl", "Reste für die Restmischung"]]) {
@@ -67,7 +68,9 @@ async function main() {
         await page.locator("#" + id + " .history-header").click();
         assert(await page.locator("#" + id + " .klapp-inhalt").isVisible());
       }
-      assert.strictEqual(await einst(), einstVorher, "Klappen hat Einstellungen verändert");
+      const einstNachher = await einst();
+      if (einstNachher !== einstVorher) { const v = JSON.parse(einstVorher), n = JSON.parse(einstNachher);
+        throw new Error("Klappen hat Einstellungen verändert: " + JSON.stringify(Object.keys({ ...v, ...n }).filter(k => JSON.stringify(v[k]) !== JSON.stringify(n[k])).map(k => [k, v[k], n[k]]))); }
       assert.strictEqual(await stand(page), vorher, "Klappen hat Daten verändert");
       assert.deepStrictEqual(await sichtbar(page), ALLE);
     });
