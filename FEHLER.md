@@ -22,7 +22,7 @@ Alle Behebungen: Branch `fix/fehler-behebung`, je Fehler ein Commit, eigener Tes
 Der Vergleichstest wurde nur um die jeweils gewollte Änderung angepasst (F3: Restmischung nach Neuladen, F4: zusätzliche
 Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
-| F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ⏳ gefunden 22.10.2026, wartet auf Freigabe |
+| F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ✅ behoben 23.10.2026 (main 2168769, Test `tests/f12.js`) |
 | F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ⏳ gefunden 22.10.2026, nur Anzeige |
 
 ---
@@ -118,7 +118,9 @@ Gleiches beim „Backup laden“ und sofort neu laden (Lager verdoppelt). Ursach
 Änderungen werden 0,4 s gesammelt und erst dann geschickt; der Lagerbestand geht als „abziehen/hinzufügen“ (increment).
 Wird die Seite in diesem Moment beendet, geht die Änderung verloren bzw. wird nach dem Neustart ein zweites Mal geschickt.
 Rechenfunktionen sind nicht betroffen. Im Alltag selten (App muss innerhalb ca. ½ Sekunde nach dem Tippen ganz beendet werden).
-Behebung nur mit Freigabe von Fritz.
+**Behoben 23.10.2026** (Freigabe Fritz): Bestand je Gerät als Summe `buchungen.{Gerät}` im Lager-Dokument (absolut statt
+increment → doppelt ankommen schadet nicht), Summe sofort im Gerät gemerkt (`lagerEigene`) und beim nächsten Öffnen nachgeschickt;
+History/Lieferungen werden sofort geschickt. Gesamtbestand = Grundbestand `inhalt.*.bestand` + Summen aller Geräte. Nur Speicherschicht.
 
 ## F13 – Altes Backup laden → 3. Futter heißt „undefined“ (gefunden 22.10.2026)
 
