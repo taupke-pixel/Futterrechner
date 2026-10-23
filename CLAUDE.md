@@ -77,7 +77,10 @@ App als APK-Link (`download.html`).
   rechtliche Prüfung steht aus. Neue Dienstleister/Datenarten → Datenschutzerklärung + Fassung anpassen.
 - Handy-Ansicht: zweiter `<style>`-Block in index.html (nur Aussehen). Test `tests/handy.js` (nichts breiter als Bildschirm).
 - Teilen: Einladungs-Link + WhatsApp/Kopieren unter dem QR-Code, „App weitergeben“; in der App über `FutterrechnerApp.teilen`.
-  App-Version bei Änderungen am Android-Teil erhöhen (`android/app/build.gradle`, zuletzt 2 / 1.1).
+  App-Version bei Änderungen am Android-Teil erhöhen (`android/app/build.gradle`, zuletzt 4 / 1.3 = Timer-Wecker, 23.10.2026) und
+  `APP_NEUESTE` in index.html mitziehen (Update-Hinweis für ältere Apps). Neue APK: `assembleLiveRelease` → `app/futterrechner.apk`.
+- Timer (23.10.2026): Abschnitt TIMER in index.html, nur auf dem Gerät (localStorage „timer“), App ab 1.3 stellt Wecker
+  (`TimerAlarm.java`, Brücke `alarmStellen`/`alarmLoeschen`). Tests `tests/timer.js`, `tests/android-timer.ps1`.
 - Android: `android/` (WebView, Varianten live/probe). Signatur-Schlüssel `android/futterrechner.jks` + `keystore.properties`
   sind **nicht im Repo** (gitignored) – nie löschen. Werkzeuge: JDK Temurin 21, Android SDK in `%LOCALAPPDATA%\Android\Sdk`.
 - Kostenloser Firebase-Tarif: keine APK-Dateien auf Firebase Hosting (Test-APK kommt aus dem GitHub-Branch).
