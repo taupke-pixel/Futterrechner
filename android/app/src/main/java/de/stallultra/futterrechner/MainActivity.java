@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
 
     private static final int DATEI_WAEHLEN = 1;
     private static final int DATEI_SPEICHERN = 2;
+    private static final int MELDUNGEN_ERLAUBEN = 3;
 
     private WebView webView;
     private String startHost;
@@ -200,6 +201,24 @@ public class MainActivity extends Activity {
                 i.putExtra(Intent.EXTRA_TEXT, text == null ? "" : text);
                 startActivity(Intent.createChooser(i, "Teilen über"));
             });
+        }
+
+        /** Timer-Alarm: Wecker auf die Endzeit stellen (Millisekunden seit 1970). Fragt beim ersten Mal nach Benachrichtigungen. */
+        @JavascriptInterface
+        public void alarmStellen(double ende) {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, MELDUNGEN_ERLAUBEN);
+                }
+                TimerAlarm.stellen(MainActivity.this, (long) ende);
+            });
+        }
+
+        /** Timer-Alarm abbestellen bzw. klingelnde Meldung beenden. */
+        @JavascriptInterface
+        public void alarmLoeschen() {
+            runOnUiThread(() -> TimerAlarm.loeschen(MainActivity.this));
         }
 
         @JavascriptInterface
