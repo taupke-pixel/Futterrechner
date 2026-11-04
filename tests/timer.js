@@ -36,7 +36,7 @@ async function main() {
   const uhrAnhalten = async () => page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
   const knopf = t => page.locator("#timer-box button", { hasText: t });
   // wasserName/wasserKg ausgenommen: nach dem Laden eines alten Backups ergänzt die App sie kurz danach (FEHLER.md F13)
-  const stand = () => page.evaluate(() => { const s = o => Array.isArray(o) ? o.map(s) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).sort().map(k => [k, s(o[k])])) : o; return JSON.stringify(s({ data: { ...data, restbullen: null }, lagerData, historyData, lieferungen, globalCfg: { ...globalCfg, wasserName: undefined, wasserKg: undefined } })); });
+  const stand = () => page.evaluate(() => { const s = o => Array.isArray(o) ? o.map(s) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).sort().map(k => [k, s(o[k])])) : o; return JSON.stringify(s({ data: { ...data, restbullen: null }, lagerData, historyData, lieferungen, globalCfg: { ...globalCfg, wasserName: undefined, wasserKg: undefined, kuehe2Name: undefined, kuehe2Modus: undefined } })); });
 
   try {
     let vorher;

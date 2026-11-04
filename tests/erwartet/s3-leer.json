@@ -1126,6 +1126,58 @@
     ],
     "collapsed": false
    },
+   "kuehe2": {
+    "anz": 0,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     },
+     {
+      "type": "wasser",
+      "kg": 0
+     }
+    ],
+    "collapsed": false,
+    "rest": 0,
+    "ziel": 0
+   },
    "faersen": {
     "anz": 30,
     "items": [
@@ -1342,6 +1394,8 @@
    "wasserName": "Wasser",
    "wasserKg": 0.5,
    "kueheName": "Kühe",
+   "kuehe2Name": "Kühe Gruppe 2",
+   "kuehe2Modus": "normal",
    "faersenName": "Färsen",
    "bullenName": "Bullen",
    "restbullenName": "Restmischung Bullen",
@@ -1350,7 +1404,7 @@
   },
   "historyData": [
    {
-    "id": "1791172800000xsqwy",
+    "id": "1791172800000y38we",
     "datum": "05.10.2026",
     "kategorie": "restbullen",
     "tiere": 0,
@@ -1360,7 +1414,7 @@
     "futter": []
    },
    {
-    "id": "1791172800000ro3pk",
+    "id": "1791172800000lmvy2",
     "datum": "05.10.2026",
     "kategorie": "kuehe",
     "tiere": 100,
@@ -1372,22 +1426,22 @@
   ],
   "lagerData": {
    "agf": {
-    "bestand": 0,
     "orange": 5,
     "rot": 2,
-    "lieferzeit": 2
+    "lieferzeit": 2,
+    "bestand": 0
    },
    "mlf": {
-    "bestand": 0,
     "orange": 5,
     "rot": 2,
-    "lieferzeit": 2
+    "lieferzeit": 2,
+    "bestand": 0
    },
    "wasser": {
-    "bestand": 0,
     "orange": 5,
     "rot": 2,
-    "lieferzeit": 2
+    "lieferzeit": 2,
+    "bestand": 0
    }
   },
   "lieferungen": [],
@@ -1399,6 +1453,7 @@
    "verlauf": false,
    "kategorien": {
     "kuehe": true,
+    "kuehe2": true,
     "bullen": true,
     "faersen": true,
     "kaelber": true,
@@ -1474,6 +1529,58 @@
     ],
     "collapsed": false
    },
+   "kuehe2": {
+    "anz": 0,
+    "items": [
+     {
+      "name": "Futter 1",
+      "kg": 0
+     },
+     {
+      "name": "Futter 2",
+      "kg": 0
+     },
+     {
+      "name": "Futter 3",
+      "kg": 0
+     },
+     {
+      "name": "Futter 4",
+      "kg": 0
+     },
+     {
+      "name": "Futter 5",
+      "kg": 0
+     },
+     {
+      "name": "Futter 6",
+      "kg": 0
+     },
+     {
+      "name": "Futter 7",
+      "kg": 0
+     },
+     {
+      "name": "Futter 8",
+      "kg": 0
+     },
+     {
+      "type": "agf",
+      "kg": 0
+     },
+     {
+      "type": "mlf",
+      "kg": 0
+     },
+     {
+      "type": "wasser",
+      "kg": 0
+     }
+    ],
+    "collapsed": false,
+    "rest": 0,
+    "ziel": 0
+   },
    "faersen": {
     "anz": 30,
     "items": [
@@ -1690,6 +1797,8 @@
    "wasserName": "Wasser",
    "wasserKg": 0.5,
    "kueheName": "Kühe",
+   "kuehe2Name": "Kühe Gruppe 2",
+   "kuehe2Modus": "normal",
    "faersenName": "Färsen",
    "bullenName": "Bullen",
    "restbullenName": "Restmischung Bullen",
@@ -1698,7 +1807,7 @@
   },
   "historyData": [
    {
-    "id": "1791172800000xsqwy",
+    "id": "1791172800000y38we",
     "datum": "05.10.2026",
     "kategorie": "restbullen",
     "tiere": 0,
@@ -1708,7 +1817,7 @@
     "futter": []
    },
    {
-    "id": "1791172800000ro3pk",
+    "id": "1791172800000lmvy2",
     "datum": "05.10.2026",
     "kategorie": "kuehe",
     "tiere": 100,
@@ -1720,21 +1829,21 @@
   ],
   "lagerData": {
    "agf": {
-    "lieferzeit": 2,
     "orange": 5,
     "rot": 2,
+    "lieferzeit": 2,
     "bestand": 0
    },
    "mlf": {
-    "lieferzeit": 2,
     "orange": 5,
     "rot": 2,
+    "lieferzeit": 2,
     "bestand": 0
    },
    "wasser": {
-    "lieferzeit": 2,
     "orange": 5,
     "rot": 2,
+    "lieferzeit": 2,
     "bestand": 0
    }
   },
@@ -1747,6 +1856,7 @@
    "verlauf": false,
    "kategorien": {
     "kuehe": true,
+    "kuehe2": true,
     "bullen": true,
     "faersen": true,
     "kaelber": true,

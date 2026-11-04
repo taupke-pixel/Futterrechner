@@ -9,7 +9,7 @@ const szenarien = require("./szenarien");
 
 const PORT = 5065;
 const S1 = szenarien[0];
-const ALLE = ["kuehe", "faersen", "bullen", "restbullen", "trocken", "kaelber"];
+const ALLE = ["kuehe", "kuehe2", "faersen", "bullen", "restbullen", "trocken", "kaelber"];
 
 async function main() {
   const server = await starteServer(path.join(__dirname, ".."), PORT);
@@ -42,17 +42,17 @@ async function main() {
 
   try {
     let vorher, textVorher;
-    await pruefe("Standard: alle 6 Kategorien angehakt und auf dem Start sichtbar", async () => {
+    await pruefe("Standard: alle 7 Kategorien angehakt und auf dem Start sichtbar", async () => {
       vorher = await stand(page);
       textVorher = await startText(page);
       await page.evaluate(() => showTab("settings"));
-      assert.strictEqual(await page.locator("#kategorien-wahl input[type=checkbox]:checked").count(), 6);
+      assert.strictEqual(await page.locator("#kategorien-wahl input[type=checkbox]:checked").count(), 7);
       assert.deepStrictEqual(await sichtbar(page), ALLE);
     });
 
     await pruefe("Auf-/Zuklappen: beide Bereiche starten zugeklappt, Klick öffnet und schließt (▶/▼), Daten bleiben gleich", async () => {
       // wasserName/wasserKg ausgenommen: nach dem Laden eines alten Backups ergänzt die App sie kurz danach aus dem Betrieb (FEHLER.md F13)
-      const einst = () => page.evaluate(() => JSON.stringify({ ...globalCfg, wasserName: undefined, wasserKg: undefined }));
+      const einst = () => page.evaluate(() => JSON.stringify({ ...globalCfg, wasserName: undefined, wasserKg: undefined, kuehe2Name: undefined, kuehe2Modus: undefined }));
       const einstVorher = await einst();
       await page.evaluate(() => showTab("settings"));
       for (const [id, titel] of [["kategorien-wahl", "Kategorien auf dem Start anzeigen"], ["restquellen-wahl", "Reste für die Restmischung"]]) {
@@ -89,7 +89,7 @@ async function main() {
       await page.evaluate(() => showTab("settings"));
       await haken(page, "Kälber").click();
       await haken(page, "Restmischung Bullen").click();
-      assert.deepStrictEqual(await sichtbar(page), ["kuehe", "faersen", "bullen", "trocken"]);
+      assert.deepStrictEqual(await sichtbar(page), ["kuehe", "kuehe2", "faersen", "bullen", "trocken"]);
     });
 
     await pruefe("Abwählen ändert keine Daten (Rationen, Lager, History, Lieferungen)", async () => {
@@ -110,7 +110,7 @@ async function main() {
 
     await pruefe("Mindestens eine Kategorie bleibt an", async () => {
       await page.evaluate(() => showTab("settings"));
-      for (const n of ["Milchkühe", "Färsen", "Bullen"]) await haken(page, n).click();
+      for (const n of ["Milchkühe", "Kühe Gruppe 2", "Färsen", "Bullen"]) await haken(page, n).click();
       await haken(page, "Trockensteher").click();
       assert(meldungen.some(m => m.includes("Mindestens eine Kategorie")));
       assert.deepStrictEqual(await sichtbar(page), ["trocken"]);
@@ -140,7 +140,7 @@ async function main() {
 
     await pruefe("Alles wieder anhaken → Start sieht genau aus wie vorher (bis auf die neuen Namen)", async () => {
       await page.evaluate(() => showTab("settings"));
-      for (const n of ["Milchkühe", "Färsen", "Bullen", "Reste Bullen", "Kälber"]) await haken(page, n).click();
+      for (const n of ["Milchkühe", "Kühe Gruppe 2", "Färsen", "Bullen", "Reste Bullen", "Kälber"]) await haken(page, n).click();
       assert.deepStrictEqual(await sichtbar(page), ALLE);
       const nachher = (await startText(page)).replaceAll("Milchkühe", "Kühe").replaceAll("Reste Bullen", "Restmischung Bullen");
       if (nachher !== textVorher) { const i = [...nachher].findIndex((z, k) => z !== textVorher[k]); throw new Error("Unterschied: " + JSON.stringify(nachher.slice(i - 60, i + 60)) + " statt " + JSON.stringify(textVorher.slice(i - 60, i + 60))); }

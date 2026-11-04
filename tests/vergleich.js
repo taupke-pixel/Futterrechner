@@ -46,12 +46,12 @@ async function schnappschuss(page) {
     // Ebenso das neue dritte Futter (Elemente mit Klasse „drittes-futter“) – alles andere streng
     const ohneNeues = id => {
       const c = document.getElementById(id).cloneNode(true);
-      c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update").forEach(e => e.remove());
+      c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove());
       return c.textContent;
     };
     const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten"))
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten, .gruppe2"))
       .map(e => (e.type === "checkbox" ? String(e.checked) : e.value));
     return {
       rechner: text("calc"), rechnerFelder: werte("calc"),
@@ -118,6 +118,9 @@ async function laufeSzenario(browser, url, sz, modus) {
 
   // Lieferung
   if (sz.lieferung) {
+    // erst alles im Betrieb gespeichert und zurückgemeldet – sonst kann ein Neuzeichnen das halb ausgefüllte Formular zurücksetzen (FEHLER.md F14)
+    await page.evaluate(async () => { if (typeof cloudSyncFertig === "function") await cloudSyncFertig(); });
+    await page.waitForTimeout(1500);
     await zeigeTab(page, "history");
     await page.selectOption("#liefer-produkt", sz.lieferung.produkt);
     if (sz.lieferung.datum) await page.fill("#liefer-datum", sz.lieferung.datum);
@@ -165,7 +168,7 @@ function ohneIds(o) {
   if (Array.isArray(o)) return o.filter(x => !(x && typeof x === "object" && x.type === "wasser")).map(ohneIds);
   if (o && typeof o === "object") {
     const r = {};
-    Object.keys(o).sort().forEach(k => { if (k !== "id" && k !== "wasser" && k !== "wasserName" && k !== "wasserKg") r[k] = ohneIds(o[k]); });
+    Object.keys(o).sort().forEach(k => { if (k !== "id" && k !== "wasser" && k !== "wasserName" && k !== "wasserKg" && k !== "kuehe2" && k !== "kuehe2Name" && k !== "kuehe2Modus") r[k] = ohneIds(o[k]); });
     return r;
   }
   return o;

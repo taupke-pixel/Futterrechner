@@ -51,6 +51,7 @@ header{background:#2f3b45;color:#fff;padding:14px;text-align:center;font-size:22
 .timer-hinweis{font-size:13px;color:#666;text-align:center;margin-top:8px}
 @keyframes timerBlinken{50%{background:#e74c3c}}
 .cat-faersen{background:#6c8ebf;}
+.cat-kuehe2{background:#1c5fbf}
 table{width:100%;border-collapse:collapse;font-size:18px}
 th,td{border-bottom:1px solid #ddd;padding:10px;text-align:right}
 th:first-child,td:first-child{text-align:left;font-weight:bold}
@@ -330,6 +331,8 @@ const defaultGlobal={
   agfKg:0.5,mlfKg:0.5,
   wasserName:"Wasser",wasserKg:0.5,
   kueheName:"Kühe",
+  kuehe2Name:"Kühe Gruppe 2",
+  kuehe2Modus:"normal",   // "normal" = eigene Mischung, "aufwerten" = Rest der Kuh-Mischung + Zugabe (wie Restmischung)
   faersenName:"Färsen",
   bullenName:"Bullen",
   restbullenName:"Restmischung Bullen",   
@@ -340,7 +343,10 @@ const defaultGlobal={
 // Drittes Futter (Start-Name „Wasser“, in den Einstellungen änderbar) – funktioniert wie AGF/MLF.
 // Vorhandene Rationen und Lager bekommen es mit 0 kg dazu (0 kg wird nirgends mitgerechnet).
 function drittesFutterErgaenzen(){
-  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(c=>{
+  // Leistungsgruppe 2: fehlt sie (z. B. altes Backup geladen), mit 0 Tieren und leerer Ration ergänzen
+  if(!data.kuehe2) data.kuehe2=kuehe2Laden();
+  if(!globalCfg.kuehe2Name) globalCfg.kuehe2Name=defaultGlobal.kuehe2Name;
+  ["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].forEach(c=>{
     if(data[c] && Array.isArray(data[c].items) && !data[c].items.some(i=>i.type==="wasser"))
       data[c].items.push({type:"wasser",kg:0});
   });
@@ -363,9 +369,13 @@ let globalCfg = {
 
 let saved=JSON.parse(localStorage.getItem("futter")||"{}");
 function buildCat(def){ return {anz:def,items:defItems(),collapsed:false}; }
+// Leistungsgruppe 2 (neu): wie eine normale Gruppe, dazu „rest“ = vorhandene Kuh-Mischung im Wagen (nur bei „aufwerten“)
+function kuehe2Laden(g){ const k = g || buildCat(0); if(typeof k.rest!=="number") k.rest=0; if(typeof k.ziel!=="number") k.ziel=0; return k; }
 
 let data={
   kuehe: saved.kuehe||buildCat(100),
+
+  kuehe2: kuehe2Laden(saved.kuehe2),
 
   faersen: saved.faersen||buildCat(30),
 
@@ -883,14 +893,14 @@ function addArbeitstage(starttage,arbeitstage){
 }
 /* === RESTMISCHUNG BULLEN === */
 // Welche Mischungen gehen in die Restmischung? (Einstellungen, eine oder zwei; Standard: nur Kühe)
-const RESTMISCHUNG_GRUPPEN = ["kuehe","faersen","trocken","kaelber"];
+const RESTMISCHUNG_GRUPPEN = ["kuehe","kuehe2","faersen","trocken","kaelber"];
 function restQuellen(){
   let q = Array.isArray(globalCfg.restQuellen) ? globalCfg.restQuellen.filter(c=>RESTMISCHUNG_GRUPPEN.includes(c)) : [];
   if(q.length===0) q=["kuehe"];
   return q.slice(0,2);
 }
 // Für welche Gruppe wird die Restmischung gemacht? (Einstellungen; Standard: Bullen = genau wie bisher)
-const RESTMISCHUNG_ZIELE = ["bullen","kuehe","faersen","trocken","kaelber"];
+const RESTMISCHUNG_ZIELE = ["bullen","kuehe","kuehe2","faersen","trocken","kaelber"];
 function restZiel(){ return RESTMISCHUNG_ZIELE.includes(globalCfg.restZiel) ? globalCfg.restZiel : "bullen"; }
 function restZielUmschalten(cat){
   globalCfg.restZiel = cat;
@@ -1258,15 +1268,141 @@ produkt === "agf"
   return html;
 }
   
+/* === LEISTUNGSGRUPPE 2 („Kühe Gruppe 2“) === */
+// Normal: rechnet und speichert genau wie Kühe/Färsen (eigene Mischung).
+// Aufwerten: ein Teil der Kuh-Mischung bleibt im Wagen (vorhanden kg), dazu kommt, was die Ration dieser Gruppe mehr braucht
+// (z. B. Kraftfutter). Gespeichert wird NUR die Zugabe – die Kuh-Mischung selbst speichert die Gruppe Kühe (nichts doppelt).
+function kuehe2Aufwerten(){ return globalCfg.kuehe2Modus==="aufwerten"; }
+function kuehe2ModusSetzen(m){ globalCfg.kuehe2Modus = m==="aufwerten" ? "aufwerten" : "normal"; saveGlobal(); buildSettings(); buildCalc(); }
+function kuehe2Einstellung(){
+  return `<div id="kuehe2-modus" style="margin:4px 0 12px 0">
+    Arbeitet als:
+    <select onchange="kuehe2ModusSetzen(this.value)">
+      <option value="normal" ${kuehe2Aufwerten()?"":"selected"}>eigene Mischung (normale Gruppe)</option>
+      <option value="aufwerten" ${kuehe2Aufwerten()?"selected":""}>Rest der ${globalCfg.kueheName}-Mischung + Zugabe</option>
+    </select>
+  </div>`;
+}
+function futterName(it){
+  return it.type==="agf"?globalCfg.agfName: it.type==="mlf"?globalCfg.mlfName: it.type==="wasser"?globalCfg.wasserName: it.name;
+}
+// Zeilen: je Futter, was schon in der vorhandenen Kuh-Mischung ist (Ist) und was die Ration der Gruppe 2 braucht (Soll)
+function kuehe2Zeilen(){
+  const g=data.kuehe2, basis=data.kuehe.items, ziel=g.items;
+  const total=basis.reduce((s,i)=>s+i.kg,0);
+  const gleich=(a,b)=>(a.type||b.type) ? a.type===b.type : a.name===b.name;
+  const zeilen=[];
+  basis.forEach(it=>{
+    if(it.kg<=0) return;
+    const z=ziel.find(b=>gleich(it,b));
+    zeilen.push({ it, ist: total>0 ? it.kg/total*g.rest : 0, soll: z ? z.kg*g.anz : 0 });
+  });
+  // Futter, das nur in der Ration der Gruppe 2 steht (z. B. zusätzliches Kraftfutter)
+  ziel.forEach(b=>{ if(b.kg>0 && !zeilen.some(z=>gleich(z.it,b))) zeilen.push({ it:b, ist:0, soll:b.kg*g.anz }); });
+  return zeilen;
+}
+function kuehe2AufwertenHtml(){
+  // Aufbau wie „Restmischung Bullen“ (gleiche Felder, Tabelle und Knopf)
+  const g=data.kuehe2;
+  let lauf=g.rest, rows="";
+  kuehe2Zeilen().forEach(({it,ist,soll})=>{
+    const diff=soll-ist;
+    lauf+=diff;
+    let zeit="-";
+    if(it.type==="agf") zeit=`<span class="agf">${fmt(Math.abs(diff)/globalCfg.agfKg)}</span>`;
+    if(it.type==="mlf") zeit=`<span class="mlf">${fmt(Math.abs(diff)/globalCfg.mlfKg)}</span>`;
+    if(it.type==="wasser") zeit=`<span class="wasser">${fmt(Math.abs(diff)/globalCfg.wasserKg)}</span>`;
+    rows+=`
+<tr>
+<td>${futterName(it)}</td>
+<td>${ist.toFixed(1)}</td>
+<td>${soll.toFixed(1)}</td>
+<td>${zeit}</td>
+<td class="${diff>=0?"plus":"minus"}">${lauf.toFixed(1)}</td>
+</tr>`;
+  });
+  const gespeichert=alreadySavedToday("kuehe2");
+  return `
+  <div class="category ${g.collapsed?"collapsed":""}">
+    <div class="cat-header cat-kuehe2"
+      onclick="data.kuehe2.collapsed=!data.kuehe2.collapsed;save();buildCalc();">
+      ${globalCfg.kuehe2Name}
+      <span>${g.collapsed?"▼":"▲"}</span>
+    </div>
+
+    <div class="cat-body">
+      Restmischung vorhanden (kg)
+      <input type="number"
+      value="${g.rest}"
+      oninput="data.kuehe2.rest=num(this.value);"
+      onblur="save();buildCalc()">
+
+      <br><br>
+
+      Zielgewicht Ration (kg)
+      <input type="number"
+      value="${g.ziel||0}"
+      oninput="data.kuehe2.ziel=num(this.value);let pro=0;data.kuehe2.items.forEach(i=>{if(i.kg>0)pro+=i.kg;});data.kuehe2.anz=pro>0?Math.round(data.kuehe2.ziel/pro):0;"
+      onblur="save();buildCalc()">
+
+      <br><br>
+
+      Tiere (Anzahl)
+      <input type="number"
+      value="${g.anz}"
+      onblur="data.kuehe2.anz=num(this.value);let pro=0;data.kuehe2.items.forEach(i=>{if(i.kg>0)pro+=i.kg;});data.kuehe2.ziel=data.kuehe2.anz*pro;save();buildCalc();">
+
+      <table>
+      <tr>
+      <th>Futter</th>
+      <th>Ist kg</th>
+      <th>Soll kg</th>
+      <th>Zeit</th>
+      <th>Summe</th>
+      </tr>
+        ${rows||"<tr><td colspan=5>–</td></tr>"}
+      </table>
+
+<div class="total">
+<button class="save-btn ${gespeichert?"saved":""}" ${gespeichert?"disabled":""} onclick="kuehe2Speichern()">
+${gespeichert?"Gespeichert":"Speichern"}
+</button>
+</div>
+
+    </div>
+  </div>`;
+}
+// Speichern bei „aufwerten“: nur was dazukommt (Soll − Ist > 0) – Kuh-Mischung ist schon bei Kühe gespeichert
+function kuehe2Speichern(){
+  if(alreadySavedToday("kuehe2")){ alert("Heute bereits gespeichert"); return; }
+  const e={ id: Date.now()+Math.random().toString(36).substr(2,5), datum:getToday(), kategorie:"kuehe2",
+    tiere:data.kuehe2.anz, gesamt:0, agf:0, mlf:0, futter:[], aufwertung:true };
+  kuehe2Zeilen().forEach(({it,ist,soll})=>{
+    const diff=soll-ist;
+    if(diff<0.05) return;   // nur echte Zugaben (kleine Rundungsreste nicht speichern)
+    e.futter.push({ name:futterName(it), kg:diff });
+    e.gesamt+=diff;
+    if(it.type==="agf"){ e.agf+=diff; lagerData.agf.bestand-=diff; }
+    if(it.type==="mlf"){ e.mlf+=diff; lagerData.mlf.bestand-=diff; }
+    if(it.type==="wasser"){ e.wasser=(e.wasser||0)+diff; lagerData.wasser.bestand-=diff; }
+  });
+  historyData.unshift(e);
+  saveHistoryStorage();
+  saveLagerStorage();
+  buildCalc();
+  buildHistory();
+}
+
 /* === KATEGORIEN EIN/AUS (Einstellungen) === */
 // Nur Anzeige auf dem Start: abgewählte Kategorien werden ausgeblendet. Daten, Rationen, Lager und Rechnung bleiben unverändert.
 // Reihenfolge wie auf dem Start; die Restmischung Bullen ist einzeln abwählbar.
-const ALLE_KATEGORIEN = ["kuehe","faersen","bullen","restbullen","trocken","kaelber"];
+const ALLE_KATEGORIEN = ["kuehe","kuehe2","faersen","bullen","restbullen","trocken","kaelber"];
 function kategorieAn(cat){ return !(Array.isArray(globalCfg.kategorienAus) && globalCfg.kategorienAus.includes(cat)); }
 function kategorienAusblenden(){
   let el=document.getElementById("calc"); if(!el) return;
   el.querySelectorAll(".category").forEach(k=>{
     let h=k.querySelector(".cat-header"); if(!h) return;
+    if(h.classList.contains("cat-kuehe2")) k.classList.add("gruppe2");
     let cat=ALLE_KATEGORIEN.find(c=>h.classList.contains("cat-"+c));
     if(cat && !kategorieAn(cat)) k.style.display="none";
   });
@@ -1300,8 +1436,9 @@ function buildCalc(){
   el.innerHTML += buildWarnings();
 
   
-  // 👉 Kühe + Färsen
-  ["kuehe","faersen"].forEach(cat=>{
+  // 👉 Kühe + Färsen (dazwischen die Leistungsgruppe 2)
+  ["kuehe","kuehe2","faersen"].forEach(cat=>{
+    if(cat==="kuehe2" && kuehe2Aufwerten()){ el.innerHTML+=kuehe2AufwertenHtml(); return; }
     let sum=0,lauf=0,rows="";
     data[cat].items.forEach(it=>{
       if(it.kg<=0)return;
@@ -1661,12 +1798,13 @@ Thüringen
   `;
 
   // 👉 Kategorien aufbauen
-  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(cat=>{
+  ["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].forEach(cat=>{
     s.innerHTML+=`
     <h3 class="editable" id="edit-${cat}">
     ${globalCfg[cat+"Name"]}<span class="stift">✎</span>
     </h3>
     `;
+    if(cat==="kuehe2") s.innerHTML+=kuehe2Einstellung();
 
     data[cat].items.forEach((it,i)=>{
       let name=it.type==="agf"?globalCfg.agfName:
@@ -1697,8 +1835,11 @@ Thüringen
     });
   });
 
+  // Abschnitt „Kühe Gruppe 2“ kennzeichnen (nur eine Klasse, Aussehen unverändert)
+  for(let e=document.getElementById("edit-kuehe2"); e && e.id!=="edit-faersen"; e=e.nextElementSibling) e.classList.add("gruppe2");
+
   // 👉 EVENTS (JETZT RICHTIG!)
-  ["kuehe","faersen","bullen","trocken","kaelber"].forEach(cat=>{
+  ["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].forEach(cat=>{
     let el=document.getElementById("edit-"+cat);
     if(!el) return;
 
@@ -1836,6 +1977,7 @@ function getKategorien(){
 
   return [
     "kuehe",
+    "kuehe2",
     "bullen",
     "faersen",
     "kaelber",
@@ -1982,6 +2124,30 @@ function getKategorieName(cat){
 
 }
   
+// Mengen im History-Tab: ab 1000 kg in Tonnen (kürzere Zahlen), darunter in kg. Gespeichert wird weiter in kg.
+function mengeText(kg){ return Math.abs(kg)>=1000 ? (kg/1000).toFixed(2)+" t" : kg.toFixed(1)+" kg"; }
+
+// Alte Jahre löschen (Knopf im History-Tab): Einträge aus früheren Jahren weg – vorher Backup.
+// Die letzten 31 Tage bleiben immer (daraus rechnet das Lager „Ø Verbrauch“ / „Reicht noch“). Lager und Lieferungen bleiben.
+function eintragDatum(e){ const d=(e.datum||"").split("."); return new Date(+d[2], +d[1]-1, +d[0]); }
+function alteEintraege(){
+  const heute=new Date(), jahr=heute.getFullYear(), grenze=new Date(heute.getFullYear(), heute.getMonth(), heute.getDate()-31);
+  return historyData.filter(e=>{ const d=eintragDatum(e); return !isNaN(d) && d.getFullYear()<jahr && d<grenze; });
+}
+function alteJahre(){ return [...new Set(alteEintraege().map(e=>eintragDatum(e).getFullYear()))].sort(); }
+function alteJahreLoeschen(){
+  const weg=alteEintraege();
+  if(!weg.length) return;
+  if(!confirm("Alle gespeicherten Werte der Gruppen aus "+alteJahre().join(", ")+" löschen ("+weg.length+" Einträge)?\n\n"+
+    "Vorher wird automatisch ein Backup erstellt. Lagerbestand und Lieferungen bleiben.\nDas gilt für alle Geräte des Betriebs.")) return;
+  exportBackup();
+  const raus=new Set(weg);
+  historyData=historyData.filter(e=>!raus.has(e));
+  saveHistoryStorage();
+  buildHistory();
+  buildCalc();
+  alert(weg.length+" alte Einträge gelöscht.");
+}
 function buildHistory(){
 
   drittesFutterErgaenzen();
@@ -2090,13 +2256,13 @@ Jahressumme
 <br><br>
 
 Gesamt:
-${historyData
+${mengeText(historyData
 .filter(e=>
   e.kategorie===cat &&
   e.datum.split(".")[2]===jahr
 )
 .reduce((s,e)=>s+e.gesamt,0)
-.toFixed(1)} kg
+)}
 <br><br>
 
 ${(() => {
@@ -2135,7 +2301,7 @@ padding:4px 0;
 
 <span>${name}</span>
 
-<span>${kg.toFixed(1)} kg</span>
+<span>${mengeText(kg)}</span>
 
 </div>
 
@@ -2190,14 +2356,14 @@ Monatssumme
 <br><br>
 
 Gesamt:
-${historyData
+${mengeText(historyData
 .filter(e=>
   e.kategorie===cat &&
   e.datum.split(".")[2]===jahr &&
   e.datum.split(".")[1]===monat
 )
 .reduce((s,e)=>s+e.gesamt,0)
-.toFixed(1)} kg
+)}
 <br><br>
 
 ${(() => {
@@ -2237,7 +2403,7 @@ padding:4px 0;
 
 <span>${name}</span>
 
-<span>${kg.toFixed(1)} kg</span>
+<span>${mengeText(kg)}</span>
 
 </div>
 
@@ -2293,9 +2459,9 @@ Wochensumme
 <br><br>
 
 Gesamt:
-${getTage(cat,jahr,monat,woche)
+${mengeText(getTage(cat,jahr,monat,woche)
 .reduce((s,e)=>s+e.gesamt,0)
-.toFixed(1)} kg
+)}
 <br><br>
 
 ${(() => {
@@ -2328,7 +2494,7 @@ padding:4px 0;
 
 <span>${name}</span>
 
-<span>${kg.toFixed(1)} kg</span>
+<span>${mengeText(kg)}</span>
 
 </div>
 
@@ -2359,7 +2525,7 @@ ${e.tiere}
 <br>
 
 Gesamt:
-${e.gesamt.toFixed(1)} kg
+${mengeText(e.gesamt)}
 
 <br><br>
 
@@ -2375,7 +2541,7 @@ border-bottom:1px solid #eee;
 
 <span>${f.name}</span>
 
-<span>${f.kg.toFixed(1)} kg</span>
+<span>${mengeText(f.kg)}</span>
 
 </div>
 
@@ -2926,6 +3092,16 @@ document
 Backup laden
 
 </button>
+${alteJahre().length ? `
+<button
+id="alte-jahre-loeschen"
+class="save-btn"
+style="background:#b30000"
+onclick="alteJahreLoeschen()">
+
+Alte Jahre löschen (${alteJahre().join(", ")})
+
+</button>` : ""}
   </div>`;
   updateHistoryTabColor();
 
@@ -4252,6 +4428,7 @@ function futterAusCloud(saved){
   saved = saved || {};
   return {
     kuehe: saved.kuehe||buildCat(100),
+    kuehe2: kuehe2Laden(saved.kuehe2),
     faersen: saved.faersen||buildCat(30),
     // Restmischung: nur beim Öffnen aus dem Betrieb laden (Werte vom letzten Mal); danach bleibt die eigene Eingabe
     restbullen: (cloud.restbullenBeimStart && saved.restbullen)

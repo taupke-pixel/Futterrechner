@@ -35,10 +35,10 @@ function schnappschuss(page) {
     // neue Auswahl „Mischung(en) für die Restmischung“ gibt es in der alten Fassung nicht – nicht mitvergleichen
     const wahl = document.getElementById("restquellen-wahl");
     // ebenso das neue dritte Futter (Klasse „drittes-futter“)
-    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update").forEach(e => e.remove()); return c.textContent; };
+    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove()); return c.textContent; };
     const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten")).map(e => e.value);
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten, .gruppe2")).map(e => e.value);
     return {
       rechner: text("calc"), rechnerFelder: werte("calc"),
       einstellungen: text("settings"), einstellungenFelder: werte("settings"),
@@ -47,10 +47,19 @@ function schnappschuss(page) {
   });
 }
 
+// History: in den Gruppen zeigt die neue Fassung Mengen ab 1000 kg in Tonnen (Wunsch Fritz 04.11.2026).
+// Erlaubt ist nur genau diese Umrechnung – jede Zahl muss gleich sein oder exakt „N kg“ → „N/1000 t“ (2 Stellen).
+function nurTonnenAnders(a, b) {
+  const re = /-?\d+\.\d+ (kg|t)\b/g;
+  const za = a.match(re) || [], zb = b.match(re) || [];
+  if (a.replace(re, "#") !== b.replace(re, "#") || za.length !== zb.length) return false;
+  return za.every((x, i) => x === zb[i] || (/ kg$/.test(x) && Math.abs(parseFloat(x)) >= 1000 && zb[i] === (parseFloat(x) / 1000).toFixed(2) + " t"));
+}
+
 function vergleiche(alt, neu, wo) {
   for (const k of Object.keys(alt)) {
     const a = JSON.stringify(alt[k]), b = JSON.stringify(neu[k]);
-    if (a !== b) {
+    if (a !== b && !(k === "history" && nurTonnenAnders(a, b))) {
       let i = 0; while (i < a.length && a[i] === b[i]) i++;
       throw new Error(`${wo}/${k} weicht ab ab Zeichen ${i}:\n   vorher …${a.slice(Math.max(0, i - 60), i + 60)}…\n   jetzt  …${b.slice(Math.max(0, i - 60), i + 60)}…`);
     }

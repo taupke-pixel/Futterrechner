@@ -25,15 +25,15 @@ BACKUP.lieferungen = [
 function schnappschuss(page) {
   return page.evaluate(() => {
     // drittes Futter (wasser) nicht mitvergleichen – gibt es in der alten Fassung nicht
-    const sortiert = o => Array.isArray(o) ? o.filter(x => !(x && typeof x === "object" && x.type === "wasser")).map(sortiert) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).filter(k => k !== "wasser").sort().map(k => [k, sortiert(o[k])])) : o;
+    const sortiert = o => Array.isArray(o) ? o.filter(x => !(x && typeof x === "object" && x.type === "wasser")).map(sortiert) : (o && typeof o === "object") ? Object.fromEntries(Object.keys(o).filter(k => !["wasser", "kuehe2", "kuehe2Name", "kuehe2Modus"].includes(k)).sort().map(k => [k, sortiert(o[k])])) : o;
     const norm = s => s.replace(/⚠ Termin ist vorbei – sofort bestellen!/g, "").replace(/\s+/g, " ").trim();
     // neue Auswahl „Mischung(en) für die Restmischung“ gibt es in der alten Fassung nicht – nicht mitvergleichen
     const wahl = document.getElementById("restquellen-wahl");
     // ebenso das neue dritte Futter (Klasse „drittes-futter“)
-    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update").forEach(e => e.remove()); return c.textContent; };
+    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove()); return c.textContent; };
     const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
-      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten")).map(e => e.value);
+      .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten, .gruppe2")).map(e => e.value);
     return JSON.stringify({
       rechner: text("calc"), rechnerFelder: werte("calc"),
       einstellungen: text("settings"), einstellungenFelder: werte("settings"),

@@ -113,7 +113,7 @@ async function main() {
       await page.locator("#restquellen-wahl label", { hasText: "Kälber" }).locator("input").click();
       assert(meldungen.some(m => m.includes("Höchstens zwei")));
       assert.deepStrictEqual(await page.evaluate(() => restQuellen()), ["kuehe", "faersen"]);
-      await page.locator("#restquellen-wahl label", { hasText: "Kühe" }).locator("input").click();
+      await page.locator("#restquellen-wahl label").filter({ hasText: /^\s*Kühe\s*$/ }).locator("input").click();
       await page.locator("#restquellen-wahl label", { hasText: "Färsen" }).locator("input").click();
       assert(meldungen.some(m => m.includes("Mindestens eine")));
       assert.deepStrictEqual(await page.evaluate(() => restQuellen()), ["faersen"]);
