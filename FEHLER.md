@@ -24,6 +24,7 @@ Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
 | F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ✅ behoben 23.10.2026 (main 2168769, Test `tests/f12.js`) |
 | F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ➖ wird nicht behoben (Entscheidung Fritz 23.10.2026) |
+| F14 | Formular (z. B. Lieferung) kann sich zurücksetzen, wenn gerade Daten vom Betrieb ankommen | ⏳ gefunden 04.11.2026, wartet auf Freigabe |
 
 ---
 
@@ -128,3 +129,12 @@ History/Lieferungen werden sofort geschickt. Gesamtbestand = Grundbestand `inhal
 Folge: In den Einstellungen steht beim 3. Futter „undefined“, bis die App neu geöffnet wird (dann kommen die Standardwerte
 „Wasser“/0,5 aus dem Betrieb dazu). Keine Auswirkung auf Rechnung oder Lager (3. Futter steht in alten Backups überall auf 0 kg).
 Behebung nur mit Freigabe von Fritz.
+
+## F14 – Halb ausgefülltes Formular springt zurück, wenn Daten vom Betrieb ankommen (gefunden 04.11.2026)
+
+Gefunden im Vergleichstest (Lieferung landete einmal bei AGF statt MLF). Kommt während des Ausfüllens eine Änderung aus dem Betrieb an
+(anderes Gerät, oder Bestätigung des eigenen Speicherns, bei der sich nur die Reihenfolge der Felder unterscheidet), zeichnet die App
+History/Einstellungen neu (`neuZeichnen`). Das wartet zwar, solange ein Eingabefeld den Fokus hat – zwischen zwei Feldern bzw. beim
+Tippen auf den Knopf kann es aber dazwischenkommen: Auswahl (Futter) springt auf den ersten Eintrag, eingetippte Menge ist weg.
+Selten im Alltag; Rechnung und gespeicherte Daten sind nicht betroffen. Mögliche Behebung: Vergleich in `empfangen` mit sortierten
+Feldern (keine unnötigen Neuzeichnungen) und offene Formularwerte beim Neuzeichnen erhalten. Nur mit Freigabe von Fritz.
