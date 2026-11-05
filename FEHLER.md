@@ -24,7 +24,7 @@ Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F11 | **Echte Datenbank: jeder kann alle Anfragen (Namen, E-Mails) lesen und sich selbst freischalten** | ✅ wird mit dem Livegang (neue Regeln) geschlossen |
 | F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ✅ behoben 23.10.2026 (main 2168769, Test `tests/f12.js`) |
 | F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ➖ wird nicht behoben (Entscheidung Fritz 23.10.2026) |
-| F14 | Formular (z. B. Lieferung) kann sich zurücksetzen, wenn gerade Daten vom Betrieb ankommen | ⏳ gefunden 04.11.2026, wartet auf Freigabe |
+| F14 | Formular (z. B. Lieferung) kann sich zurücksetzen, wenn gerade Daten vom Betrieb ankommen | ✅ behoben 05.11.2026 (main 9310ae2, Test `tests/f14.js`) |
 
 ---
 
