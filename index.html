@@ -4487,7 +4487,23 @@ function cloudUebernehmen(art, wert){
 }
 
 // Neu zeichnen – aber nicht, während jemand gerade etwas eintippt
+// F14: Stand vergleichen, ohne dass die Reihenfolge der Felder zählt (die Cloud liefert sie manchmal anders sortiert zurück)
+function gleicherStand(o){
+  const s=x=>Array.isArray(x) ? x.map(s) : (x && typeof x==="object") ? Object.fromEntries(Object.keys(x).sort().map(k=>[k,s(x[k])])) : x;
+  return JSON.stringify(s(o));
+}
+// F14: Felder, die nicht an gespeicherte Daten gebunden sind (Lieferung eintragen) – beim Neuzeichnen behalten
+const FORMULAR_FELDER=["liefer-produkt","liefer-datum","liefer-menge"];
+// F14: solange ein Finger/die Maus gedrückt ist, nicht neu zeichnen (sonst wäre der Knopf unter dem Finger weg)
+document.addEventListener("pointerdown",()=>{ cloud.zeigerUnten=true; cloud.zeigerSeit=Date.now(); },true);
+function zeigerLos(){
+  setTimeout(()=>{ cloud.zeigerUnten=false; if(cloud.zeichnenNachZeiger){ cloud.zeichnenNachZeiger=false; neuZeichnen(); } },0);
+}
+document.addEventListener("pointerup",zeigerLos,true);
+document.addEventListener("pointercancel",zeigerLos,true);
+
 function neuZeichnen(){
+  if(cloud.zeigerUnten && Date.now()-cloud.zeigerSeit<5000){ cloud.zeichnenNachZeiger=true; return; }
   const a=document.activeElement;
   if(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.closest(".panel")){
     if(!cloud.wartetAufBlur){
@@ -4496,9 +4512,12 @@ function neuZeichnen(){
     }
     return;
   }
+  const merk={};
+  FORMULAR_FELDER.forEach(id=>{ const e=document.getElementById(id); if(e) merk[id]=e.value; });
   buildCalc();
   buildSettings();
   buildHistory();
+  FORMULAR_FELDER.forEach(id=>{ const e=document.getElementById(id); if(e && id in merk) e.value=merk[id]; });
   updateHistoryTabColor();
   baueBetriebBereich();
 }
@@ -4530,9 +4549,9 @@ function cloudAbonnieren(){
       }
       // Eigene, noch unbestätigte Änderungen oder ungespeicherte lokale Änderungen: abwarten
       if(meta.hasPendingWrites || cloud.offen[art]) return;
-      const vorher=JSON.stringify([data,globalCfg,lagerData,historyData,lieferungen]);
+      const vorher=gleicherStand([data,globalCfg,lagerData,historyData,lieferungen]);
       cloudUebernehmen(art, wert);
-      if(JSON.stringify([data,globalCfg,lagerData,historyData,lieferungen])!==vorher) neuZeichnen();
+      if(gleicherStand([data,globalCfg,lagerData,historyData,lieferungen])!==vorher) neuZeichnen();
     };
     ["futter","einstellungen","lager"].forEach(art=>{
       cloud.abos.push(ref.collection("daten").doc(art).onSnapshot({includeMetadataChanges:true}, s=>{
