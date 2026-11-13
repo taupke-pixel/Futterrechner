@@ -265,8 +265,8 @@ History
 </div>
 <div class="tab" id="fm-tab" style="display:none" onclick="showTab('fressmenge')">Fressmenge</div>
 </div><div id="calc" class="panel"></div>
-<div id="settings" class="panel hidden"></div>
 <div id="module" class="panel hidden"></div>
+<div id="settings" class="panel hidden"></div>
 <div id="fressmenge" class="panel hidden"></div>
 <div id="betrieb" class="panel hidden"></div>
 <div id="calc2" class="panel hidden"></div>
@@ -5338,11 +5338,10 @@ function fmBauen(){
   fmReiterFarbe();
   const fp=document.getElementById("fressmenge");
   if(!fmAn() && fp && !fp.classList.contains("hidden")) showTab("settings");
-  // Einstellungen: nur der Hauptschalter
+  // Einstellungen: nur der Hauptschalter – ganz oben (Wunsch Fritz: bei Sortierung/Bundesland)
   const el=document.getElementById("module");
   if(el) el.innerHTML=`
-  <hr>
-  <div id="module-box" class="history-box">
+  <div id="module-box" class="history-box" style="margin-bottom:6px">
     <label style="display:block;font-weight:bold">
       <input type="checkbox" id="fm-haupt" ${fmAn()?"checked":""} onchange="fmHauptschalter(this.checked)">
       Fressmengen-Auswertung
