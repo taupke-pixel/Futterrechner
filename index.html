@@ -7,22 +7,25 @@
 
 <script>
 // 🧪 TESTVERSION (Paket Fressmengen): unter taupke-pixel.github.io/futterrechner-test/ – gleiche Internet-Adresse wie die
-// normale App, deshalb: eigener Gerätespeicher (alle Einträge mit Vorsilbe „fmtest:“, die normale App wird nie berührt)
-// und eigene Test-Datenbank (Testprojekt, siehe istTestSeite). Lokal zum Testen: ?testversion=1
+// normale App, deshalb: eigener Gerätespeicher (alle Einträge mit Vorsilbe „fmtest:“, die normale App wird nie berührt).
+// SPIEGEL (Wahl Fritz 13.11.2026): liest die ECHTEN Daten des Betriebs, schreibt aber nie außerhalb von „test/“
+// (Sperre siehe „Testversion = Spiegel“ nach dem Firebase-Start). Lokal zum Testen: ?testversion=1 (Emulator/Testprojekt)
 var istTestversion = (location.hostname === "taupke-pixel.github.io" && location.pathname.toLowerCase().indexOf("/futterrechner-test") === 0)
   || (["localhost","127.0.0.1"].indexOf(location.hostname) >= 0 && new URLSearchParams(location.search).get("testversion") === "1");
 if (istTestversion) {
   (function(){
     var P = "fmtest:", S = Storage.prototype, g = S.getItem, s = S.setItem, r = S.removeItem, k = S.key;
-    S.getItem = function(n){ return g.call(this, P + n); };
-    S.setItem = function(n, v){ return s.call(this, P + n, v); };
-    S.removeItem = function(n){ return r.call(this, P + n); };
-    S.clear = function(){ for (var i = this.length - 1; i >= 0; i--) { var n = k.call(this, i); if (n && n.indexOf(P) === 0) r.call(this, n); } };
+    // Firebase-eigene Einträge nicht umbenennen (die sind durch den eigenen Firebase-Namen „testversion“ schon getrennt)
+    var name = function(n){ n = String(n); return (n.indexOf("firestore_") === 0 || n.indexOf("firebase:") === 0) ? n : P + n; };
+    S.getItem = function(n){ return g.call(this, name(n)); };
+    S.setItem = function(n, v){ return s.call(this, name(n), v); };
+    S.removeItem = function(n){ return r.call(this, name(n)); };
+    S.clear = function(){ var weg = []; for (var i = 0; i < this.length; i++) { var n = k.call(this, i); if (n && n.indexOf(P) === 0) weg.push(n); } for (var j = 0; j < weg.length; j++) r.call(this, weg[j]); };
   })();
   document.addEventListener("DOMContentLoaded", function(){
     var b = document.createElement("div");
     b.id = "testversion-hinweis";
-    b.textContent = "🧪 TESTVERSION – eigene Testdaten, nicht die echten";
+    b.textContent = "🧪 TESTVERSION – zeigt deine echten Zahlen. Änderungen hier werden nicht gespeichert (eintragen in der normalen App).";
     b.style.cssText = "background:#f2a900;color:#fff;text-align:center;font-weight:bold;padding:6px;font-size:15px";
     document.body.insertBefore(b, document.body.firstChild);
   });
@@ -281,8 +284,9 @@ const firebaseConfig = {
   measurementId: "G-X3YZD3B9L7"
 };
 // 🧪 Firebase-Testprojekt: wird NUR benutzt, wenn die Seite lokal läuft (localhost) oder auf der Test-Webseite
-// https://futterrechner-test-stall.web.app oder in der Testversion (github.io/futterrechner-test, siehe istTestversion).
-// Auf GitHub Pages (normale App) gilt immer firebaseConfig (echtes Projekt).
+// https://futterrechner-test-stall.web.app.
+// Auf GitHub Pages gilt immer firebaseConfig (echtes Projekt) – auch für die Testversion (github.io/futterrechner-test),
+// die dort aber nur liest (siehe „Testversion = Spiegel“).
 // Mit ?emulator=1 lokal: Firebase-Emulator auf dem PC.
 const testConfig = {
   apiKey: "AIzaSyDwstyb3O-EB1uL-WsRv_QDHLpmKhqoB_o",
@@ -294,18 +298,55 @@ const testConfig = {
 };
 const urlParams = new URLSearchParams(window.location.search);
 const istLokal = ["localhost","127.0.0.1"].includes(location.hostname);
-const istTestSeite = istLokal || istTestversion || ["futterrechner-test-stall.web.app","futterrechner-test-stall.firebaseapp.com"].includes(location.hostname);
+const istTestSeite = istLokal || ["futterrechner-test-stall.web.app","futterrechner-test-stall.firebaseapp.com"].includes(location.hostname);
 const mitEmulator = istLokal && urlParams.get("emulator")==="1";
-firebase.initializeApp(
+// Testversion: eigener Firebase-Name → eigene Geräte-Anmeldung und eigener Offline-Speicher, getrennt von der normalen App
+const fbApp = firebase.initializeApp(
   !istTestSeite ? firebaseConfig :
   mitEmulator ? { apiKey:"demo-key", authDomain:"localhost", projectId:"demo-futterrechner" } :
-  testConfig
+  testConfig,
+  istTestversion ? "testversion" : undefined
 );
-const db = firebase.firestore();
-const auth = firebase.auth();
+const db = fbApp.firestore();
+const auth = fbApp.auth();
 if(mitEmulator){
   db.useEmulator("localhost",8080);
   auth.useEmulator("http://localhost:9099");
+}
+// 🧪 Testversion = Spiegel: liest die echten Daten, schreibt aber NIE außerhalb von „test/“ (Sicherheitsregel Fritz).
+// Einzige Ausnahme: dieses Gerät per PIN/QR-Code in den Betrieb aufnehmen (wie ein neues Handy, im selben Paket).
+// Alles andere wird hier abgefangen, bevor es Firestore erreicht.
+if(istTestversion){
+  (function(){
+    const F=firebase.firestore;
+    const sperre=ref=>{ const e=new Error("Testversion: nur lesen ("+ref.path+")"); e.code="testversion-nur-lesen"; return e; };
+    const erlaubt=(ref, art, imPaket)=>{
+      const p=ref.path.split("/"), uid=auth.currentUser && auth.currentUser.uid;
+      if(p[0]==="test") return true;
+      if(!imPaket || !uid) return false;
+      if(art==="set" && p.length===4 && p[0]==="betriebe" && p[2]==="geraete" && p[3]===uid) return true;
+      if(art==="set" && p.length===2 && p[0]==="geraetezuordnung" && p[1]===uid) return true;
+      if(art==="delete" && p.length===2 && p[0]==="einladungen") return true;
+      return false;
+    };
+    ["set","update","delete"].forEach(art=>{
+      const d=F.DocumentReference.prototype[art];
+      F.DocumentReference.prototype[art]=function(){ return erlaubt(this, art, false) ? d.apply(this, arguments) : Promise.reject(sperre(this)); };
+      const b=F.WriteBatch.prototype[art];
+      F.WriteBatch.prototype[art]=function(ref){ if(!erlaubt(ref, art, true)) throw sperre(ref); return b.apply(this, arguments); };
+    });
+    const add=F.CollectionReference.prototype.add;
+    F.CollectionReference.prototype.add=function(){ return this.path.split("/")[0]==="test" ? add.apply(this, arguments) : Promise.reject(sperre(this)); };
+    F.Firestore.prototype.runTransaction=function(){ return Promise.reject(sperre({ path:"(transaction)" })); };
+  })();
+}
+// Testversion: kurz zeigen, dass eine Änderung nicht gespeichert wird (die Hinweisleiste blinkt rot)
+function testversionHinweis(){
+  const b=document.getElementById("testversion-hinweis");
+  if(!b) return;
+  b.style.background="#c40000";
+  clearTimeout(testversionHinweis.t);
+  testversionHinweis.t=setTimeout(()=>{ b.style.background="#f2a900"; },2500);
 }
 // Offline-Speicher: im Stall ohne Netz läuft alles weiter, abgeglichen wird später
 db.enablePersistence({synchronizeTabs:true})
@@ -4188,7 +4229,7 @@ async function einladungEinloesen(code, name){
     b.delete(e.ref);
     await b.commit();
     // Einladung aus der Adresse entfernen und App starten
-    location.replace(seitenAdresse()+(mitEmulator?"?emulator=1":""));
+    location.replace(seitenAdresse()+(mitEmulator?"?emulator=1":"")+(istTestversion && istLokal ? (mitEmulator?"&":"?")+"testversion=1" : ""));
     return true;
   }catch(err){
     console.log("Einlösen fehlgeschlagen:", err);
@@ -4270,6 +4311,8 @@ function kopie(o){ return o===undefined ? null : JSON.parse(JSON.stringify(o)); 
 
 function cloudSpeichern(art){
   if(!cloud.aktiv) return;
+  // Testversion (Spiegel): nichts in den Betrieb schicken – die Änderung bleibt nur hier, bis neue echte Daten kommen
+  if(istTestversion){ testversionHinweis(); return; }
   cloud.offen[art]=true;
   if(art==="lager") lagerBuchen();
   if(art==="history" || art==="lieferungen") cloud.eilig=true;
@@ -4340,7 +4383,7 @@ function eintragDokIds(liste){
 // Lokale Änderungen in den Betrieb schreiben
 function cloudSchreiben(){
   clearTimeout(cloud.timer);
-  if(!cloud.aktiv || !betriebId) return;
+  if(!cloud.aktiv || !betriebId || istTestversion) return;
   cloud.eilig=false;
   const offen=cloud.offen;
   cloud.offen={};
@@ -4837,7 +4880,7 @@ async function starten(){
     return;
   }
   cloud.aktiv=true;
-  if(cloud.lagerNachsenden){ cloud.lagerNachsenden=false; cloudSpeichern("lager"); }
+  if(cloud.lagerNachsenden && !istTestversion){ cloud.lagerNachsenden=false; cloudSpeichern("lager"); }
   zeigeSyncStatus();
   zeigeApp();
 }
@@ -4851,6 +4894,13 @@ function zeigeZugangsseite(){
   const k=document.getElementById("zugang-kennung");
   if(k) k.textContent="Gerätekennung: "+geraeteUid;
   beobachteEigeneAnfrage();
+  // Testversion: keine neue Anfrage, nur mit PIN/QR-Code als weiteres Gerät des Betriebs verbinden
+  if(istTestversion){
+    const f=document.getElementById("zugang-formular");
+    [...f.children].forEach(c=>{ if(c.id!=="zugang-abgelehnt") c.style.display="none"; });
+    if(!document.getElementById("testversion-zugang")) f.insertAdjacentHTML("afterbegin",
+      "<p id='testversion-zugang'><b>Testversion:</b> bitte in der normalen App unter Einstellungen → Betrieb → „+ Gerät hinzufügen“ eine PIN erzeugen und unten eingeben.</p>");
+  }
 }
 
 // Start: Freigabe-Link (?approve= / ?deny=), Einladung per QR-Code (?einladung=) oder normale App
