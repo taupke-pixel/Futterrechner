@@ -5,6 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Futterrechner</title>
 
+<script>
+// 🧪 TESTVERSION (Paket Fressmengen): unter taupke-pixel.github.io/futterrechner-test/ – gleiche Internet-Adresse wie die
+// normale App, deshalb: eigener Gerätespeicher (alle Einträge mit Vorsilbe „fmtest:“, die normale App wird nie berührt)
+// und eigene Test-Datenbank (Testprojekt, siehe istTestSeite). Lokal zum Testen: ?testversion=1
+var istTestversion = (location.hostname === "taupke-pixel.github.io" && location.pathname.toLowerCase().indexOf("/futterrechner-test") === 0)
+  || (["localhost","127.0.0.1"].indexOf(location.hostname) >= 0 && new URLSearchParams(location.search).get("testversion") === "1");
+if (istTestversion) {
+  (function(){
+    var P = "fmtest:", S = Storage.prototype, g = S.getItem, s = S.setItem, r = S.removeItem, k = S.key;
+    S.getItem = function(n){ return g.call(this, P + n); };
+    S.setItem = function(n, v){ return s.call(this, P + n, v); };
+    S.removeItem = function(n){ return r.call(this, P + n); };
+    S.clear = function(){ for (var i = this.length - 1; i >= 0; i--) { var n = k.call(this, i); if (n && n.indexOf(P) === 0) r.call(this, n); } };
+  })();
+  document.addEventListener("DOMContentLoaded", function(){
+    var b = document.createElement("div");
+    b.id = "testversion-hinweis";
+    b.textContent = "🧪 TESTVERSION – eigene Testdaten, nicht die echten";
+    b.style.cssText = "background:#f2a900;color:#fff;text-align:center;font-weight:bold;padding:6px;font-size:15px";
+    document.body.insertBefore(b, document.body.firstChild);
+  });
+}
+</script>
+
 <!-- 🔥 HIER die Scripts -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -257,7 +281,8 @@ const firebaseConfig = {
   measurementId: "G-X3YZD3B9L7"
 };
 // 🧪 Firebase-Testprojekt: wird NUR benutzt, wenn die Seite lokal läuft (localhost) oder auf der Test-Webseite
-// https://futterrechner-test-stall.web.app. Auf GitHub Pages gilt immer firebaseConfig (echtes Projekt).
+// https://futterrechner-test-stall.web.app oder in der Testversion (github.io/futterrechner-test, siehe istTestversion).
+// Auf GitHub Pages (normale App) gilt immer firebaseConfig (echtes Projekt).
 // Mit ?emulator=1 lokal: Firebase-Emulator auf dem PC.
 const testConfig = {
   apiKey: "AIzaSyDwstyb3O-EB1uL-WsRv_QDHLpmKhqoB_o",
@@ -269,7 +294,7 @@ const testConfig = {
 };
 const urlParams = new URLSearchParams(window.location.search);
 const istLokal = ["localhost","127.0.0.1"].includes(location.hostname);
-const istTestSeite = istLokal || ["futterrechner-test-stall.web.app","futterrechner-test-stall.firebaseapp.com"].includes(location.hostname);
+const istTestSeite = istLokal || istTestversion || ["futterrechner-test-stall.web.app","futterrechner-test-stall.firebaseapp.com"].includes(location.hostname);
 const mitEmulator = istLokal && urlParams.get("emulator")==="1";
 firebase.initializeApp(
   !istTestSeite ? firebaseConfig :
