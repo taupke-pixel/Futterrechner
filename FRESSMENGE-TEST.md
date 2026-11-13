@@ -23,14 +23,15 @@ Die normale App (https://taupke-pixel.github.io/Futterrechner/) ist **unverände
 | 12 (Teil) | Wetter von Open-Meteo (Höchsttemperatur, Luftfeuchte, Regen; 92 Tage + Vorhersage), Hitzetag nach THI |
 | 13 | Restquote, gleitendes Mittel, Ampel/Empfehlung ±3 %, Leergefressen, Ausreißer, Regen/Hitze zählen in der Lernphase nicht, Hitze angesagt → nicht erhöhen |
 | 16 | Reiter „Fressmenge“: je Kuhgruppe Zeile mit Haken/Empfehlung; antippen → Verlauf (Diagramm Reste/Temperatur/Regen, Gefressen je Tier, Liste, 7/30/90 Tage) |
-| 15 (Teil) | Frage „Heute etwas anders?“ bei einem frischen Ausreißer (Später gefüttert / Problem / Alles normal) |
+| 15 (Teil) | Fragen (einmal, Fenster von unten): „Heute etwas anders?“ bei Ausreißer; „Normale Bullenration heute – Kühe leergefressen?“; nach 2 Tagen „Keine Reste eingetragen – leergefressen oder vergessen?“. Frühwarnung bei Fressmengen-Einbruch (mit „erledigt“). Reiter färbt sich bei offener Frage/Meldung |
 | 0 | Beispieldaten (30 Tage) ein-/ausblenden, „Testdaten zurücksetzen“ |
 
 ## Noch offen
 - **Berater-PDF** (Punkte 4, 5, 6, 7): wartet auf das PDF von Fritz. Erst damit gibt es TS/Nährstoffe/Preise
   (Auswertung dann in kg TM statt kg FM, Milch aus Energie, Rationsvergleich, Rationswechsel).
 - Standard-Fressmengen-Tabelle und Lernen für Gruppen ohne Reste (Punkte 9, 14), Zielgewicht Restmischung automatisch.
-- Fragen/Meldungen (Punkt 15: Frühwarnung, MLP-Check, „Keine Reste eingetragen“) und Regen-/Hitze-Korrektur (Phase B, braucht 15+15 Tage).
+- MLP-Check und „Ration neu rechnen“ (Punkt 15, brauchen Nährstoffe aus dem PDF) und Regen-/Hitze-Korrektur (Phase B, braucht 15+15 Tage).
+- Frühwarnung vergleicht bis zum PDF in kg FM (Schwelle aus „Erweitert“ mit 45 % TS umgerechnet).
 - „Übernehmen“ der Empfehlung ist in der Testversion gesperrt (Spiegel) – geht erst in der normalen App.
 
 ## Für Fritz zu tun

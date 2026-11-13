@@ -4834,7 +4834,10 @@ function fmOffenePlaetze(){ return fmPlaetze().filter(p=>p.typ==="stall" && !fmV
 // Reiter „Fressmenge“ färbt sich, solange ein Stall weder zugeordnet noch „nicht füttern“ ist (wie bei „Futter bestellen“)
 function fmReiterFarbe(){
   const t=document.getElementById("fm-tab");
-  if(t) t.classList.toggle("tab-orange", fmAn() && fmOffenePlaetze().length>0);
+  if(!t) return;
+  const etwas = fmAn() && !fmDemo && (fmOffenePlaetze().length>0 || !!fmOffeneFrage()
+    || fmGruppen().some(g=>g.art==="rest" && g.auswerten!==false && fmFruehwarnung(g, fmReihe(g))));
+  t.classList.toggle("tab-orange", !!etwas);
 }
 function fmGruppeNeu(){
   const name=(prompt("Name der neuen Futtergruppe (z. B. Hochleistung):")||"").trim().slice(0,40);
@@ -5025,12 +5028,14 @@ function fmTiereMerken(){
 // Tagesreihe einer Kuhgruppe: je Mischtag Vorlage, Rest (vom nächsten Tag mit gespeicherter Restmischung), Tiere, Wetter
 function fmReihe(g){
   if(fmDemo) return fmDemoReihe(g);
-  const vorlage={}, tiere={}, restTage=new Set();
+  const vorlage={}, tiere={}, restTage=new Set(), bullenTage=new Set();
   historyData.forEach(e=>{
     const d=fmAusDatum(e && e.datum); if(!d) return;
     if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; }
     if(e.kategorie==="restbullen") restTage.add(d);
+    else if(e.kategorie===restZiel() && e.kategorie!==g.karte) bullenTage.add(d);
   });
+  const heute=fmIso(new Date()), antworten=fmCfg.antworten||{};
   const vTage=Object.keys(vorlage).sort();
   const reihe=[];
   vTage.forEach((v,i)=>{
@@ -5039,29 +5044,61 @@ function fmReihe(g){
     const r=[...restTage].sort().find(t=>t>v && t<=naechste);
     let rest=null;
     if(r){ const rt=fmTage[r] && fmTage[r].rest; rest = rt && typeof rt[g.karte]==="number" ? rt[g.karte] : null; }
+    // Keine Restmischung gespeichert (erst ab dem Folgetag): normale Bullenration statt Restmischung oder gar nichts
+    let fehlt=null;
+    if(!r && v<heute) fehlt = [...bullenTage].some(t=>t>v && t<=naechste) ? "bullen" : "keine";
+    if(fehlt && antworten[g.id+"|"+v]==="leer") rest=0;
     const hm=fmTage[v] && fmTage[v].tiere && fmTage[v].tiere[g.id];
     const n = (hm && hm.lakt) || tiere[v] || 0;
     const w=(fmTage[v] && fmTage[v].wetter) || {};
-    reihe.push({ datum:v, vorlage:vorlage[v], rest, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
+    reihe.push({ datum:v, vorlage:vorlage[v], rest, fehlt, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
   return fmAntwortenAnwenden(g, fmReiheBewerten(reihe));
 }
 // Antworten auf „Heute etwas anders?“: „Alles normal“ = Tag zählt doch, „Später gefüttert“/„Problem“ = Tag zählt nicht
 function fmAntwortenAnwenden(g, reihe){
   const a=fmCfg.antworten||{};
-  reihe.forEach(t=>{ const x=a[g.id+"|"+t.datum]; if(x==="normal") t.ausreisser=false; if(x==="spaeter"||x==="problem") t.ausgelassen=true; t.antwort=x||null; });
+  reihe.forEach(t=>{ const x=a[g.id+"|"+t.datum]; if(x==="normal") t.ausreisser=false; if(x==="spaeter"||x==="problem"||x==="anders"||x==="vergessen") t.ausgelassen=true; t.antwort=x||null; });
   return reihe;
 }
-function fmAntworten(gid, datum, x){ (fmCfg.antworten=fmCfg.antworten||{})[gid+"|"+datum]=x; fmSpeichern(); }
+function fmAntworten(gid, tage, x){ fmCfg.antworten=fmCfg.antworten||{}; String(tage).split(",").forEach(d=>{ fmCfg.antworten[gid+"|"+d]=x; }); fmSpeichern(); }
 // Offene Frage: jüngster Ausreißer der letzten 3 Tage ohne Antwort (je Gruppe einmal)
 function fmOffeneFrage(){
   const grenze=fmTagPlus(fmIso(new Date()),-3);
   for(const g of fmGruppen().filter(x=>x.art==="rest" && x.auswerten!==false)){
-    const t=fmReihe(g).filter(t=>t.ausreisser && !t.antwort && t.datum>=grenze).pop();
-    if(t) return { g, t };
+    const reihe=fmReihe(g);
+    const t=reihe.filter(t=>t.ausreisser && !t.antwort && t.datum>=grenze).pop();
+    if(t) return { g, tage:[t.datum], titel:"Heute etwas anders?",
+      text:`${fmEsc(g.name)}, ${fmKurz(t.datum)}: Rest ${fmZahl(t.quote.toFixed(1))} % – deutlich anders als an den Tagen davor/danach.`,
+      knoepfe:[["Später gefüttert","spaeter"],["Problem (Silage, Mischwagen, Tiere)","problem"],["Alles normal","normal"]] };
+    const b=reihe.filter(t=>t.fehlt==="bullen" && !t.antwort && t.datum>=grenze).pop();
+    if(b) return { g, tage:[b.datum], titel:"Normale Bullenration heute – Kühe leergefressen?",
+      text:`${fmEsc(g.name)}: Nach der Mischung vom ${fmKurz(b.datum)} wurde keine Restmischung gespeichert.`,
+      knoepfe:[["Ja, leergefressen","leer"],["Reste anders verwertet","anders"]] };
+    const k=reihe.filter(t=>t.fehlt==="keine").slice(-2);
+    if(k.length===2 && k.every(t=>!t.antwort && t.datum>=fmTagPlus(fmIso(new Date()),-4))) return { g, tage:k.map(t=>t.datum),
+      titel:"Keine Reste eingetragen – leergefressen oder vergessen?",
+      text:`${fmEsc(g.name)}: Nach den Mischungen vom ${fmKurz(k[0].datum)} und ${fmKurz(k[1].datum)} ist keine Restmischung gespeichert.`,
+      knoepfe:[["Leergefressen","leer"],["Vergessen","vergessen"]] };
   }
   return null;
 }
+// Frühwarnung: gefressen je Tier fällt über ein paar Tage deutlich – ohne Regen, Hitze oder weniger Tiere.
+// Bis die Ration mit Trockensubstanz da ist, wird in kg FM verglichen (Schwelle aus „Erweitert“ in kg TM, umgerechnet mit 45 % TS).
+function fmFruehwarnung(g, reihe){
+  const ok=reihe.filter(t=>t.jeTier!==null && !t.ausreisser && !t.ausgelassen);
+  const n=fmWert("fruehTage"), letzte=ok.slice(-n), davor=ok.slice(-n-fmWert("bewertungTage"), -n);
+  if(letzte.length<n || davor.length<fmWert("bewertungMin")) return null;
+  if(letzte.some(t=>t.regenTag || t.hitzeTag)) return null;
+  const mittel=(l,f)=>l.reduce((s,t)=>s+f(t),0)/l.length;
+  if(mittel(letzte,t=>t.tiere) < mittel(davor,t=>t.tiere)-0.5) return null;
+  const rueckgang=mittel(davor,t=>t.jeTier)-mittel(letzte,t=>t.jeTier);
+  if(rueckgang < fmWert("fruehTm")/0.45) return null;
+  const schluessel=g.id+"|"+letzte[letzte.length-1].datum+"|frueh";
+  if((fmCfg.erledigt||{})[schluessel]) return null;
+  return { schluessel, text:`⚠ Frühwarnung: gefressen je Tier −${fmZahl(rueckgang.toFixed(1))} kg FM in ${n} Tagen (ohne Regen, Hitze oder weniger Tiere)` };
+}
+function fmErledigt(schluessel){ (fmCfg.erledigt=fmCfg.erledigt||{})[schluessel]=new Date().toISOString(); fmSpeichern(); }
 // Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
 function fmReiheBewerten(reihe){
   reihe.forEach(t=>{
@@ -5230,6 +5267,7 @@ function fmAuswertungHtml(){
         <span>${fmOffen===g.id?"▲":"▼"}</span>
       </div>
       ${(b.art==="mehr"||b.art==="weniger") ? `<button class="save-btn" style="margin-top:6px" ${istTestversion?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmUebernehmen('${g.id}','${b.art}')">Übernehmen</button>${istTestversion?`<span style="font-size:12px;color:#666;margin-left:6px">Testversion: nur ansehen</span>`:""}` : ""}
+      ${(()=>{ const f=fmDemo ? null : fmFruehwarnung(g, reihe); return f ? `<div class="fm-meldung" style="margin-top:6px;color:#b36b00;font-size:14px">${f.text} <button onclick="fmErledigt('${f.schluessel}')" style="font-size:13px">erledigt</button></div>` : ""; })()}
       ${fmOffen===g.id ? fmVerlaufHtml(g, reihe) : ""}
     </div>`;
   }).join("");
@@ -5237,12 +5275,10 @@ function fmAuswertungHtml(){
   const frage=fmDemo ? null : fmOffeneFrage();
   const frageHtml = frage ? `
   <div id="fm-frage" style="position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;box-shadow:0 -4px 16px rgba(0,0,0,.25);border-radius:14px 14px 0 0;padding:14px 16px 18px">
-    <b>Heute etwas anders?</b><br>
-    <span style="font-size:14px">${fmEsc(frage.g.name)}, ${fmKurz(frage.t.datum)}: Rest ${fmZahl(frage.t.quote.toFixed(1))} % – deutlich anders als an den Tagen davor/danach.</span>
+    <b>${frage.titel}</b><br>
+    <span style="font-size:14px">${frage.text}</span>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
-      <button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.t.datum}','spaeter')">Später gefüttert</button>
-      <button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.t.datum}','problem')">Problem (Silage, Mischwagen, Tiere)</button>
-      <button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.t.datum}','normal')">Alles normal</button>
+      ${frage.knoepfe.map(([text,wert])=>`<button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.tage.join(",")}','${wert}')">${text}</button>`).join("")}
     </div>
   </div>` : "";
   return frageHtml + `

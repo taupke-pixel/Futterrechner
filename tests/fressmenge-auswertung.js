@@ -26,7 +26,7 @@ async function main() {
   await context.route(/api\.open-meteo\.com/, route => {
     wetterAnfragen.push(route.request().url());
     const time = [], tmax = [], rh = [], regen = [];
-    for (let i = 92; i >= -2; i--) { const d = tagMinus(i); time.push(iso(d)); tmax.push(i === -1 && wetter.morgenHeiss ? 31 : 8); rh.push(80); regen.push(i === 3 ? 7.5 : 0); }
+    for (let i = 92; i >= -2; i--) { const d = tagMinus(i); time.push(iso(d)); tmax.push(i === -1 && wetter.morgenHeiss ? 31 : 8); rh.push(80); regen.push(i === 3 && !wetter.trocken ? 7.5 : 0); }
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ daily: { time, temperature_2m_max: tmax, relative_humidity_2m_mean: rh, precipitation_sum: regen } }) });
   });
   const meldungen = [];
@@ -133,6 +133,64 @@ async function main() {
       await historyAnlegen([4, null, null, null, null, 4]);
       await page.evaluate(() => fmBauen());
       assert((await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text')).includes("sammelt noch Werte (2 von 3 Tagen)"));
+    });
+
+    // History frei zusammenstellen: je Tag n (Tage zurück) Vorlage Kühe und am Folgetag Restmischung / normale Bullenration / nichts
+    const historyFrei = async tage => {
+      const e = [];
+      tage.forEach(([n, folge]) => {
+        e.push({ id: "v" + n, datum: tt(tagMinus(n)), kategorie: "kuehe", tiere: 40, gesamt: 2000, agf: 0, mlf: 0, futter: [] });
+        if (folge === "rest") e.push({ id: "r" + n, datum: tt(tagMinus(n - 1)), kategorie: "restbullen", tiere: 9, gesamt: 0, agf: 0, mlf: 0, futter: [] });
+        if (folge === "bullen") e.push({ id: "b" + n, datum: tt(tagMinus(n - 1)), kategorie: "bullen", tiere: 12, gesamt: 500, agf: 0, mlf: 0, futter: [] });
+      });
+      await page.evaluate(([x]) => { historyData = x; fmCfg.antworten = {}; fmCfg.erledigt = {}; fmSpeichern(); }, [e]);
+      for (const [n, folge] of tage) if (folge === "rest") await restMerken(n - 1, 80);
+    };
+
+    await pruefe("Normale Bullenration statt Restmischung → EINMAL „Kühe leergefressen?“; „Ja, leergefressen“ = Rest 0", async () => {
+      await historyFrei([[6, "rest"], [5, "rest"], [4, "rest"], [3, "rest"], [2, "rest"], [1, "bullen"]]);
+      await page.evaluate(() => fmBauen());
+      assert((await page.textContent("#fm-frage")).includes("Normale Bullenration heute – Kühe leergefressen?"));
+      assert.strictEqual(await page.evaluate(() => document.getElementById("fm-tab").classList.contains("tab-orange")), true, "Reiter nicht eingefärbt");
+      await page.click("#fm-frage >> text=Ja, leergefressen");
+      assert.strictEqual(await page.locator("#fm-frage").count(), 0);
+      assert.strictEqual(await page.evaluate(() => fmReihe(fmCfg.gruppen[0]).pop().rest), 0);
+    });
+
+    await pruefe("„Reste anders verwertet“ → Tag zählt nicht", async () => {
+      await historyFrei([[6, "rest"], [5, "rest"], [4, "rest"], [3, "rest"], [2, "rest"], [1, "bullen"]]);
+      await page.evaluate(() => fmBauen());
+      await page.click("#fm-frage >> text=Reste anders verwertet");
+      assert.strictEqual(await page.evaluate(() => fmReihe(fmCfg.gruppen[0]).pop().ausgelassen), true);
+    });
+
+    await pruefe("2 Tage gar nichts gespeichert → „Keine Reste eingetragen – leergefressen oder vergessen?“; „Vergessen“ = beide Tage zählen nicht", async () => {
+      await historyFrei([[6, "rest"], [5, "rest"], [4, "rest"], [3, "rest"], [2, "nichts"], [1, "nichts"]]);
+      await page.evaluate(() => fmBauen());
+      assert((await page.textContent("#fm-frage")).includes("Keine Reste eingetragen – leergefressen oder vergessen?"));
+      await page.click("#fm-frage button:text-is(\"Vergessen\")");
+      const r2 = await page.evaluate(() => JSON.stringify({ r: fmReihe(fmCfg.gruppen[0]).slice(-3).map(t => [t.datum, t.fehlt, t.antwort, t.ausgelassen]), a: fmCfg.antworten }));
+      assert(JSON.parse(r2).r.slice(-2).every(t => t[3] === true), r2);
+      assert.strictEqual(await page.locator("#fm-frage").count(), 0);
+    });
+
+    await pruefe("Nur 1 Tag ohne Reste → noch keine Frage", async () => {
+      await historyFrei([[6, "rest"], [5, "rest"], [4, "rest"], [3, "rest"], [2, "rest"], [1, "nichts"]]);
+      await page.evaluate(() => fmBauen());
+      assert.strictEqual(await page.locator("#fm-frage").count(), 0);
+    });
+
+    await pruefe("Frühwarnung bei Fressmengen-Einbruch (ohne Regen/Hitze/weniger Tiere), „erledigt“ blendet sie aus; bei Regen keine Warnung", async () => {
+      wetter.trocken = true; await page.evaluate(() => fmWetterHolen(true)); await page.waitForTimeout(300);
+      await historyAnlegen([4, 4, 4, 4, 4, 10, 10, 10]);
+      await page.evaluate(() => { fmCfg.antworten = {}; fmCfg.erledigt = {}; fmBauen(); });
+      const m = await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-meldung');
+      assert(m.includes("Frühwarnung: gefressen je Tier −3,0 kg FM in 3 Tagen"), m);
+      await page.click('.fm-auswertung[data-gruppe="g1"] .fm-meldung button');
+      assert.strictEqual(await page.locator(".fm-meldung").count(), 0);
+      wetter.trocken = false; await page.evaluate(() => { fmCfg.erledigt = {}; fmWetterHolen(true); }); await page.waitForTimeout(300);
+      await page.evaluate(() => fmBauen());
+      assert.strictEqual(await page.locator(".fm-meldung").count(), 0, "Warnung trotz Regentag");
     });
 
     await pruefe("Gruppe antippen → Verlauf: Diagramm (Chart.js 4.4.1 wird erst jetzt geladen), Liste mit Rest % und Symbolen, Zeitraum", async () => {
