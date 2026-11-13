@@ -4741,8 +4741,8 @@ function fmAn(){ return fmCfg.an===true; }
 function fmWert(k){ const d=FM_WERTE.find(w=>w[0]===k); return (fmCfg.werte && typeof fmCfg.werte[k]==="number") ? fmCfg.werte[k] : d[2]; }
 const fmZahl=v=>String(v).replace(".",",");
 function fmSpeichern(){ try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){} fmBauen(); }
-function fmHauptschalter(an){ fmCfg.an=!!an; fmSpeichern(); }
-function fmSchalter(k, an){ fmCfg[k]=!!an; fmSpeichern(); }
+function fmHauptschalter(an){ fmCfg.an=!!an; fmSpeichern(); if(an) fmStallzahlenHolen(true); }
+function fmSchalter(k, an){ fmCfg[k]=!!an; fmSpeichern(); if(k==="tierzahlHM" && an) fmStallzahlenHolen(true); }
 // Ungültige Eingaben abfangen und erklären
 function fmWertSetzen(k, feld){
   const d=FM_WERTE.find(w=>w[0]===k), v=parseFloat(String(feld.value).replace(",","."));
@@ -4763,10 +4763,199 @@ function fmStandard(){
   fmCfg.werte={}; fmSpeichern();
 }
 function fmErweitertUmklappen(){ fmErweitertZu=!fmErweitertZu; fmBauen(); }
+// --- Futtergruppen + Stallzahlen aus dem Herdenmanager (Paket Punkt 3) ---
+// Der Herdenmanager legt anonyme Zahlen je Stall/Bucht in SEINEM Projekt ab (test/{bid}/{schluessel}/stallzahlen).
+// Der Futterrechner liest sie nur (ohne Anmeldung, mit dem Kopplungscode = bid.schluessel) und schreibt nie in den Herdenmanager.
+const FM_HM={ projekt:"herdenmanager-test", apiKey:"AIzaSyBSbyUVKi_Q-90HjpHytFtujeiCRYtXgIA", bereich:"test" };
+let fmStall=(()=>{ try{ return JSON.parse(localStorage.getItem("fmStallzahlen")||"null"); }catch(e){ return null; } })();
+let fmStallLaedt=false, fmStallFehler="", fmStallZuletzt=0;
+// Firestore-REST-Werte in normale Werte umwandeln
+function fmRest(v){
+  if(!v || typeof v!=="object") return null;
+  if("stringValue" in v) return v.stringValue;
+  if("integerValue" in v) return Number(v.integerValue);
+  if("doubleValue" in v) return v.doubleValue;
+  if("booleanValue" in v) return v.booleanValue;
+  if("nullValue" in v) return null;
+  if("timestampValue" in v) return v.timestampValue;
+  if("arrayValue" in v) return (v.arrayValue.values||[]).map(fmRest);
+  if("mapValue" in v){ const o={}; Object.entries(v.mapValue.fields||{}).forEach(([k,w])=>{ o[k]=fmRest(w); }); return o; }
+  return null;
+}
+async function fmStallzahlenHolen(erzwingen){
+  if(!fmAn() || fmCfg.tierzahlHM===false || !fmCfg.kopplung || fmStallLaedt) return;
+  if(!erzwingen && Date.now()-fmStallZuletzt<60000) return;
+  const [bid, schl]=String(fmCfg.kopplung).split(".");
+  if(!bid || !schl){ fmStallFehler="Der Kopplungscode ist unvollständig."; fmBauen(); return; }
+  fmStallLaedt=true; fmStallZuletzt=Date.now();
+  try{
+    const url=`https://firestore.googleapis.com/v1/projects/${FM_HM.projekt}/databases/(default)/documents/${FM_HM.bereich}/${encodeURIComponent(bid)}/${encodeURIComponent(schl)}/stallzahlen?key=${FM_HM.apiKey}`;
+    const r=await fetch(url);
+    if(r.status===403 || r.status===404) throw new Error("Kopplungscode passt nicht (oder der Herdenmanager hat noch keine Zahlen geschickt).");
+    if(!r.ok) throw new Error("Herdenmanager nicht erreichbar ("+r.status+").");
+    const d=fmRest({ mapValue:{ fields:(await r.json()).fields||{} } });
+    fmStall={ geholt:new Date().toISOString(), stand:d.stand||null, eintraege:d.eintraege||{} };
+    try{ localStorage.setItem("fmStallzahlen", JSON.stringify(fmStall)); }catch(e){}
+    fmStallFehler="";
+  }catch(e){
+    fmStallFehler = (e && e.message && !/fetch/i.test(e.message)) ? e.message : "Keine Verbindung zum Herdenmanager – es gelten die zuletzt geholten Zahlen.";
+  }
+  fmStallLaedt=false;
+  fmBauen();
+}
+function fmKopplungSetzen(){
+  const f=document.getElementById("fm-kopplung");
+  const c=(f ? f.value : "").trim();
+  if(c && !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(c)){ alert("Der Kopplungscode sieht so aus: zwei Teile mit einem Punkt dazwischen (aus dem Herdenmanager abschreiben oder kopieren)."); return; }
+  fmCfg.kopplung=c; fmStall=null; fmStallFehler="";
+  try{ localStorage.removeItem("fmStallzahlen"); }catch(e){}
+  fmSpeichern();
+  fmStallzahlenHolen(true);
+}
+// Plätze aus dem Herdenmanager (ohne gelöschte)
+function fmPlaetze(){ return fmStall ? Object.values(fmStall.eintraege||{}).filter(p=>p && !p.entfernt) : []; }
+function fmPlatz(id){ return fmStall && fmStall.eintraege ? fmStall.eintraege[id] : null; }
+function fmIstIglu(p){ return p && (p.id==="iglus" || p.stall==="iglus" || String(p.id).indexOf("iglu:")===0); }
+function fmLaktierend(p){ return (p && p.gruppen || []).filter(g=>g.art==="laktierend").reduce((s,g)=>s+(g.anzahl||0),0); }
+function fmGruppen(){ return Array.isArray(fmCfg.gruppen) ? fmCfg.gruppen : (fmCfg.gruppen=[]); }
+function fmGruppeVon(id){ return fmGruppen().find(g=>(g.staelle||[]).includes(id)); }
+// Ein Platz ist „versorgt“, wenn er selbst (oder sein Stall) einer Gruppe gehört oder als „nicht füttern“ markiert ist
+function fmVersorgt(p){
+  const nf=fmCfg.nichtFuettern||[];
+  if(fmIstIglu(p) || p.id==="ohne") return true;
+  if(fmGruppeVon(p.id) || nf.includes(p.id)) return true;
+  if(p.stall && (fmGruppeVon(p.stall) || nf.includes(p.stall))) return true;
+  const buchten=fmPlaetze().filter(b=>b.stall===p.id);
+  return buchten.length>0 && buchten.every(fmVersorgt);
+}
+function fmOffenePlaetze(){ return fmPlaetze().filter(p=>p.typ==="stall" && !fmVersorgt(p)); }
+// Reiter „Fressmenge“ färbt sich, solange ein Stall weder zugeordnet noch „nicht füttern“ ist (wie bei „Futter bestellen“)
+function fmReiterFarbe(){
+  const t=document.getElementById("fm-tab");
+  if(t) t.classList.toggle("tab-orange", fmAn() && fmOffenePlaetze().length>0);
+}
+function fmGruppeNeu(){
+  const name=(prompt("Name der neuen Futtergruppe (z. B. Hochleistung):")||"").trim().slice(0,40);
+  if(!name) return;
+  fmGruppen().push({ id:"g"+Date.now().toString(36), name, karte:"kuehe", art:"rest", staelle:[], auswerten:true });
+  fmSpeichern();
+}
+function fmGruppeAendern(id, feld, wert){
+  const g=fmGruppen().find(x=>x.id===id); if(!g) return;
+  if(feld==="name"){ wert=String(wert).trim().slice(0,40); if(!wert){ fmBauen(); return; } }
+  g[feld]=wert;
+  fmSpeichern();
+}
+function fmGruppeLoeschen(id){
+  const g=fmGruppen().find(x=>x.id===id); if(!g) return;
+  if(!confirm(`Futtergruppe „${g.name}“ löschen? Die Ställe kommen zurück zu „Nicht zugeordnet“.`)) return;
+  fmCfg.gruppen=fmGruppen().filter(x=>x.id!==id);
+  fmSpeichern();
+}
+function fmStallDazu(gid, sel){
+  const id=sel.value; sel.value="";
+  const g=fmGruppen().find(x=>x.id===gid), p=fmPlatz(id);
+  if(!g || !p) return;
+  if(fmGruppeVon(id)){ alert("Dieser Stall gehört schon zu einer Gruppe."); return; }
+  // Stall und seine Buchten nicht doppelt: ganzer Stall ersetzt einzelne Buchten derselben Gruppe
+  if(p.stall && fmGruppeVon(p.stall)){ alert("Der ganze Stall gehört schon zu einer Gruppe."); return; }
+  fmGruppen().forEach(x=>{ x.staelle=(x.staelle||[]).filter(s=>{ const q=fmPlatz(s); return !(q && q.stall===id); }); });
+  g.staelle=[...(g.staelle||[]), id];
+  fmCfg.nichtFuettern=(fmCfg.nichtFuettern||[]).filter(x=>x!==id);
+  fmSpeichern();
+}
+function fmStallWeg(gid, id){
+  const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
+  g.staelle=(g.staelle||[]).filter(s=>s!==id);
+  fmSpeichern();
+}
+function fmNichtFuettern(id, an){
+  const nf=new Set(fmCfg.nichtFuettern||[]);
+  if(an) nf.add(id); else nf.delete(id);
+  fmCfg.nichtFuettern=[...nf];
+  fmSpeichern();
+}
+function fmTiere(n){ return n===1 ? "1 Tier" : n+" Tiere"; }
+// Plätze, die man einer Gruppe noch hinzufügen kann (ganze Ställe und einzelne Buchten, ohne Iglus)
+function fmFreiePlaetze(){
+  return fmPlaetze().filter(p=>!fmIstIglu(p) && p.id!=="ohne" && !fmGruppeVon(p.id) && !(p.stall && fmGruppeVon(p.stall)))
+    .sort((a,b)=>String(a.stall?fmPlatzName(a):a.name).localeCompare(String(b.stall?fmPlatzName(b):b.name),"de"));
+}
+const fmEsc=t=>String(t==null?"":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+function fmPlatzName(p){ const s=p && p.stall ? fmPlatz(p.stall) : null; return fmEsc(s ? s.name+" › "+p.name : (p ? p.name : "?")); }
+function fmGruppenHtml(){
+  const kopplung = fmCfg.tierzahlHM===false ? "" : `
+  <div class="history-box" style="margin-top:10px">
+    <h3 style="margin-top:0">Herdenmanager</h3>
+    Kopplungscode<br>
+    <input id="fm-kopplung" value="${fmEsc(fmCfg.kopplung||"")}" placeholder="aus dem Herdenmanager" autocomplete="off" style="width:100%;max-width:340px;box-sizing:border-box">
+    <button class="save-btn" style="margin-top:6px" onclick="fmKopplungSetzen()">${fmCfg.kopplung ? "Ändern" : "Verbinden"}</button>
+    <div id="fm-hm-stand" style="font-size:13px;color:#666;margin-top:6px">${
+      fmStallLaedt ? "⏳ hole Stallzahlen…" :
+      fmStallFehler ? `<span style="color:#c40000">${fmStallFehler}</span>` :
+      fmStall ? `Stallzahlen vom ${new Date(fmStall.stand||fmStall.geholt).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} · ${fmPlaetze().filter(p=>p.typ==="stall").length} Ställe` :
+      fmCfg.kopplung ? "" : "Noch nicht verbunden."}</div>
+  </div>`;
+  if(!fmStall) return kopplung + (fmCfg.tierzahlHM===false ? `<div class="history-box" style="margin-top:10px">Futtergruppen brauchen die Stallzahlen aus dem Herdenmanager („Tierzahl aus Herdenmanager“ einschalten).</div>` : "");
+  const frei=fmFreiePlaetze();
+  const karten=ALLE_KATEGORIEN;
+  const gruppen=fmGruppen().map(g=>{
+    const plaetze=(g.staelle||[]).map(fmPlatz).filter(Boolean);
+    const summe=plaetze.reduce((s,p)=>s+(p.entfernt?0:(p.anzahl||0)),0), lakt=plaetze.reduce((s,p)=>s+(p.entfernt?0:fmLaktierend(p)),0);
+    return `
+    <div class="history-box fm-gruppe" data-gruppe="${g.id}" style="margin-top:10px">
+      <input class="fm-gruppe-name" value="${fmEsc(g.name)}" onchange="fmGruppeAendern('${g.id}','name',this.value)" style="font-weight:bold;font-size:17px;width:100%;max-width:340px;box-sizing:border-box">
+      <div style="margin-top:6px">Mischung:
+        <select onchange="fmGruppeAendern('${g.id}','karte',this.value)">
+          ${karten.map(c=>`<option value="${c}" ${g.karte===c?"selected":""}>${globalCfg[c+"Name"]}</option>`).join("")}
+        </select></div>
+      <div style="margin-top:6px">Art:
+        <select onchange="fmGruppeAendern('${g.id}','art',this.value)">
+          <option value="rest" ${g.art==="rest"?"selected":""}>mit Restauswertung</option>
+          <option value="ohne" ${g.art!=="rest"?"selected":""}>ohne Reste</option>
+        </select></div>
+      <label style="display:block;margin-top:6px"><input type="checkbox" ${g.auswerten!==false?"checked":""} onchange="fmGruppeAendern('${g.id}','auswerten',this.checked)"> auswerten</label>
+      <div style="margin-top:8px">
+        ${plaetze.length ? plaetze.map(p=>`
+        <div class="fm-stall" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee">
+          <span>${fmPlatzName(p)} · ${p.entfernt ? "im Herdenmanager gelöscht" : fmTiere(p.anzahl||0)}</span>
+          <button onclick="fmStallWeg('${g.id}','${p.id}')" title="entfernen" style="border:none;background:#f3c6c6;border-radius:6px;padding:2px 10px">✕</button>
+        </div>`).join("") : `<div style="color:#666;font-size:13px">Noch kein Stall.</div>`}
+      </div>
+      ${frei.length ? `<select class="fm-dazu" onchange="fmStallDazu('${g.id}',this)" style="margin-top:8px;max-width:100%">
+        <option value="">+ hinzufügen …</option>
+        ${frei.map(p=>`<option value="${p.id}">${fmPlatzName(p)} (${fmTiere(p.anzahl||0)})</option>`).join("")}
+      </select>` : ""}
+      <div style="margin-top:8px;font-weight:bold">Zusammen: ${fmTiere(summe)}${g.art==="rest" ? ` (${lakt} laktierend)` : ""}</div>
+      <button onclick="fmGruppeLoeschen('${g.id}')" style="margin-top:8px;font-size:13px">Gruppe löschen</button>
+    </div>`;
+  }).join("");
+  // Nicht zugeordnet: ganze Ställe (mit ihren Buchten) und Iglus
+  const nf=fmCfg.nichtFuettern||[];
+  const staelle=fmPlaetze().filter(p=>p.typ==="stall" && !fmIstIglu(p) && p.id!=="ohne" && !fmGruppeVon(p.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),"de"));
+  const zeile=(p,einzug)=>`
+    <div class="fm-frei" data-platz="${p.id}" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px ${einzug?18:0}px;border-bottom:1px solid #eee${!fmVersorgt(p)?";color:#b36b00;font-weight:bold":""}">
+      <span>${fmEsc(p.name)} · ${fmTiere(p.anzahl||0)}</span>
+      <label style="font-size:13px;font-weight:normal;color:#333"><input type="checkbox" ${nf.includes(p.id)?"checked":""} onchange="fmNichtFuettern('${p.id}',this.checked)"> nicht füttern</label>
+    </div>`;
+  const iglus=fmPlatz("iglus");
+  const offen=staelle.map(s=>zeile(s,false)+fmPlaetze().filter(b=>b.stall===s.id && !fmGruppeVon(b.id) && !nf.includes(s.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),"de")).map(b=>zeile(b,true)).join("")).join("");
+  return kopplung + `
+  <h3 style="margin:16px 0 0">Futtergruppen</h3>
+  ${gruppen || `<div style="color:#666;font-size:13px;margin-top:6px">Noch keine Futtergruppe angelegt.</div>`}
+  <button class="save-btn" style="margin-top:10px" onclick="fmGruppeNeu()">+ Neue Futtergruppe</button>
+  <div class="history-box" id="fm-nicht-zugeordnet" style="margin-top:10px">
+    <h3 style="margin-top:0">Nicht zugeordnet</h3>
+    ${offen || `<div style="color:#666;font-size:13px">Alle Ställe sind zugeordnet.</div>`}
+    ${iglus && !iglus.entfernt ? `<div style="padding:6px 0;color:#666">Iglus · ${fmTiere(iglus.anzahl||0)} – eigene Mischung von Hand</div>` : ""}
+  </div>`;
+}
+
 function fmBauen(){
   // Reiter „Fressmenge“ oben nur bei AN (Wunsch Fritz: Schalter in den Einstellungen, alles andere im eigenen Reiter)
   const reiter=document.getElementById("fm-tab");
   if(reiter) reiter.style.display = fmAn() ? "" : "none";
+  fmReiterFarbe();
   const fp=document.getElementById("fressmenge");
   if(!fmAn() && fp && !fp.classList.contains("hidden")) showTab("settings");
   // Einstellungen: nur der Hauptschalter
@@ -4791,8 +4980,8 @@ function fmBauen(){
     <label style="display:block;margin:6px 0">
       <input type="checkbox" id="fm-${k}" ${fmCfg[k]!==false?"checked":""} onchange="fmSchalter('${k}',this.checked)"> ${t}
     </label>`).join("")}
-    <div style="margin:6px 0;font-size:13px;color:#666">„Auswerten“ je Futtergruppe: kommt mit den Futtergruppen.</div>
   </div>
+  ${fmGruppenHtml()}
   <div class="history-box" style="margin-top:10px">
     <div class="history-header" style="margin-bottom:0" onclick="fmErweitertUmklappen()">${fmErweitertZu ? "▶" : "▼"} Erweitert</div>
     <div id="fm-erweitert" style="display:${fmErweitertZu ? 'none' : 'block'};margin-top:6px">
@@ -4812,6 +5001,7 @@ showTab = function(t){
   document.getElementById("module").classList.toggle("hidden", t!=="settings");
   document.getElementById("fressmenge").classList.toggle("hidden", t!=="fressmenge");
   if(t==="settings" || t==="fressmenge") fmBauen();
+  if(t==="fressmenge") fmStallzahlenHolen();
 };
 
 function zumBetrieb(){
@@ -4958,6 +5148,7 @@ function zeigeApp(){
   updateHistoryTabColor();
   baueBetriebBereich();
   fmBauen();
+  fmStallzahlenHolen(true);
 }
 
 async function starten(){
