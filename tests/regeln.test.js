@@ -501,3 +501,26 @@ test("Betreiber-PIN festlegen: nur auf Betreiber-Gerät; ändern auch mit PIN; E
   // Entscheidung ohne Protokolleintrag geht nicht
   await assertFails(updateDoc(doc(als("f1"), "anfragen/anf1"), { status: "abgelehnt", entschieden: serverTimestamp() }));
 });
+
+// ---------- Testversion (Paket Fressmengen): Bereich test/{betriebId}/… ----------
+test("Testbereich: Gerät des Betriebs darf in test/{eigener Betrieb}/… lesen und schreiben", async () => {
+  const db = als("a1");
+  await assertSucceeds(setDoc(doc(db, "test/A/daten/fressmenge"), { an: true }));
+  await assertSucceeds(getDoc(doc(db, "test/A/daten/fressmenge")));
+  await assertSucceeds(setDoc(doc(db, "test/A/tage/2026-11"), { eintraege: [] }));
+  await assertSucceeds(deleteDoc(doc(db, "test/A/tage/2026-11")));
+});
+test("Testbereich: fremder Betrieb, Gerät ohne Betrieb und ohne Anmeldung dürfen nichts", async () => {
+  await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), "test/A/daten/fressmenge"), { an: true }));
+  for (const db of [als("b1"), als("r1"), anonym()]) {
+    await assertFails(getDoc(doc(db, "test/A/daten/fressmenge")));
+    await assertFails(setDoc(doc(db, "test/A/daten/fressmenge"), { an: false }));
+    await assertFails(getDocs(collection(db, "test/A/daten")));
+  }
+});
+test("Testbereich: andere Bereiche bleiben gesperrt, echte Daten unverändert geschützt", async () => {
+  const db = als("b1");
+  await assertFails(setDoc(doc(db, "test/A"), { x: 1 }));
+  await assertFails(setDoc(doc(db, "betriebe/A/daten/futter"), { x: 1 }));
+  await assertFails(setDoc(doc(db, "testx/A/daten/x"), { x: 1 }));
+});

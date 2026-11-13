@@ -283,6 +283,13 @@ service cloud.firestore {
       allow get: if istBetreiber();
     }
 
+    // ---------- Testversion (Paket Fressmengen, 13.11.2026) ----------
+    // Eigener Bereich der Testversion: test/{betriebId} und alles darunter – nur Geräte dieses Betriebs.
+    // Die Testversion liest die echten Daten oben nur; schreiben kann sie ausschließlich hier.
+    match /test/{betriebId}/{rest=**} {
+      allow read, write: if istGeraet(betriebId);
+    }
+
     // system/betreiber wird nur von Hand (Firebase-Webseite) gepflegt – kein Zugriff aus der App.
     // Alles andere: gesperrt
   }
