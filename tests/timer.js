@@ -61,6 +61,26 @@ async function main() {
       assert.strictEqual(await anzeige(), "03:30");
     });
 
+    await pruefe("− Minuten (Paket 16b): −1 / −5 / −10 Min, nie unter 0, danach + wieder normal", async () => {
+      await knopf("−1 Min").click();
+      assert.strictEqual(await anzeige(), "02:30");
+      await knopf("+10 Min").click();
+      assert.strictEqual(await anzeige(), "12:30");
+      await knopf("−10 Min").click();
+      assert.strictEqual(await anzeige(), "02:30");
+      await knopf("−5 Min").click();
+      assert.strictEqual(await anzeige(), "00:00");
+      assert.strictEqual(await page.evaluate(() => timer.dauer), 0);
+      await knopf("−1 Min").click();
+      assert.strictEqual(await anzeige(), "00:00");
+      await knopf("Start").click();   // bei 0 startet nichts
+      assert.strictEqual(await page.evaluate(() => timer.laeuft), false);
+      // zurück auf 03:30 für die weiteren Schritte
+      await knopf("+1 Min").click(); await knopf("+1 Min").click(); await knopf("+1 Min").click();
+      await page.fill("#timer-sek", "30"); await page.dispatchEvent("#timer-sek", "change");
+      assert.strictEqual(await anzeige(), "03:30");
+    });
+
     await pruefe("Start → läuft rückwärts; Pause hält an; Weiter läuft weiter", async () => {
       await knopf("Start").click();
       await page.clock.runFor(10000);

@@ -3392,6 +3392,11 @@ function timerInhalt(){
       <button onclick="timerPlus(60)">+1 Min</button>
       <button onclick="timerPlus(300)">+5 Min</button>
       <button onclick="timerPlus(600)">+10 Min</button>
+    </div>
+    <div class="timer-schnell">
+      <button onclick="timerPlus(-60)">−1 Min</button>
+      <button onclick="timerPlus(-300)">−5 Min</button>
+      <button onclick="timerPlus(-600)">−10 Min</button>
     </div>` : ""}
     <div class="timer-knoepfe">
       ${timer.laeuft
@@ -3431,7 +3436,8 @@ function timerDauer(){
   const s=Math.min(59,Math.max(0,Math.floor(num(document.getElementById("timer-sek").value)||0)));
   timer.dauer=m*60+s; timer.rest=timer.dauer; timerMerken(); timerNeuZeichnen();
 }
-function timerPlus(s){ timer.dauer+=s; timer.rest=timer.dauer; timerMerken(); timerNeuZeichnen(); }
+// + und − Minuten (nie unter 0 Sekunden)
+function timerPlus(s){ timer.dauer=Math.max(0, timer.dauer+s); timer.rest=timer.dauer; timerMerken(); timerNeuZeichnen(); }
 function timerStart(){
   timerTonVorbereiten();
   if(timer.modus==="countdown"){
