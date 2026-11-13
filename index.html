@@ -4741,7 +4741,7 @@ function fmAn(){ return fmCfg.an===true; }
 function fmWert(k){ const d=FM_WERTE.find(w=>w[0]===k); return (fmCfg.werte && typeof fmCfg.werte[k]==="number") ? fmCfg.werte[k] : d[2]; }
 const fmZahl=v=>String(v).replace(".",",");
 function fmSpeichern(){ try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){} fmBauen(); }
-function fmHauptschalter(an){ fmCfg.an=!!an; fmSpeichern(); if(an) fmStallzahlenHolen(true); }
+function fmHauptschalter(an){ fmCfg.an=!!an; fmSpeichern(); if(an){ fmStallzahlenHolen(true); fmWetterHolen(true); fmRestAbonnieren(); } }
 function fmSchalter(k, an){ fmCfg[k]=!!an; fmSpeichern(); if(k==="tierzahlHM" && an) fmStallzahlenHolen(true); }
 // Ungültige Eingaben abfangen und erklären
 function fmWertSetzen(k, feld){
@@ -4768,7 +4768,7 @@ function fmErweitertUmklappen(){ fmErweitertZu=!fmErweitertZu; fmBauen(); }
 // Der Futterrechner liest sie nur (ohne Anmeldung, mit dem Kopplungscode = bid.schluessel) und schreibt nie in den Herdenmanager.
 const FM_HM={ projekt:"herdenmanager-test", apiKey:"AIzaSyBSbyUVKi_Q-90HjpHytFtujeiCRYtXgIA", bereich:"test" };
 let fmStall=(()=>{ try{ return JSON.parse(localStorage.getItem("fmStallzahlen")||"null"); }catch(e){ return null; } })();
-let fmStallLaedt=false, fmStallFehler="", fmStallZuletzt=0;
+let fmStallLaedt=false, fmStallFehler="", fmStallZuletzt=0, fmKopplungEntwurf=null;
 // Firestore-REST-Werte in normale Werte umwandeln
 function fmRest(v){
   if(!v || typeof v!=="object") return null;
@@ -4797,17 +4797,19 @@ async function fmStallzahlenHolen(erzwingen){
     fmStall={ geholt:new Date().toISOString(), stand:d.stand||null, eintraege:d.eintraege||{} };
     try{ localStorage.setItem("fmStallzahlen", JSON.stringify(fmStall)); }catch(e){}
     fmStallFehler="";
+    fmTiereMerken();
+    fmRechnerNeu();
   }catch(e){
     fmStallFehler = (e && e.message && !/fetch/i.test(e.message)) ? e.message : "Keine Verbindung zum Herdenmanager – es gelten die zuletzt geholten Zahlen.";
   }
   fmStallLaedt=false;
-  fmBauen();
+  fmNeuZeichnen();
 }
 function fmKopplungSetzen(){
   const f=document.getElementById("fm-kopplung");
   const c=(f ? f.value : "").trim();
   if(c && !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(c)){ alert("Der Kopplungscode sieht so aus: zwei Teile mit einem Punkt dazwischen (aus dem Herdenmanager abschreiben oder kopieren)."); return; }
-  fmCfg.kopplung=c; fmStall=null; fmStallFehler="";
+  fmCfg.kopplung=c; fmKopplungEntwurf=null; fmStall=null; fmStallFehler="";
   try{ localStorage.removeItem("fmStallzahlen"); }catch(e){}
   fmSpeichern();
   fmStallzahlenHolen(true);
@@ -4888,7 +4890,7 @@ function fmGruppenHtml(){
   <div class="history-box" style="margin-top:10px">
     <h3 style="margin-top:0">Herdenmanager</h3>
     Kopplungscode<br>
-    <input id="fm-kopplung" value="${fmEsc(fmCfg.kopplung||"")}" placeholder="aus dem Herdenmanager" autocomplete="off" style="width:100%;max-width:340px;box-sizing:border-box">
+    <input id="fm-kopplung" value="${fmEsc(fmKopplungEntwurf!==null ? fmKopplungEntwurf : (fmCfg.kopplung||""))}" oninput="fmKopplungEntwurf=this.value" placeholder="aus dem Herdenmanager" autocomplete="off" style="width:100%;max-width:340px;box-sizing:border-box">
     <button class="save-btn" style="margin-top:6px" onclick="fmKopplungSetzen()">${fmCfg.kopplung ? "Ändern" : "Verbinden"}</button>
     <div id="fm-hm-stand" style="font-size:13px;color:#666;margin-top:6px">${
       fmStallLaedt ? "⏳ hole Stallzahlen…" :
@@ -4896,7 +4898,7 @@ function fmGruppenHtml(){
       fmStall ? `Stallzahlen vom ${new Date(fmStall.stand||fmStall.geholt).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} · ${fmPlaetze().filter(p=>p.typ==="stall").length} Ställe` :
       fmCfg.kopplung ? "" : "Noch nicht verbunden."}</div>
   </div>`;
-  if(!fmStall) return kopplung + (fmCfg.tierzahlHM===false ? `<div class="history-box" style="margin-top:10px">Futtergruppen brauchen die Stallzahlen aus dem Herdenmanager („Tierzahl aus Herdenmanager“ einschalten).</div>` : "");
+  const ohneHM = !fmStall ? `<div style="color:#666;font-size:13px;margin-top:6px">Ohne Herdenmanager zählt die Tierzahl aus dem Rechner.</div>` : "";
   const frei=fmFreiePlaetze();
   const karten=ALLE_KATEGORIEN;
   const gruppen=fmGruppen().map(g=>{
@@ -4942,15 +4944,363 @@ function fmGruppenHtml(){
   const offen=staelle.map(s=>zeile(s,false)+fmPlaetze().filter(b=>b.stall===s.id && !fmGruppeVon(b.id) && !nf.includes(s.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),"de")).map(b=>zeile(b,true)).join("")).join("");
   return kopplung + `
   <h3 style="margin:16px 0 0">Futtergruppen</h3>
+  ${ohneHM}
   ${gruppen || `<div style="color:#666;font-size:13px;margin-top:6px">Noch keine Futtergruppe angelegt.</div>`}
   <button class="save-btn" style="margin-top:10px" onclick="fmGruppeNeu()">+ Neue Futtergruppe</button>
+  ${fmStall ? `
   <div class="history-box" id="fm-nicht-zugeordnet" style="margin-top:10px">
     <h3 style="margin-top:0">Nicht zugeordnet</h3>
     ${offen || `<div style="color:#666;font-size:13px">Alle Ställe sind zugeordnet.</div>`}
     ${iglus && !iglus.entfernt ? `<div style="padding:6px 0;color:#666">Iglus · ${fmTiere(iglus.anzahl||0)} – eigene Mischung von Hand</div>` : ""}
-  </div>`;
+  </div>` : ""}`;
 }
 
+// --- Tageswerte, Wetter, Reste-Auswertung (Paket Punkte 11, 12, 13, 16) ---
+// fmTage["JJJJ-MM-TT"] = { rest:{ kuehe:kg, kuehe2:kg }, wetter:{ tmax, rh, regen }, tiere:{ gruppenId:{ anzahl, lakt } } }
+// Vorlage (gemischte Menge) und Tierzahl beim Mischen kommen aus der bestehenden History; nichts davon wird verändert.
+let fmTage=(()=>{ try{ return JSON.parse(localStorage.getItem("fmTage")||"{}")||{}; }catch(e){ return {}; } })();
+let fmDemo=false, fmZeitraum=30, fmOffen=null, fmAnsicht="diagramm", fmEinrichtungZu=null, fmWetterZuletzt=0, fmCharts=[];
+function fmTageMerken(){ try{ localStorage.setItem("fmTage", JSON.stringify(fmTage)); }catch(e){} }
+function fmTag(d){ return fmTage[d] || (fmTage[d]={}); }
+function fmIso(d){ const x=d instanceof Date ? d : new Date(d); return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0"); }
+function fmAusDatum(t){ const p=String(t||"").split("."); return p.length===3 ? p[2]+"-"+p[1]+"-"+p[0] : null; }
+function fmKurz(iso){ const p=iso.split("-"); return p[2]+"."+p[1]+"."; }
+function fmTagPlus(iso, n){ const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return fmIso(d); }
+// THI = (1,8·T + 32) − (0,55 − 0,0055·RH)·(1,8·T − 26); Hitzetag ab THI 68
+function fmThi(t, rh){ return (typeof t!=="number" || typeof rh!=="number") ? null : (1.8*t+32)-(0.55-0.0055*rh)*(1.8*t-26); }
+
+// Wetter von Open-Meteo (kostenlos, ohne Schlüssel): 92 Tage zurück + 3 Tage Vorhersage, höchstens alle 3 Stunden
+async function fmWetterHolen(erzwingen){
+  if(!fmAn() || (!erzwingen && Date.now()-fmWetterZuletzt<3*3600*1000)) return;
+  fmWetterZuletzt=Date.now();
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${fmWert("wetterLat")}&longitude=${fmWert("wetterLon")}&daily=temperature_2m_max,relative_humidity_2m_mean,precipitation_sum&past_days=92&forecast_days=3&timezone=Europe%2FBerlin`);
+    if(!r.ok) return;
+    const d=(await r.json()).daily||{};
+    (d.time||[]).forEach((t,i)=>{ fmTag(t).wetter={ tmax:d.temperature_2m_max[i], rh:d.relative_humidity_2m_mean[i], regen:d.precipitation_sum[i] }; });
+    fmTageMerken();
+    fmNeuZeichnen();
+  }catch(e){}
+}
+
+// Reste: die bestehenden Felder „Restmischung … vorhanden (kg)“ der Restmischung. Jede Änderung wird mit Tag gemerkt
+// (ein Wert je Tag, der letzte gilt). Gilt für die Mischung(en), die in den Einstellungen als Reste-Quelle gewählt sind.
+let fmRestZuletzt=null;
+function fmRestBeobachten(inhalt, zeit){
+  const r=inhalt && inhalt.restbullen;
+  if(!r) return;
+  const quellen=restQuellen();
+  const wert={ [quellen[0]]:num(r.rest)||0 };
+  if(quellen[1]) wert[quellen[1]]=num(r.rest2)||0;
+  const schluessel=JSON.stringify(wert);
+  if(fmRestZuletzt===null){ fmRestZuletzt=schluessel; return; }   // Stand beim Öffnen: nicht als neue Eingabe zählen
+  if(schluessel===fmRestZuletzt) return;
+  fmRestZuletzt=schluessel;
+  fmTag(fmIso(zeit||new Date())).rest=wert;
+  fmTageMerken();
+}
+let fmRestAbo=null;
+function fmRestAbonnieren(){
+  if(fmRestAbo || !betriebId || !fmAn()) return;
+  fmRestAbo=db.collection("betriebe").doc(betriebId).collection("daten").doc("futter").onSnapshot(s=>{
+    if(!s.exists) return;
+    const d=s.data(), g=d.geaendert && d.geaendert.toDate ? d.geaendert.toDate() : new Date();
+    fmRestBeobachten(d.inhalt, g);
+  }, ()=>{});
+}
+// Tierzahl je Futtergruppe beim Holen der Stallzahlen für heute merken
+function fmTiereMerken(){
+  if(!fmStall) return;
+  const t={};
+  fmGruppen().forEach(g=>{
+    const p=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
+    t[g.id]={ anzahl:p.reduce((s,x)=>s+(x.anzahl||0),0), lakt:p.reduce((s,x)=>s+fmLaktierend(x),0) };
+  });
+  fmTag(fmIso(new Date())).tiere=t;
+  fmTageMerken();
+}
+
+// Tagesreihe einer Kuhgruppe: je Mischtag Vorlage, Rest (vom nächsten Tag mit gespeicherter Restmischung), Tiere, Wetter
+function fmReihe(g){
+  if(fmDemo) return fmDemoReihe(g);
+  const vorlage={}, tiere={}, restTage=new Set();
+  historyData.forEach(e=>{
+    const d=fmAusDatum(e && e.datum); if(!d) return;
+    if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; }
+    if(e.kategorie==="restbullen") restTage.add(d);
+  });
+  const vTage=Object.keys(vorlage).sort();
+  const reihe=[];
+  vTage.forEach((v,i)=>{
+    const naechste=vTage[i+1] || "9999";
+    // Rest gehört zur letzten Vorlage davor: erster Restmischungs-Tag nach v (bis einschließlich zur nächsten Vorlage)
+    const r=[...restTage].sort().find(t=>t>v && t<=naechste);
+    let rest=null;
+    if(r){ const rt=fmTage[r] && fmTage[r].rest; rest = rt && typeof rt[g.karte]==="number" ? rt[g.karte] : null; }
+    const hm=fmTage[v] && fmTage[v].tiere && fmTage[v].tiere[g.id];
+    const n = (hm && hm.lakt) || tiere[v] || 0;
+    const w=(fmTage[v] && fmTage[v].wetter) || {};
+    reihe.push({ datum:v, vorlage:vorlage[v], rest, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
+  });
+  return fmReiheBewerten(reihe);
+}
+// Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
+function fmReiheBewerten(reihe){
+  reihe.forEach(t=>{
+    t.quote = (t.rest!==null && t.vorlage>0) ? t.rest/t.vorlage*100 : null;
+    t.jeTier = (t.rest!==null && t.tiere>0) ? (t.vorlage-t.rest)/t.tiere : null;
+    t.regenTag = typeof t.regen==="number" && t.regen>=fmWert("regenMm");
+    t.hitzeTag = typeof t.thi==="number" && t.thi>=68;
+  });
+  const mit=reihe.filter(t=>t.quote!==null);
+  mit.forEach((t,i)=>{
+    const nachbarn=[mit[i-2],mit[i-1],mit[i+1],mit[i+2]].filter(Boolean).map(x=>x.quote).sort((a,b)=>a-b);
+    if(nachbarn.length>=2){
+      const m=nachbarn.length%2 ? nachbarn[(nachbarn.length-1)/2] : (nachbarn[nachbarn.length/2-1]+nachbarn[nachbarn.length/2])/2;
+      t.ausreisser = Math.abs(t.quote-m) > fmWert("ausreisserQuote");
+    }
+  });
+  return reihe;
+}
+// Bewertung: gleitendes Mittel der letzten Tage → Haken oder Empfehlung (die App schlägt vor, der Mensch entscheidet)
+function fmBewertung(g, reihe){
+  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.regenTag && !t.hitzeTag);
+  const letzte=ok.slice(-fmWert("bewertungTage"));
+  const leer=reihe.filter(t=>t.quote!==null).slice(-fmWert("leerTage"));
+  const proKuh=(data[g.karte] ? data[g.karte].items : []).reduce((s,i)=>s+(num(i.kg)||0),0);
+  const morgen=fmTage[fmTagPlus(fmIso(new Date()),1)], wm=morgen && morgen.wetter;
+  const hitzeKommt = wm && fmThi(wm.tmax, wm.rh)>=68;
+  const b={ proKuh, tage:letzte.length };
+  if(leer.length>=fmWert("leerTage") && leer.every(t=>t.rest===0) && !hitzeKommt){
+    b.art="mehr"; b.text=`Leergefressen (${leer.length} Tage) · Fressmenge +${fmZahl(fmWert("restSchritt"))} %`; return b;
+  }
+  if(letzte.length<fmWert("bewertungMin")){ b.art="warten"; b.text=`sammelt noch Werte (${letzte.length} von ${fmWert("bewertungMin")} Tagen)`; return b; }
+  b.mittel=letzte.reduce((s,t)=>s+t.quote,0)/letzte.length;
+  const q=fmZahl(b.mittel.toFixed(1));
+  if(b.mittel<fmWert("restZielVon")){
+    if(hitzeKommt){ b.art="ok"; b.text=`Rest ${q} % · Hitze angesagt, nicht erhöhen`; return b; }
+    b.art="mehr"; b.text=`Rest ${q} % · fressen alles auf · Fressmenge +${fmZahl(fmWert("restSchritt"))} %`; return b;
+  }
+  if(b.mittel>fmWert("restZielBis")){ b.art="weniger"; b.text=`Rest ${q} % · zu viel übrig · Fressmenge −${fmZahl(fmWert("restSchritt"))} %`; return b; }
+  b.art="ok"; b.text=`Rest ${q} % · passt`; return b;
+}
+
+// Beispieldaten (nur Testversion): 30 Tage mit Regentag, Ausreißer, Hitzetag – damit alle Ansichten sofort sichtbar sind
+function fmDemoReihe(g){
+  const reihe=[], heute=new Date(); let s=g.id.length*7;
+  const zufall=()=>{ s=(s*9301+49297)%233280; return s/233280; };
+  for(let i=30;i>=1;i--){
+    const d=new Date(heute); d.setDate(d.getDate()-i);
+    const tiere=g.art==="rest" ? 40+Math.round(zufall()*3) : 16;
+    const vorlage=tiere*48*(i<12 ? 1.03 : 1);
+    let quote=3.2+zufall()*2.2-(i<12?0.8:0);
+    if(i===18) quote=10.5;                         // Ausreißer
+    const regen = (i===9||i===10||i===22) ? 6+zufall()*8 : (zufall()<0.25 ? zufall()*2.5 : 0);
+    const tmax = i===5 ? 29 : 6+zufall()*8;
+    reihe.push({ datum:fmIso(d), vorlage, rest:vorlage*quote/100, tiere, tmax, regen, thi:fmThi(tmax, i===5?75:85) });
+  }
+  return fmReiheBewerten(reihe);
+}
+function fmDemoUmschalten(){ fmDemo=!fmDemo; fmBauen(); }
+function fmTestdatenZuruecksetzen(){
+  if(!confirm("Alle Testdaten der Fressmengen-Auswertung auf diesem Gerät löschen (Gruppen, Einstellungen, gemerkte Tage)? Deine echten Futterrechner-Daten bleiben unberührt.")) return;
+  ["fressmenge","fmTage","fmStallzahlen"].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  location.reload();
+}
+
+// Chart.js nur laden, wenn die Auswertung an ist und ein Verlauf geöffnet wird (feste Version von cdnjs)
+let fmChartLaden=null;
+function fmChartJs(){
+  if(window.Chart) return Promise.resolve();
+  if(!fmChartLaden) fmChartLaden=new Promise((ok,fehler)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
+    s.onload=ok; s.onerror=()=>{ fmChartLaden=null; fehler(); };
+    document.head.appendChild(s);
+  });
+  return fmChartLaden;
+}
+function fmGruppeOeffnen(id){ fmOffen = fmOffen===id ? null : id; fmBauen(); }
+function fmZeitraumSetzen(n){ fmZeitraum=n; fmBauen(); }
+function fmAnsichtSetzen(a){ fmAnsicht=a; fmBauen(); }
+function fmVerlaufHtml(g, reihe){
+  const ab=fmTagPlus(fmIso(new Date()), -fmZeitraum);
+  const r=reihe.filter(t=>t.datum>=ab);
+  const knopf=(an,text,fn)=>`<button onclick="${fn}" style="padding:4px 10px;border-radius:6px;border:1px solid #2f3a45;${an?"background:#2f3a45;color:#fff":"background:#fff"}">${text}</button>`;
+  const kopf=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
+    ${knopf(fmAnsicht==="diagramm","Diagramm","fmAnsichtSetzen('diagramm')")}${knopf(fmAnsicht==="liste","Liste","fmAnsichtSetzen('liste')")}
+    <span style="flex:1"></span>
+    ${[7,30,90].map(n=>knopf(fmZeitraum===n,n+" Tage",`fmZeitraumSetzen(${n})`)).join("")}</div>`;
+  if(!r.length) return kopf+`<div style="color:#666;font-size:13px">Für diesen Zeitraum gibt es noch keine Tage.</div>`;
+  if(fmAnsicht==="liste"){
+    return kopf+`<div class="fm-liste">${r.slice().reverse().map((t,i,arr)=>{
+      const davor=arr[i+1], geaendert = davor && t.tiere && davor.tiere && Math.abs(t.vorlage/t.tiere - davor.vorlage/davor.tiere) > 0.05*(davor.vorlage/davor.tiere);
+      const im = t.quote!==null && t.quote>=fmWert("restZielVon") && t.quote<=fmWert("restZielBis");
+      return `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #eee;font-size:14px">
+        <span style="width:52px">${fmKurz(t.datum)}</span>
+        <span style="width:64px;font-weight:bold;color:${t.quote===null?"#999":im?"#2e7d32":"#d97a00"}">${t.quote===null?"–":fmZahl(t.quote.toFixed(1))+" %"}</span>
+        <span style="width:84px">${t.jeTier===null?"":fmZahl(t.jeTier.toFixed(1))+" kg/Tier"}</span>
+        <span style="width:46px">${typeof t.tmax==="number"?Math.round(t.tmax)+" °C":""}</span>
+        <span>${t.regenTag?"💧":""}${geaendert?" ↑":""}${t.ausreisser?" ⚠":""}${t.hitzeTag?" 🔥":""}</span></div>`; }).join("")}</div>`;
+  }
+  const jeTier=r.filter(t=>t.jeTier!==null);
+  const titel = jeTier.length>1 ? `${fmZahl(jeTier[0].jeTier.toFixed(1))} → ${fmZahl(jeTier[jeTier.length-1].jeTier.toFixed(1))} kg FM je Tier` : "";
+  return kopf+`
+    <div style="font-weight:bold;margin-top:4px">Reste, Temperatur, Regen</div>
+    <div style="position:relative;height:240px"><canvas id="fm-chart-reste"></canvas></div>
+    <div style="font-weight:bold;margin-top:12px">Gefressen je Tier ${titel ? "· "+titel : ""}</div>
+    <div style="position:relative;height:180px"><canvas id="fm-chart-gefressen"></canvas></div>
+    <div style="font-size:12px;color:#666;margin-top:4px">kg Frischmasse – in kg TM, sobald die Berater-Ration (Trockensubstanz) da ist.</div>`;
+}
+function fmChartsZeichnen(g, reihe){
+  fmCharts.forEach(c=>{ try{ c.destroy(); }catch(e){} }); fmCharts=[];
+  const c1=document.getElementById("fm-chart-reste"), c2=document.getElementById("fm-chart-gefressen");
+  if(!c1 || !c2) return;
+  fmChartJs().then(()=>{
+    if(!document.body.contains(c1)) return;
+    const ab=fmTagPlus(fmIso(new Date()), -fmZeitraum), r=reihe.filter(t=>t.datum>=ab);
+    const von=fmWert("restZielVon"), bis=fmWert("restZielBis");
+    const dunkel=window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches, schrift=dunkel?"#ddd":"#333";
+    const labels=r.map(t=>fmKurz(t.datum));
+    const maxRegen=Math.max(20, ...r.map(t=>t.regen||0));
+    const maxQuote=Math.max(10, ...r.map(t=>t.quote||0));
+    fmCharts.push(new Chart(c1,{ data:{ labels, datasets:[
+      { type:"bar", label:"Reste %", data:r.map(t=>t.quote), yAxisID:"y", order:2,
+        backgroundColor:r.map(t=>t.quote!==null && t.quote>=von && t.quote<=bis ? "#43a047" : "#f29d38") },
+      { type:"line", label:"Temperatur (max)", data:r.map(t=>typeof t.tmax==="number"?t.tmax:null), yAxisID:"y2", borderColor:"#d32f2f", backgroundColor:"#d32f2f", pointRadius:2, borderWidth:2, order:1 },
+      { type:"bar", label:"Regen mm", data:r.map(t=>t.regen||0), yAxisID:"y3", backgroundColor:"rgba(100,170,240,.55)", order:3 },
+      { type:"line", label:"Zielbereich", data:r.map(()=>bis), yAxisID:"y", borderColor:"rgba(67,160,71,.5)", borderDash:[4,4], pointRadius:0, borderWidth:1, fill:false, order:0 }
+    ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
+      scales:{
+        x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } },
+        y:{ position:"left", min:0, max:Math.ceil(maxQuote), title:{ display:true, text:"Rest %", color:schrift }, ticks:{ color:schrift } },
+        y2:{ position:"right", min:0, max:35, grid:{ drawOnChartArea:false }, ticks:{ color:"#d32f2f", callback:v=>[0,5,15,25,35].includes(v)?v+" °C":"", stepSize:5 } },
+        y3:{ display:false, min:0, max:maxRegen*2.2, reverse:true }
+      } } }));
+    const plan=r.map(t=>t.tiere ? t.vorlage/t.tiere : null);
+    fmCharts.push(new Chart(c2,{ type:"line", data:{ labels, datasets:[
+      { label:"gefressen", data:r.map(t=>t.jeTier), borderColor:"#2f3a45", backgroundColor:"#2f3a45", pointRadius:2, spanGaps:true },
+      { label:"vorgelegt (Plan)", data:plan, borderColor:"#888", borderDash:[6,4], pointRadius:0 }
+    ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
+      scales:{ x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } }, y:{ ticks:{ color:schrift } } } } }));
+  }).catch(()=>{ const e=document.getElementById("fm-chart-reste"); if(e) e.parentNode.innerHTML="<div style='color:#666'>Diagramm braucht einmal Internet.</div>"; });
+}
+function fmAuswertungHtml(){
+  const kuehe=fmGruppen().filter(g=>g.art==="rest" && g.auswerten!==false);
+  const heute=fmTage[fmIso(new Date())], w=heute && heute.wetter;
+  const morgen=fmTage[fmTagPlus(fmIso(new Date()),1)], wm=morgen && morgen.wetter;
+  let wetter="";
+  if(w){
+    const teile=[`Heute ${Math.round(w.tmax)} °C`];
+    if(w.regen>=fmWert("regenMm")) teile.push(`💧 Regen ${fmZahl(w.regen.toFixed(1))} mm`);
+    if(fmThi(w.tmax,w.rh)>=68) teile.push("🔥 Hitzetag");
+    if(wm) teile.push(`morgen ${Math.round(wm.tmax)} °C${wm.regen>=fmWert("regenMm")?" 💧":""}${fmThi(wm.tmax,wm.rh)>=68?" 🔥":""}`);
+    wetter=`<div id="fm-wetter" style="font-size:14px;color:#555;margin-bottom:6px">${teile.join(" · ")}</div>`;
+  }
+  const zeilen=kuehe.map(g=>{
+    const reihe=fmReihe(g), b=fmBewertung(g, reihe);
+    const farbe = b.art==="ok" ? "#2e7d32" : b.art==="warten" ? "#666" : "#d97a00";
+    const ziel = (b.art==="mehr"||b.art==="weniger") && b.proKuh>0
+      ? ` → ${fmZahl((b.proKuh*(1+(b.art==="mehr"?1:-1)*fmWert("restSchritt")/100)).toFixed(1))} kg FM je Kuh` : "";
+    return `
+    <div class="history-box fm-auswertung" data-gruppe="${g.id}" style="margin-top:8px">
+      <div onclick="fmGruppeOeffnen('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div><b>${fmEsc(g.name)}</b><br><span class="fm-text" style="color:${farbe}">${b.art==="ok"?"✓ ":""}${b.text}${ziel}</span></div>
+        <span>${fmOffen===g.id?"▲":"▼"}</span>
+      </div>
+      ${(b.art==="mehr"||b.art==="weniger") ? `<button class="save-btn" style="margin-top:6px" ${istTestversion?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmUebernehmen('${g.id}','${b.art}')">Übernehmen</button>${istTestversion?`<span style="font-size:12px;color:#666;margin-left:6px">Testversion: nur ansehen</span>`:""}` : ""}
+      ${fmOffen===g.id ? fmVerlaufHtml(g, reihe) : ""}
+    </div>`;
+  }).join("");
+  const offen=fmOffenePlaetze().length;
+  return `
+  ${istTestversion ? `<div style="text-align:right;margin-bottom:6px"><button onclick="fmDemoUmschalten()" style="font-size:13px">${fmDemo?"Beispieldaten ausblenden":"Beispieldaten anzeigen"}</button></div>` : ""}
+  ${fmDemo ? `<div style="background:#fff3cd;padding:6px 10px;border-radius:8px;margin-bottom:6px;font-size:13px">Beispieldaten (30 Tage) – nicht deine echten Werte.</div>` : ""}
+  ${wetter}
+  ${zeilen || `<div class="history-box" style="color:#666">Noch keine Kuhgruppe „mit Restauswertung“ – unten unter „Einrichtung“ anlegen.</div>`}
+  ${offen ? `<div class="history-box" style="margin-top:8px;color:#b36b00;font-weight:bold" onclick="fmEinrichtungZu=false;fmBauen()">${offen===1?"1 Stall ist":offen+" Ställe sind"} noch keiner Futtergruppe zugeordnet</div>` : ""}`;
+}
+// „Übernehmen“: Fressmenge je Kuh der Ration um den Schritt ändern (alle Futter gleichmäßig). Nur in der normalen App.
+function fmUebernehmen(id, art){
+  const g=fmGruppen().find(x=>x.id===id); if(!g || istTestversion || !data[g.karte]) return;
+  const f=1+(art==="mehr"?1:-1)*fmWert("restSchritt")/100;
+  if(!confirm(`${g.name}: Ration ${globalCfg[g.karte+"Name"]} um ${art==="mehr"?"+":"−"}${fmZahl(fmWert("restSchritt"))} % ändern?`)) return;
+  const vorher=data[g.karte].items.map(i=>i.kg);
+  data[g.karte].items.forEach(i=>{ i.kg=Math.round(num(i.kg)*f*100)/100; });
+  (fmCfg.protokoll=fmCfg.protokoll||[]).push({ zeit:new Date().toISOString(), geraet:geraeteUid, gruppe:g.name, art, vorher });
+  save(); buildCalc(); fmSpeichern();
+}
+
+// --- Ergänzungen in den bestehenden Rechner-Karten (Paket Punkte 9/10), nur bei AN ---
+// Die Karte selbst und ihre Rechnung bleiben unverändert. Dazu kommen nur: Tierzahl aus dem Herdenmanager (antippen = übernehmen,
+// von Hand überschreibbar wie bisher) und bei mehreren Ställen grüne Zeilen „▼ Stall abladen bis … kg“ (Waagenwert).
+function fmGruppeFuerKarte(k){ return fmGruppen().find(g=>g.karte===k && (g.staelle||[]).length); }
+function fmTierzahlGruppe(g){
+  const p=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
+  return p.reduce((s,x)=>s+(g.art==="rest" ? fmLaktierend(x) : (x.anzahl||0)),0);
+}
+function fmTierzahlUebernehmen(k, n){ data[k].anz=n; save(); buildCalc(); }
+function fmLetzteTiere(k){ const e=historyData.find(x=>x && x.kategorie===k); return e ? num(e.tiere) : null; }
+function fmAbladenHtml(g, gesamt){
+  const plaetze=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
+  const anteil=p=>g.art==="rest" ? fmLaktierend(p) : (p.anzahl||0);
+  const summe=plaetze.reduce((s,p)=>s+anteil(p),0);
+  if(plaetze.length<2 || summe<=0 || !(gesamt>0)) return "";
+  let rest=gesamt;
+  return `<div class="fm-abladen" style="margin:8px 0">${plaetze.map((p,i)=>{
+    const menge=gesamt*anteil(p)/summe;
+    if(i===plaetze.length-1) return `<div style="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold">→ Rest: ${fmPlatzName(p)} ${menge.toFixed(0)} kg</div>`;
+    rest-=menge;
+    return `<div style="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold">▼ ${fmPlatzName(p)} abladen bis ${rest.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span></div>`;
+  }).join("")}</div>`;
+}
+// Rechner neu zeichnen (neue Stallzahlen) – nicht während einer Eingabe oder solange der Finger auf einem Knopf liegt
+function fmRechnerNeu(){
+  if(!document.querySelector("#calc .category")) return;
+  if(cloud.zeigerUnten && Date.now()-cloud.zeigerSeit<5000){ setTimeout(fmRechnerNeu,300); return; }
+  const a=document.activeElement;
+  if(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.closest("#calc")){ a.addEventListener("blur",()=>setTimeout(fmRechnerNeu,0),{once:true}); return; }
+  buildCalc();
+}
+function fmRechnerErgaenzen(){
+  if(!fmAn() || !fmStall || fmCfg.tierzahlHM===false) return;
+  ALLE_KATEGORIEN.forEach(k=>{
+    const g=fmGruppeFuerKarte(k); if(!g) return;
+    const kopf=document.querySelector(`#calc .cat-header.cat-${k}`);
+    const karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
+    if(!body) return;
+    const n=fmTierzahlGruppe(g);
+    if(k!=="restbullen"){
+      const letzte=fmLetzteTiere(k), diff = letzte!==null ? n-letzte : 0;
+      const zeile=document.createElement("div");
+      zeile.className="fm-hm-zeile";
+      zeile.style.cssText="font-size:13px;color:#555;margin:4px 0 6px";
+      zeile.innerHTML=`Herdenmanager: <b>${fmTiere(n)}</b>${g.art==="rest"?" (laktierend)":""}`
+        + (diff ? ` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} seit letzter Mischung</span>` : "")
+        + (n!==num(data[k].anz) ? ` <button onclick="fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px">übernehmen</button>` : "");
+      const feld=body.querySelector("input");
+      if(feld) feld.insertAdjacentElement("afterend", zeile); else body.prepend(zeile);
+    }
+    const gesamt = k==="restbullen" ? num(data.restbullen.ziel) : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
+    const html=fmAbladenHtml(g, gesamt);
+    if(!html) return;
+    const total=body.querySelector(".total");
+    if(total) total.insertAdjacentHTML("beforebegin", html); else body.insertAdjacentHTML("beforeend", html);
+  });
+}
+
+// Nach dem Laden im Hintergrund neu zeichnen – aber nicht, während jemand im Reiter etwas eintippt
+function fmNeuZeichnen(){
+  if(cloud.zeigerUnten && Date.now()-cloud.zeigerSeit<5000){ setTimeout(fmNeuZeichnen,300); return; }
+  const a=document.activeElement, fp=document.getElementById("fressmenge");
+  if(fp && a && fp.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)){
+    a.addEventListener("blur",()=>setTimeout(fmNeuZeichnen,0),{once:true});
+    return;
+  }
+  fmBauen();
+}
 function fmBauen(){
   // Reiter „Fressmenge“ oben nur bei AN (Wunsch Fritz: Schalter in den Einstellungen, alles andere im eigenen Reiter)
   const reiter=document.getElementById("fm-tab");
@@ -4973,7 +5323,12 @@ function fmBauen(){
   </div>`;
   // Reiter „Fressmenge“: Unterschalter und Erweitert
   if(!fp) return;
+  if(fmEinrichtungZu===null) fmEinrichtungZu = fmGruppen().length>0;
   fp.innerHTML = !fmAn() ? "" : `
+  ${fmAuswertungHtml()}
+  <div class="history-box" id="fm-einrichtung" style="margin-top:14px">
+    <div class="history-header" style="margin-bottom:0" onclick="fmEinrichtungZu=!fmEinrichtungZu;fmBauen()">${fmEinrichtungZu ? "▶" : "▼"} ⚙ Einrichtung</div>
+    <div style="display:${fmEinrichtungZu ? 'none' : 'block'};margin-top:6px">
   <div class="history-box">
     <h3 style="margin-top:0">Einstellungen</h3>
     ${FM_SCHALTER.map(([k,t])=>`
@@ -4993,15 +5348,22 @@ function fmBauen(){
     </div>`).join("")}
     <button class="save-btn" style="margin-top:8px" onclick="fmStandard()">Standard wiederherstellen</button>
     </div>
+  </div>
+    ${istTestversion ? `<button onclick="fmTestdatenZuruecksetzen()" style="margin-top:12px;font-size:13px">Testdaten zurücksetzen</button>` : ""}
+    </div>
   </div>`;
+  if(fmOffen && fmAnsicht==="diagramm"){ const g=fmGruppen().find(x=>x.id===fmOffen); if(g) fmChartsZeichnen(g, fmReihe(g)); }
 }
+// Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
+const _buildCalcVorFressmenge = buildCalc;
+buildCalc = function(){ _buildCalcVorFressmenge(); fmRechnerErgaenzen(); };
 const _showTabVorFressmenge = showTab;
 showTab = function(t){
   _showTabVorFressmenge(t);
   document.getElementById("module").classList.toggle("hidden", t!=="settings");
   document.getElementById("fressmenge").classList.toggle("hidden", t!=="fressmenge");
   if(t==="settings" || t==="fressmenge") fmBauen();
-  if(t==="fressmenge") fmStallzahlenHolen();
+  if(t==="fressmenge"){ fmStallzahlenHolen(); fmWetterHolen(); }
 };
 
 function zumBetrieb(){
@@ -5149,6 +5511,8 @@ function zeigeApp(){
   baueBetriebBereich();
   fmBauen();
   fmStallzahlenHolen(true);
+  fmWetterHolen();
+  fmRestAbonnieren();
 }
 
 async function starten(){

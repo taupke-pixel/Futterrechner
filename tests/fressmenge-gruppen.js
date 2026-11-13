@@ -64,7 +64,7 @@ async function main() {
     const page = await context.newPage();
     page.meldungen = [];
     page.on("dialog", d => { page.meldungen.push(d.message()); d.accept(d.type() === "prompt" ? page.antwort || "" : undefined); });
-    page.on("pageerror", e => page.meldungen.push("SEITENFEHLER: " + e.message));
+    page.on("pageerror", e => page.meldungen.push("SEITENFEHLER: " + e.message + " @ " + String(e.stack).split(String.fromCharCode(10)).slice(1, 4).join(" < ")));
     await zugang.vorbereiten(context, page, "emulator");
     return page;
   };
@@ -98,7 +98,7 @@ async function main() {
       assert(T.meldungen.some(m => m.includes("zwei Teile mit einem Punkt")));
       await T.fill("#fm-kopplung", CODE);
       await T.click("#fressmenge >> text=Verbinden");
-      await T.waitForFunction(() => document.getElementById("fm-hm-stand").textContent.includes("Ställe"));
+      await T.waitForFunction(() => (document.getElementById("fm-hm-stand")||{textContent:""}).textContent.includes("Ställe"), null, { timeout: 8000 }).catch(async e => { throw new Error("Reiter zeigt: " + (await T.evaluate(() => document.getElementById("fressmenge").innerText.slice(0, 600)))); });
       const url = anfragen[anfragen.length - 1];
       assert(url.includes("/projects/herdenmanager-test/databases/(default)/documents/test/BETRIEB123/schluessel456/stallzahlen?key="), url);
       assert((await T.textContent("#fm-hm-stand")).includes("6 Ställe"), await T.textContent("#fm-hm-stand"));
@@ -163,11 +163,33 @@ async function main() {
       assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("Zusammen: 38 Tiere (36 laktierend)"));
     });
 
+    await pruefe("Rechner: Karte der Gruppe zeigt Tierzahl aus dem Herdenmanager (antippen = übernehmen) und bei 2 Ställen grüne Abladen-Zeilen", async () => {
+      await gruppe(T, "Kühe Stall 1").locator("select.fm-dazu").selectOption("s2");
+      await T.evaluate(() => { data.kuehe2.anz = 80; data.kuehe2.items.forEach((it, i) => it.kg = i === 0 ? 40 : 0); showTab("calc"); buildCalc(); });
+      const karte = T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") });
+      const zeile = await karte.locator(".fm-hm-zeile").textContent();
+      assert(zeile.includes("Herdenmanager: 83 Tiere (laktierend)"), zeile);
+      await karte.locator(".fm-hm-zeile button", { hasText: "übernehmen" }).click();
+      assert.strictEqual(await T.evaluate(() => data.kuehe2.anz), 83);
+      const ab = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
+      // 83 × 40 kg = 3320 kg; Stall 1: 36/83 → 1440 kg, danach bleiben 1880 kg (= Stall 2)
+      assert(ab.includes("▼ Stall 1 abladen bis 1880 kg (1440 kg)") && ab.includes("→ Rest: Stall 2 1880 kg"), ab);
+      assert.strictEqual(await T.locator("#calc .category", { has: T.locator(".cat-header.cat-faersen") }).locator(".fm-hm-zeile").count(), 0, "Karte ohne Gruppe hat Ergänzung");
+    });
+
+    await pruefe("Rechner: Rechnung der Karte unverändert (Gesamt wie ohne Ergänzung), bei AUS keine Ergänzung", async () => {
+      const mit = await T.evaluate(() => document.getElementById("total-kuehe2").dataset.val);
+      await T.evaluate(() => { fmCfg.an = false; buildCalc(); });
+      assert.strictEqual(await T.evaluate(() => document.getElementById("total-kuehe2").dataset.val), mit);
+      assert.strictEqual(await T.locator(".fm-hm-zeile, .fm-abladen").count(), 0);
+      await T.evaluate(() => { fmCfg.an = true; buildCalc(); showTab("fressmenge"); });
+    });
+
     await pruefe("Herdenmanager nicht erreichbar / Code passt nicht → Meldung, die zuletzt geholten Zahlen bleiben", async () => {
       hm.status = 404;
       await T.evaluate(() => fmStallzahlenHolen(true));
       await T.waitForFunction(() => document.getElementById("fm-hm-stand").textContent.includes("passt nicht"));
-      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("38 Tiere"));
+      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("85 Tiere"));
       hm.status = 200;
     });
 
@@ -175,7 +197,7 @@ async function main() {
       await T.reload(); await zugang.warteAufApp(T, "emulator", true);
       await T.click("#fm-tab");
       await T.waitForFunction(() => document.querySelectorAll(".fm-gruppe").length === 2);
-      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("38 Tiere"));
+      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("85 Tiere"));
     });
 
     await pruefe("Hauptschalter AUS: Reiter weg, kein Lesen mehr; Gruppen bleiben gespeichert", async () => {
@@ -194,7 +216,7 @@ async function main() {
     });
 
     await pruefe("Keine Seitenfehler", async () => {
-      assert.deepStrictEqual(T.meldungen.filter(m => m.startsWith("SEITENFEHLER")), []);
+      const sf = T.meldungen.filter(m => m.startsWith("SEITENFEHLER")); if (sf.length) throw new Error(sf.slice(0, 3).join(" || "));
     });
   } finally {
     await browser.close();
