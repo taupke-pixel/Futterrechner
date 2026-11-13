@@ -5042,7 +5042,23 @@ function fmReihe(g){
     const w=(fmTage[v] && fmTage[v].wetter) || {};
     reihe.push({ datum:v, vorlage:vorlage[v], rest, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
-  return fmReiheBewerten(reihe);
+  return fmAntwortenAnwenden(g, fmReiheBewerten(reihe));
+}
+// Antworten auf „Heute etwas anders?“: „Alles normal“ = Tag zählt doch, „Später gefüttert“/„Problem“ = Tag zählt nicht
+function fmAntwortenAnwenden(g, reihe){
+  const a=fmCfg.antworten||{};
+  reihe.forEach(t=>{ const x=a[g.id+"|"+t.datum]; if(x==="normal") t.ausreisser=false; if(x==="spaeter"||x==="problem") t.ausgelassen=true; t.antwort=x||null; });
+  return reihe;
+}
+function fmAntworten(gid, datum, x){ (fmCfg.antworten=fmCfg.antworten||{})[gid+"|"+datum]=x; fmSpeichern(); }
+// Offene Frage: jüngster Ausreißer der letzten 3 Tage ohne Antwort (je Gruppe einmal)
+function fmOffeneFrage(){
+  const grenze=fmTagPlus(fmIso(new Date()),-3);
+  for(const g of fmGruppen().filter(x=>x.art==="rest" && x.auswerten!==false)){
+    const t=fmReihe(g).filter(t=>t.ausreisser && !t.antwort && t.datum>=grenze).pop();
+    if(t) return { g, t };
+  }
+  return null;
 }
 // Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
 function fmReiheBewerten(reihe){
@@ -5054,8 +5070,9 @@ function fmReiheBewerten(reihe){
   });
   const mit=reihe.filter(t=>t.quote!==null);
   mit.forEach((t,i)=>{
-    const nachbarn=[mit[i-2],mit[i-1],mit[i+1],mit[i+2]].filter(Boolean).map(x=>x.quote).sort((a,b)=>a-b);
-    if(nachbarn.length>=2){
+    // Median eines Fensters von bis zu 5 Tagen (der Tag selbst eingeschlossen) – ein einzelner Ausreißer verschiebt ihn nicht
+    const nachbarn=[mit[i-2],mit[i-1],t,mit[i+1],mit[i+2]].filter(Boolean).map(x=>x.quote).sort((a,b)=>a-b);
+    if(nachbarn.length>=3){
       const m=nachbarn.length%2 ? nachbarn[(nachbarn.length-1)/2] : (nachbarn[nachbarn.length/2-1]+nachbarn[nachbarn.length/2])/2;
       t.ausreisser = Math.abs(t.quote-m) > fmWert("ausreisserQuote");
     }
@@ -5064,7 +5081,7 @@ function fmReiheBewerten(reihe){
 }
 // Bewertung: gleitendes Mittel der letzten Tage → Haken oder Empfehlung (die App schlägt vor, der Mensch entscheidet)
 function fmBewertung(g, reihe){
-  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.regenTag && !t.hitzeTag);
+  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.ausgelassen && !t.regenTag && !t.hitzeTag);
   const letzte=ok.slice(-fmWert("bewertungTage"));
   const leer=reihe.filter(t=>t.quote!==null).slice(-fmWert("leerTage"));
   const proKuh=(data[g.karte] ? data[g.karte].items : []).reduce((s,i)=>s+(num(i.kg)||0),0);
@@ -5215,7 +5232,18 @@ function fmAuswertungHtml(){
     </div>`;
   }).join("");
   const offen=fmOffenePlaetze().length;
-  return `
+  const frage=fmDemo ? null : fmOffeneFrage();
+  const frageHtml = frage ? `
+  <div id="fm-frage" style="position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;box-shadow:0 -4px 16px rgba(0,0,0,.25);border-radius:14px 14px 0 0;padding:14px 16px 18px">
+    <b>Heute etwas anders?</b><br>
+    <span style="font-size:14px">${fmEsc(frage.g.name)}, ${fmKurz(frage.t.datum)}: Rest ${fmZahl(frage.t.quote.toFixed(1))} % – deutlich anders als an den Tagen davor/danach.</span>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+      <button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.t.datum}','spaeter')">Später gefüttert</button>
+      <button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.t.datum}','problem')">Problem (Silage, Mischwagen, Tiere)</button>
+      <button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.t.datum}','normal')">Alles normal</button>
+    </div>
+  </div>` : "";
+  return frageHtml + `
   ${istTestversion ? `<div style="text-align:right;margin-bottom:6px"><button onclick="fmDemoUmschalten()" style="font-size:13px">${fmDemo?"Beispieldaten ausblenden":"Beispieldaten anzeigen"}</button></div>` : ""}
   ${fmDemo ? `<div style="background:#fff3cd;padding:6px 10px;border-radius:8px;margin-bottom:6px;font-size:13px">Beispieldaten (30 Tage) – nicht deine echten Werte.</div>` : ""}
   ${wetter}

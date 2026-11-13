@@ -103,6 +103,21 @@ async function main() {
       assert((await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text')).includes("Rest 4,0 % · passt"));
     });
 
+    await pruefe("Frage „Heute etwas anders?“ bei frischem Ausreißer: „Alles normal“ → Tag zählt; „Später gefüttert“ → Tag zählt nicht; Frage nur einmal", async () => {
+      await historyAnlegen([4, 4, 4, 4, 12, 4]);
+      await page.evaluate(() => { fmCfg.antworten = {}; fmBauen(); });
+      assert(await page.locator("#fm-frage").isVisible(), "keine Frage");
+      assert((await page.textContent("#fm-frage")).includes("Rest 12,0 %"));
+      await page.click("#fm-frage >> text=Alles normal");
+      assert.strictEqual(await page.locator("#fm-frage").count(), 0);
+      assert((await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text')).includes("zu viel übrig"));
+      await page.evaluate(() => { fmCfg.antworten = {}; fmBauen(); });
+      await page.click("#fm-frage >> text=Später gefüttert");
+      assert.strictEqual(await page.locator("#fm-frage").count(), 0);
+      assert((await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text')).includes("Rest 4,0 % · passt"));
+      await page.evaluate(() => { fmCfg.antworten = {}; fmSpeichern(); });
+    });
+
     await pruefe("Leergefressen 2 Tage → sofort Empfehlung +3 %; aber Hitze morgen → nicht erhöhen", async () => {
       await historyAnlegen([4, 4, 4, 4, 0, 0]);
       await page.evaluate(() => fmBauen());
