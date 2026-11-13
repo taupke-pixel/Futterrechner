@@ -150,10 +150,15 @@ async function main() {
     });
 
     await pruefe("Rest-Eingabe in der Restmischung wird mit Tag gemerkt (Wert beim Öffnen zählt nicht)", async () => {
-      await page.evaluate(() => { delete fmTage[fmIso(new Date())].rest; fmRestZuletzt = null; fmRestBeobachten({ restbullen: { rest: 50 } }, new Date()); });
+      await page.evaluate(() => { delete fmTage[fmIso(new Date())].rest; fmRestZuletzt = null; localStorage.removeItem("fmRestZuletzt"); fmRestBeobachten({ restbullen: { rest: 50 } }, new Date()); });
       assert.strictEqual(await page.evaluate(() => (fmTage[fmIso(new Date())].rest || {}).kuehe), undefined, "Startwert wurde gezählt");
       await page.evaluate(() => fmRestBeobachten({ restbullen: { rest: 85 } }, new Date()));
       assert.strictEqual(await page.evaluate(() => fmTage[fmIso(new Date())].rest.kuehe), 85);
+      // Neu öffnen (Tab hat geschlafen): Änderung seit dem letzten Mal zählt – mit dem Tag der letzten Änderung im Betrieb
+      await page.evaluate(() => { fmRestZuletzt = localStorage.getItem("fmRestZuletzt"); const gestern = new Date(); gestern.setDate(gestern.getDate() - 1); fmRestBeobachten({ restbullen: { rest: 120 } }, gestern); });
+      assert.strictEqual(await page.evaluate(() => { const g = new Date(); g.setDate(g.getDate() - 1); return fmTage[fmIso(g)].rest.kuehe; }), 120);
+      await page.evaluate(() => { fmRestZuletzt = localStorage.getItem("fmRestZuletzt"); fmRestBeobachten({ restbullen: { rest: 120 } }, new Date()); });
+      assert.strictEqual(await page.evaluate(() => fmTage[fmIso(new Date())].rest.kuehe), 85, "unveränderter Wert wurde neu gezählt");
     });
 
     await pruefe("Beispieldaten anzeigen/ausblenden; Testdaten zurücksetzen löscht nur die Fressmengen-Daten", async () => {

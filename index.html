@@ -4985,7 +4985,8 @@ async function fmWetterHolen(erzwingen){
 
 // Reste: die bestehenden Felder „Restmischung … vorhanden (kg)“ der Restmischung. Jede Änderung wird mit Tag gemerkt
 // (ein Wert je Tag, der letzte gilt). Gilt für die Mischung(en), die in den Einstellungen als Reste-Quelle gewählt sind.
-let fmRestZuletzt=null;
+// Zuletzt gesehener Rest wird im Gerät gemerkt: beim nächsten Öffnen zählt eine Änderung seitdem (Tab im Hintergrund schläft oft)
+let fmRestZuletzt=(()=>{ try{ return localStorage.getItem("fmRestZuletzt"); }catch(e){ return null; } })();
 function fmRestBeobachten(inhalt, zeit){
   const r=inhalt && inhalt.restbullen;
   if(!r) return;
@@ -4993,9 +4994,10 @@ function fmRestBeobachten(inhalt, zeit){
   const wert={ [quellen[0]]:num(r.rest)||0 };
   if(quellen[1]) wert[quellen[1]]=num(r.rest2)||0;
   const schluessel=JSON.stringify(wert);
-  if(fmRestZuletzt===null){ fmRestZuletzt=schluessel; return; }   // Stand beim Öffnen: nicht als neue Eingabe zählen
+  const merken=()=>{ fmRestZuletzt=schluessel; try{ localStorage.setItem("fmRestZuletzt", schluessel); }catch(e){} };
+  if(fmRestZuletzt===null){ merken(); return; }   // allererster Start: Stand nicht als neue Eingabe zählen
   if(schluessel===fmRestZuletzt) return;
-  fmRestZuletzt=schluessel;
+  merken();
   fmTag(fmIso(zeit||new Date())).rest=wert;
   fmTageMerken();
 }
@@ -5121,7 +5123,7 @@ function fmDemoReihe(g){
 function fmDemoUmschalten(){ fmDemo=!fmDemo; fmBauen(); }
 function fmTestdatenZuruecksetzen(){
   if(!confirm("Alle Testdaten der Fressmengen-Auswertung auf diesem Gerät löschen (Gruppen, Einstellungen, gemerkte Tage)? Deine echten Futterrechner-Daten bleiben unberührt.")) return;
-  ["fressmenge","fmTage","fmStallzahlen"].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  ["fressmenge","fmTage","fmStallzahlen","fmRestZuletzt"].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
   location.reload();
 }
 
