@@ -5357,6 +5357,328 @@ function fmRechnerErgaenzen(){
   });
 }
 
+// --- Berater-Ration als PDF (Paket Punkte 4/5): GS-agri-Rationsblatt mit pdf.js lesen, doppelt prüfen, Vorschau, übernehmen ---
+// Nichts wird ohne Vorschau und „Übernehmen“ gespeichert. Jeder Wert wird auf zwei Arten gelesen (Spalten-Position und
+// Reihenfolge in der Zeile); nur gleiche Ergebnisse gelten als sicher. Gegenprobe: Summen = „Total“, Kennziffern nachgerechnet,
+// eine „Mischung …“-Zeile muss zur Ration der anderen Seite passen (Menge, Nährstoffe, Preis).
+const FM_SPALTEN=[["fm","kg FM",1],["tm","kg TM",1],["nel","NEL",1],["rp","RP",0],["nxp","nXP",0],["rnb","RNB",1],["ca","Ca",1],["p","P",1],["preis","PREIS",2]];
+let fmPdfLaden=null, fmImport=null;
+function fmPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve();
+  if(!fmPdfLaden) fmPdfLaden=new Promise((ok,fehler)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload=()=>{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; ok(); };
+    s.onerror=()=>{ fmPdfLaden=null; fehler(new Error("pdf.js konnte nicht geladen werden (Internet?)")); };
+    document.head.appendChild(s);
+  });
+  return fmPdfLaden;
+}
+// Text aller Seiten mit Position (x, y, Breite)
+async function fmPdfText(bytes){
+  await fmPdfJs();
+  const pdf=await pdfjsLib.getDocument({ data:bytes }).promise, seiten=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const t=await (await pdf.getPage(i)).getTextContent();
+    seiten.push(t.items.filter(x=>x.str && x.str.trim()).map(x=>({ s:x.str, x:x.transform[4], y:x.transform[5], w:x.width })));
+  }
+  return seiten;
+}
+const fmZahlAusText=t=>/^-?\d{1,3}(\.\d{3})*(,\d+)?$|^-?\d+(,\d+)?$/.test(t) ? parseFloat(t.replace(/\./g,"").replace(",",".")) : null;
+function fmNachkomma(t){ const i=t.indexOf(","); return i<0 ? 0 : t.length-i-1; }
+// Zeilen bilden (gleiche Höhe ±2), links nach rechts sortiert
+function fmZeilen(items){
+  const z=[];
+  items.slice().sort((a,b)=>b.y-a.y || a.x-b.x).forEach(it=>{
+    const zeile=z.find(r=>Math.abs(r.y-it.y)<=2);
+    if(zeile) zeile.items.push(it); else z.push({ y:it.y, items:[it] });
+  });
+  z.forEach(r=>{ r.items.sort((a,b)=>a.x-b.x); r.text=r.items.map(i=>i.s).join(" "); });
+  return z;
+}
+// Zahlenstücke einer Zeile (zusammengeklebte Werte wie „16,1 20,2“ werden getrennt, mit geschätzter Position)
+function fmZahlStuecke(items){
+  const st=[];
+  items.forEach(it=>{
+    const teile=it.s.trim().split(/\s+/), len=it.s.length;
+    let pos=0;
+    teile.forEach(t=>{
+      const i=it.s.indexOf(t,pos); pos=i+t.length;
+      const z=fmZahlAusText(t);
+      if(z!==null) st.push({ t, z, rechts: it.x + it.w*(pos/len), nk:fmNachkomma(t) });
+    });
+  });
+  return st;
+}
+// Eine Seite lesen → { titel, datum, zeilen:[{name, werte, unsicher}], total, kennziffern, fehler:[], hinweise:[] }
+function fmSeiteLesen(items){
+  const zeilen=fmZeilen(items), s={ zeilen:[], fehler:[], hinweise:[], kennziffern:{} };
+  const kopf=zeilen.find(r=>/Stallration/i.test(r.text) && /kg FM/.test(r.text) && /PREIS/.test(r.text));
+  const totalZ=zeilen.find(r=>/^Total\b/.test(r.text));
+  if(!kopf || !totalZ){ s.fehler.push("Unbekannter Aufbau – das ist kein GS-agri-Rationsblatt. Es wird nichts übernommen."); return s; }
+  // Titel zweimal lesen: oben neben dem Betrieb und unten in der Fußzeile – muss gleich sein
+  const fuss=zeilen.filter(r=>r.y<60).map(r=>r.items.filter(i=>!/^\d+\s*\/\s*\d+$/.test(i.s.trim())).map(i=>i.s).join(" ").trim()).find(Boolean)||"";
+  const oben=zeilen.filter(r=>r.y>kopf.y && /\d{2}-\d{2}|Stall/i.test(r.text)).flatMap(r=>r.items).map(i=>i.s.trim()).find(t=>t===fuss) || "";
+  s.titel=fuss;
+  if(!fuss || oben!==fuss) s.hinweise.push("Name der Ration oben und unten nicht gleich gelesen.");
+  const d=(zeilen.find(r=>/BETRIEB/.test(r.text))||{text:""}).text.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  s.datum = d ? d[3]+"-"+d[2]+"-"+d[1] : null;
+  // Spalten aus der Kopfzeile (rechter Rand)
+  const spalten=FM_SPALTEN.map(([k,label])=>{ const h=kopf.items.find(i=>i.s.trim()===label); return h ? { k, rechts:h.x+h.w } : null; });
+  if(spalten.some(x=>!x)){ s.fehler.push("Kopfzeile der Tabelle unvollständig – es wird nichts übernommen."); return s; }
+  const ersteSpalte=Math.min(...kopf.items.filter(i=>i.s.trim()==="kg FM").map(i=>i.x));
+  const lesen=(r, mitPreis)=>{
+    const nameTeile=r.items.filter(i=>i.x+i.w<ersteSpalte+2).map(i=>i.s.trim());
+    const st=fmZahlStuecke(r.items.filter(i=>i.x+i.w>=ersteSpalte+2));
+    const n=mitPreis ? 9 : 8;
+    // Verfahren A: jede Zahl zur Spalte mit dem nächsten rechten Rand
+    const a={}, nk={};
+    st.forEach(x=>{ let best=null; spalten.forEach(c=>{ const dd=Math.abs(c.rechts-x.rechts); if(!best || dd<best.d) best={ k:c.k, d:dd }; });
+      if(a[best.k]!==undefined) a[best.k+"_doppelt"]=true; a[best.k]=x.z; nk[best.k]=x.nk; });
+    // Verfahren B: Zahlen der Reihe nach
+    const b={};
+    if(st.length===n) FM_SPALTEN.slice(0,n).forEach(([k],i)=>{ b[k]=st[i].z; });
+    const werte={}, unsicher=[];
+    FM_SPALTEN.slice(0,n).forEach(([k])=>{
+      if(a[k]===undefined && b[k]===undefined){ unsicher.push(k); return; }
+      if(a[k+"_doppelt"] || a[k]!==b[k]) unsicher.push(k);
+      werte[k] = a[k]!==undefined ? a[k] : b[k];
+    });
+    return { name:nameTeile.join(" ").trim(), werte, unsicher, nk };
+  };
+  zeilen.filter(r=>r.y<kopf.y && r.y>totalZ.y).forEach(r=>{
+    const z=lesen(r,true);
+    if(!z.name && !Object.keys(z.werte).length) return;
+    s.zeilen.push(z);
+  });
+  s.total=lesen(totalZ,false);
+  if(!s.zeilen.length) s.fehler.push("Keine Komponenten gefunden.");
+  // Gegenprobe: Summe der Komponenten = Total (Rundung: je Zeile höchstens eine halbe letzte Stelle)
+  FM_SPALTEN.slice(0,8).forEach(([k,label])=>{
+    const summe=s.zeilen.reduce((x,z)=>x+(z.werte[k]||0),0), total=s.total.werte[k];
+    const toleranz=(s.zeilen.length+1)*0.5*Math.pow(10,-(s.total.nk[k]||0))+1e-9;
+    if(typeof total!=="number") { s.fehler.push(`„Total“ ${label} nicht gelesen.`); return; }
+    if(Math.abs(summe-total)>toleranz) s.fehler.push(`Summe ${label} (${fmZahl(Math.round(summe*100)/100)}) passt nicht zu „Total“ (${fmZahl(total)}).`);
+  });
+  s.zeilen.forEach(z=>{ if(z.unsicher.length) s.fehler.push(`„${z.name}“: ${z.unsicher.map(k=>FM_SPALTEN.find(c=>c[0]===k)[1]).join(", ")} nicht sicher gelesen.`); });
+  if(s.total.unsicher.length) s.fehler.push(`„Total“: ${s.total.unsicher.map(k=>FM_SPALTEN.find(c=>c[0]===k)[1]).join(", ")} nicht sicher gelesen.`);
+  // Kennziffern lesen und nachrechnen
+  const kz=zeilen.find(r=>/Ration Kennziffern/.test(r.text));
+  if(kz){
+    zeilen.filter(r=>r.y<kz.y).forEach(r=>{
+      for(let i=0;i<r.items.length-1;i++){
+        const l=r.items[i].s.trim(), v=fmZahlAusText(r.items[i+1].s.trim()), e=(r.items[i+2]||{s:""}).s.trim();
+        if(v===null) continue;
+        if(l==="TM-Aufn.") s.kennziffern.tmAufn=v;
+        else if(l==="TM" && e==="%") s.kennziffern.tsProzent=v;
+        else if(l==="NEL" && /kg TM/.test(e)) s.kennziffern.nelJeKgTm=v;
+        else if(l==="RP" && /kg TM/.test(e)) s.kennziffern.rpJeKgTm=v;
+        else if(l==="nXP" && /kg TM/.test(e)) s.kennziffern.nxpJeKgTm=v;
+        else if(l==="Ca" && /kg TM/.test(e)) s.kennziffern.caJeKgTm=v;
+        else if(l==="P" && /kg TM/.test(e)) s.kennziffern.pJeKgTm=v;
+        else if(l==="Kg Milk Energie") s.kennziffern.milchEnergie=v;
+        else if(l==="Kg Milch Eiweiß") s.kennziffern.milchEiweiss=v;
+      }
+    });
+    const t=s.total.werte, k=s.kennziffern, pruef=(name,ist,soll,tol)=>{
+      if(typeof ist!=="number") return;
+      if(Math.abs(ist-soll)>tol) s.fehler.push(`Kennziffer ${name}: im PDF ${fmZahl(ist)}, nachgerechnet ${fmZahl(Math.round(soll*10)/10)}.`);
+    };
+    if(t.fm>0 && t.tm>0){
+      pruef("TM-Aufnahme", k.tmAufn, t.tm, 0.15);
+      pruef("TM %", k.tsProzent, t.tm/t.fm*100, 1.5);
+      pruef("NEL je kg TM", k.nelJeKgTm, t.nel/t.tm, 0.15);
+      pruef("RP je kg TM", k.rpJeKgTm, t.rp/t.tm, 2);
+      pruef("nXP je kg TM", k.nxpJeKgTm, t.nxp/t.tm, 2);
+      pruef("Ca je kg TM", k.caJeKgTm, t.ca/t.tm, 0.2);
+      pruef("P je kg TM", k.pJeKgTm, t.p/t.tm, 0.2);
+    }
+  } else s.hinweise.push("„Ration Kennziffern“ nicht gefunden – nur Summen geprüft.");
+  // Kleine Mengen: Werte je kg sind durch die Rundung im PDF ungenau
+  s.zeilen.forEach(z=>{ if(z.werte.fm>0 && z.werte.fm<1) z.ungenau=true; });
+  return s;
+}
+// Ganzes PDF: Seiten lesen, „Mischung …“-Zeilen der anderen Seite zuordnen und prüfen
+function fmRationLesen(seitenItems){
+  const seiten=seitenItems.map(fmSeiteLesen);
+  const woerter=t=>String(t||"").toLowerCase().replace(/[^a-z0-9äöüß\- ]/g," ").split(/\s+/).filter(w=>w && w!=="mischung");
+  seiten.forEach((s,i)=>{
+    s.zeilen.forEach(z=>{
+      if(!/^Mischung\b/i.test(z.name)) return;
+      const w=woerter(z.name);
+      const basis=seiten.findIndex((b,j)=>j!==i && b.titel && w.length && w.every(x=>woerter(b.titel).includes(x)));
+      if(basis<0){ s.fehler.push(`„${z.name}“: passende Ration nicht im PDF gefunden.`); return; }
+      const b=seiten[basis], anteil=z.werte.fm/b.total.werte.fm;
+      z.basis={ seite:basis, anteil };
+      // Gegenprobe: Nährstoffe der Zeile = Grundration × Anteil; Preis = Durchschnittspreis der Grundration
+      ["tm","nel","rp","nxp","rnb","ca","p"].forEach(k=>{
+        const soll=b.total.werte[k]*anteil, tol=Math.max(0.15, Math.abs(soll)*0.01);
+        if(Math.abs((z.werte[k]||0)-soll)>tol) s.fehler.push(`„${z.name}“: ${FM_SPALTEN.find(c=>c[0]===k)[1]} passt nicht zur Ration „${b.titel}“.`);
+      });
+      const preis=b.zeilen.reduce((x,y)=>x+(y.werte.fm||0)*(y.werte.preis||0),0)/b.total.werte.fm;
+      if(Math.abs(preis-(z.werte.preis||0))>0.1) s.fehler.push(`„${z.name}“: Preis passt nicht zur Ration „${b.titel}“ (${fmZahl(preis.toFixed(2))} €/t).`);
+    });
+  });
+  return { seiten };
+}
+// Komplette Ration je Tier einer Seite (Grundmischungs-Anteil aufgeschlüsselt) → [{ quelle, werte }]
+function fmKomplett(imp, i){
+  const s=imp.seiten[i], aus=[];
+  s.zeilen.forEach((z,zi)=>{
+    if(z.basis) imp.seiten[z.basis.seite].zeilen.forEach((b,bi)=>aus.push({ seite:z.basis.seite, zeile:bi, kg:b.werte.fm*z.basis.anteil }));
+    else aus.push({ seite:i, zeile:zi, kg:z.werte.fm });
+  });
+  return aus;
+}
+// Vorschlag für den Namen im Rechner: vorhandene Komponente mit gleichem Anfang, sonst bereinigter PDF-Name
+function fmNamensVorschlag(name, karte, vergeben, titel){
+  // Betriebsname (erstes Wort des Rationsnamens, im PDF oft abgekürzt oder angeklebt) und „...“ entfernen
+  const hof=String(titel||"").split(" ")[0].slice(0,8).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  let roh=String(name).replace(/\.\.\.$/,"");
+  if(hof.length>=4) roh=roh.replace(new RegExp(hof+"[\\wäöüÄÖÜß.-]*","ig")," ");
+  roh=roh.replace(/\s+/g," ").trim();
+  if(/\bAGF\b/i.test(roh)) return { typ:"agf", name:globalCfg.agfName };
+  if(/\bMLF\b/i.test(roh)) return { typ:"mlf", name:globalCfg.mlfName };
+  const erstes=(roh.match(/^[A-Za-zÄÖÜäöüß]+/)||[""])[0].toLowerCase();
+  const items=(data[karte]||{items:[]}).items.filter(it=>!it.type && !/^Futter \d+$/.test(it.name));
+  const treffer=erstes ? items.filter(it=>it.name.toLowerCase().startsWith(erstes) && !vergeben.has(it.name)) : [];
+  if(treffer.length===1) return { typ:"futter", name:treffer[0].name };
+  return { typ:"futter", name:roh };
+}
+async function fmPdfGewaehlt(feld){
+  const datei=feld.files && feld.files[0]; feld.value="";
+  if(!datei) return;
+  try{
+    const seiten=await fmPdfText(new Uint8Array(await datei.arrayBuffer()));
+    fmImportVorbereiten(fmRationLesen(seiten), datei.name);
+  }catch(e){ alert("Das PDF konnte nicht gelesen werden: "+(e && e.message || e)); }
+}
+// Vorschau vorbereiten: je Seite Ziel-Mischung (Vorschlag), je Komponente Name/Art (änderbar)
+function fmImportVorbereiten(imp, dateiname){
+  imp.datei=dateiname;
+  const basisSeiten=new Set(imp.seiten.flatMap(s=>s.zeilen.filter(z=>z.basis).map(z=>z.basis.seite)));
+  imp.seiten.forEach((s,i)=>{
+    s.karte = basisSeiten.has(i) ? "kuehe" : s.zeilen.some(z=>z.basis) ? "kuehe2" : (i===0 ? "kuehe" : "");
+    const vergeben=new Set();
+    s.zeilen.forEach(z=>{ if(z.basis) return; const v=fmNamensVorschlag(z.name, s.karte||"kuehe", vergeben, s.titel); z.ziel=v; vergeben.add(v.name); });
+  });
+  imp.bestaetigt=false;
+  fmImport=imp;
+  fmImportZeigen();
+}
+function fmImportAendern(i, zi, feld, wert){
+  const z=fmImport.seiten[i].zeilen[zi];
+  if(feld==="name") z.ziel.name=String(wert).trim().slice(0,40) || z.ziel.name;
+  if(feld==="typ"){ z.ziel.typ=wert; if(wert==="agf") z.ziel.name=globalCfg.agfName; if(wert==="mlf") z.ziel.name=globalCfg.mlfName; }
+  fmImportZeigen();
+}
+function fmImportKarte(i, k){ fmImport.seiten[i].karte=k; fmImportZeigen(); }
+function fmImportSchliessen(){ fmImport=null; const e=document.getElementById("fm-import"); if(e) e.remove(); }
+const fmKg=v=>fmZahl((Math.round(v*100)/100).toFixed(v<1?2:1));
+function fmImportZeigen(){
+  let el=document.getElementById("fm-import");
+  if(!el){ el=document.createElement("div"); el.id="fm-import"; document.body.appendChild(el); }
+  el.style.cssText="position:fixed;inset:0;z-index:60;background:#eef1f4;overflow:auto;padding:12px";
+  const imp=fmImport, fehler=imp.seiten.flatMap(s=>s.fehler), hinweise=imp.seiten.flatMap(s=>s.hinweise);
+  const unbekannt=imp.seiten.some(s=>!s.total);
+  const karten=ALLE_KATEGORIEN.filter(k=>k!=="restbullen");
+  el.innerHTML=`
+  <h3 style="margin:4px 0 8px">📄 Ration aus PDF – Vorschau</h3>
+  <div style="font-size:13px;color:#555;margin-bottom:8px">${fmEsc(imp.datei||"")} · Gespeichert wird erst mit „Übernehmen“.</div>
+  ${fehler.length ? `<div class="history-box" style="background:#fff3e0;color:#b36b00"><b>⚠ Bitte prüfen:</b><ul style="margin:6px 0 0 18px;padding:0">${fehler.map(f=>`<li>${fmEsc(f)}</li>`).join("")}</ul></div>`
+    : `<div class="history-box" style="color:#2e7d32">✓ Alle Werte doppelt gelesen und gleich, Summen = „Total“, Kennziffern nachgerechnet.</div>`}
+  ${hinweise.length ? `<div style="font-size:13px;color:#666;margin:6px 0">${hinweise.map(fmEsc).join("<br>")}</div>` : ""}
+  ${unbekannt ? "" : imp.seiten.map((s,i)=>{
+    const komplett=fmKomplett(imp,i), hatBasis=s.zeilen.some(z=>z.basis);
+    return `
+    <div class="history-box fm-import-seite" data-seite="${i}" style="margin-top:10px">
+      <b>${fmEsc(s.titel||"Seite "+(i+1))}</b>${s.datum?` <span style="color:#666;font-size:13px">vom ${fmKurz(s.datum)}${s.datum.slice(0,4)}</span>`:""}
+      <div style="margin:6px 0">Für Mischung:
+        <select onchange="fmImportKarte(${i},this.value)">
+          <option value="">– nicht übernehmen –</option>
+          ${karten.map(k=>`<option value="${k}" ${s.karte===k?"selected":""}>${globalCfg[k+"Name"]}</option>`).join("")}
+        </select>${hatBasis && s.karte==="kuehe2" ? `<div style="font-size:13px;color:#555;margin-top:4px">Arbeitet als „Rest der ${fmEsc(globalCfg.kueheName)}-Mischung + Zugabe“.</div>` : ""}</div>
+      ${s.zeilen.map((z,zi)=>{
+        if(z.basis) return `<div style="padding:6px 0;border-bottom:1px solid #eee">
+          <b>${fmEsc(z.name)}</b> · ${fmKg(z.werte.fm)} kg FM<br><span style="font-size:13px;color:#555">= ${fmZahl((z.basis.anteil*100).toFixed(1))} % der Ration „${fmEsc(imp.seiten[z.basis.seite].titel)}“</span></div>`;
+        const ts=z.werte.fm>0 ? z.werte.tm/z.werte.fm*100 : 0, unsicher=z.unsicher.length>0;
+        return `<div class="fm-import-zeile" style="padding:6px 0;border-bottom:1px solid #eee;${unsicher?"background:#fff3e0":""}">
+          <div style="font-size:12px;color:#666">PDF: ${fmEsc(z.name)}</div>
+          <input class="fm-import-name" value="${fmEsc(z.ziel.name)}" ${z.ziel.typ!=="futter"?"disabled":""} onchange="fmImportAendern(${i},${zi},'name',this.value)" style="width:58%;max-width:240px">
+          <select onchange="fmImportAendern(${i},${zi},'typ',this.value)">
+            <option value="futter" ${z.ziel.typ==="futter"?"selected":""}>Futter</option>
+            <option value="agf" ${z.ziel.typ==="agf"?"selected":""}>${fmEsc(globalCfg.agfName)} (AGF)</option>
+            <option value="mlf" ${z.ziel.typ==="mlf"?"selected":""}>${fmEsc(globalCfg.mlfName)} (MLF)</option>
+          </select>
+          <div style="font-size:14px;margin-top:3px">${fmKg(z.werte.fm)} kg FM · TS ${z.ungenau?`<span style="color:#d97a00" title="kleine Menge: durch Rundung im PDF ungenau">${fmZahl(ts.toFixed(0))} % ⚠</span>`:fmZahl(ts.toFixed(1))+" %"} · ${fmZahl((z.werte.preis||0).toFixed(2))} €/t</div>
+        </div>`; }).join("")}
+      <div style="font-weight:bold;margin-top:6px">Gesamt: ${fmKg(s.total.werte.fm)} kg FM · ${fmKg(s.total.werte.tm)} kg TM je Tier</div>
+      ${hatBasis ? `<div style="margin-top:8px"><b>Komplette Ration je Tier</b> (so steht sie danach in den Einstellungen)
+        ${komplett.map(k=>{ const z=imp.seiten[k.seite].zeilen[k.zeile]; return `<div style="display:flex;justify-content:space-between;font-size:14px;padding:2px 0"><span>${fmEsc(z.ziel ? z.ziel.name : z.name)}</span><span>${fmKg(k.kg)} kg</span></div>`; }).join("")}
+        <div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #ccc;margin-top:2px"><span>Summe</span><span>${fmKg(komplett.reduce((x,k)=>x+k.kg,0))} kg</span></div></div>` : ""}
+    </div>`; }).join("")}
+  ${fehler.length && !unbekannt ? `<label style="display:block;margin:10px 0"><input type="checkbox" ${imp.bestaetigt?"checked":""} onchange="fmImport.bestaetigt=this.checked;fmImportZeigen()"> Ich habe die markierten Stellen geprüft</label>` : ""}
+  <div style="display:flex;gap:8px;margin:12px 0 30px">
+    ${unbekannt ? "" : `<button class="save-btn" id="fm-import-ok" ${fehler.length && !imp.bestaetigt ? "disabled" : ""} onclick="fmImportUebernehmen()">Übernehmen</button>`}
+    <button onclick="fmImportSchliessen()">Abbrechen</button>
+  </div>`;
+}
+// Übernehmen: Komponenten mit Nährstoffen/Preisen und die Rationen speichern; in der normalen App auch die Mischungen im Rechner
+function fmImportUebernehmen(){
+  const imp=fmImport; if(!imp) return;
+  const fehler=imp.seiten.flatMap(s=>s.fehler);
+  if(fehler.length && !imp.bestaetigt) return;
+  const komp=fmCfg.komponenten=fmCfg.komponenten||{}, rationen=fmCfg.rationen=fmCfg.rationen||[];
+  const ab=imp.seiten.map(s=>s.datum).filter(Boolean)[0] || fmIso(new Date());
+  imp.seiten.forEach(s=>s.zeilen.forEach(z=>{
+    if(z.basis || !z.werte.fm) return;
+    const w=z.werte, je=k=>w[k]/w.fm;
+    const schl=z.ziel.typ==="futter" ? z.ziel.name : z.ziel.typ;
+    (komp[schl]=komp[schl]||[]).push({ ab, ts:w.tm/w.fm*100, nel:je("nel"), rp:je("rp"), nxp:je("nxp"), rnb:je("rnb"), ca:je("ca"), p:je("p"), preis:w.preis, pdfName:z.name, ungenau:!!z.ungenau, quelle:imp.datei });
+  }));
+  const neu=imp.seiten.map((s,i)=>s.karte ? {
+    karte:s.karte, titel:s.titel, datum:s.datum, datei:imp.datei, aufwerten: s.zeilen.some(z=>z.basis),
+    komplett:fmKomplett(imp,i).map(k=>{ const z=imp.seiten[k.seite].zeilen[k.zeile]; return { name:z.ziel.name, typ:z.ziel.typ, kg:Math.round(k.kg*1000)/1000 }; }),
+    total:s.total.werte, kennziffern:s.kennziffern
+  } : null).filter(Boolean);
+  neu.forEach(r=>{ rationen.push(r); });
+  fmSpeichern();
+  fmImportSchliessen();
+  if(istTestversion){ alert("In der Testversion gespeichert (nur auf diesem Gerät). Deine echten Rationen bleiben unverändert – unter „Rationen“ siehst du, wie sie im Rechner stehen würden."); return; }
+  if(confirm("Rationen jetzt im Rechner umstellen?")) neu.forEach(fmRationInRechner);
+}
+// Normale App: Ration in die Mischung schreiben (gleicher Name bzw. AGF/MLF → kg je Tier; freie „Futter n“-Zeilen für neue Komponenten)
+function fmRationInRechner(r){
+  const k=data[r.karte]; if(!k) return;
+  k.items.forEach(it=>{ it.kg=0; });
+  r.komplett.forEach(z=>{
+    let it = z.typ!=="futter" ? k.items.find(i=>i.type===z.typ) : k.items.find(i=>!i.type && i.name===z.name);
+    if(!it && z.typ==="futter"){ it=k.items.find(i=>!i.type && /^Futter \d+$/.test(i.name) && !i.kg); if(it) it.name=z.name; else { it={ name:z.name, kg:0 }; k.items.splice(k.items.findIndex(i=>i.type), 0, it); } }
+    if(!it){ it={ type:z.typ, kg:0 }; k.items.push(it); }
+    it.kg=Math.round((it.kg+z.kg)*100)/100;
+  });
+  if(r.karte==="kuehe2") globalCfg.kuehe2Modus = r.aufwerten ? "aufwerten" : "normal";
+  save(); saveGlobal(); buildCalc(); buildSettings();
+}
+// Aktuelle Ration einer Mischung (letzte übernommene) und Trockensubstanz der Mischung
+function fmRationVon(karte){ return (fmCfg.rationen||[]).filter(r=>r.karte===karte).pop() || null; }
+function fmTsVon(karte){ const r=fmRationVon(karte); return r && r.total && r.total.fm>0 ? r.total.tm/r.total.fm : null; }
+function fmRationenHtml(){
+  const r=["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].map(fmRationVon).filter(Boolean);
+  return `
+  <div class="history-box" id="fm-rationen" style="margin-top:10px">
+    <h3 style="margin-top:0">Rationen</h3>
+    <label class="save-btn" style="display:inline-block;cursor:pointer">📄 Neue Ration hochladen
+      <input type="file" accept="application/pdf,.pdf" id="fm-pdf-datei" style="display:none" onchange="fmPdfGewaehlt(this)"></label>
+    ${r.length ? r.map(x=>`
+    <div class="fm-ration" data-karte="${x.karte}" style="margin-top:10px;border-top:1px solid #eee;padding-top:6px">
+      <b>${fmEsc(globalCfg[x.karte+"Name"])}</b> <span style="font-size:13px;color:#666">· ${fmEsc(x.titel||"")}${x.datum?" vom "+fmKurz(x.datum)+x.datum.slice(0,4):""}${x.aufwerten?" · Rest der "+fmEsc(globalCfg.kueheName)+"-Mischung + Zugabe":""}</span>
+      ${x.komplett.map(z=>`<div style="display:flex;justify-content:space-between;font-size:14px"><span>${fmEsc(z.name)}</span><span>${fmKg(z.kg)} kg</span></div>`).join("")}
+      <div style="font-size:13px;color:#555;margin-top:2px">${fmKg(x.total.fm)} kg FM · ${fmKg(x.total.tm)} kg TM · TS ${fmZahl((x.total.tm/x.total.fm*100).toFixed(1))} %${x.kennziffern && x.kennziffern.milchEnergie?` · Milch aus Energie ${fmZahl(x.kennziffern.milchEnergie)} kg`:""}</div>
+    </div>`).join("") : `<div style="font-size:13px;color:#666;margin-top:6px">Noch keine Ration hochgeladen.</div>`}
+  </div>`;
+}
+
 // Nach dem Laden im Hintergrund neu zeichnen – aber nicht, während jemand im Reiter etwas eintippt
 function fmNeuZeichnen(){
   if(cloud.zeigerUnten && Date.now()-cloud.zeigerSeit<5000){ setTimeout(fmNeuZeichnen,300); return; }
@@ -5391,6 +5713,7 @@ function fmBauen(){
   if(fmEinrichtungZu===null) fmEinrichtungZu = fmGruppen().length>0;
   fp.innerHTML = !fmAn() ? "" : `
   ${fmAuswertungHtml()}
+  ${fmRationenHtml()}
   <div class="history-box" id="fm-einrichtung" style="margin-top:14px">
     <div class="history-header" style="margin-bottom:0" onclick="fmEinrichtungZu=!fmEinrichtungZu;fmBauen()">${fmEinrichtungZu ? "▶" : "▼"} ⚙ Einrichtung</div>
     <div style="display:${fmEinrichtungZu ? 'none' : 'block'};margin-top:6px">
