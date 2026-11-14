@@ -4730,7 +4730,10 @@ const FM_WERTE=[
   ["fett2","Fett ohne MLP – Gruppe 2",5.13,2,7,"%"],
   ["eiweiss2","Eiweiß ohne MLP – Gruppe 2",4.20,2,5,"%"],
   ["wetterLat","Standort Wetter: Breite",52.60,47,56,"° N"],
-  ["wetterLon","Standort Wetter: Länge",8.05,5,16,"° E"]
+  ["wetterLon","Standort Wetter: Länge",8.05,5,16,"° E"],
+  ["mlpFrischAnteil","MLP-Check: frische Kühe auffällig ab",20,1,100,"% der frischen"],
+  ["harnstoffMin","MLP-Check: Harnstoff unter",150,50,400,"mg/l"],
+  ["harnstoffMax","MLP-Check: Harnstoff über",250,100,500,"mg/l"]
 ];
 const FM_SCHALTER=[["tierzahlHM","Tierzahl aus Herdenmanager"],["regen","Regenzuschlag automatisch"],["hitze","Hitzeabzug automatisch"],["rationsvergleich","Rationsvergleich"]];
 // Neue Betriebe starten mit AUS; die Testversion (nur Fritz' Betrieb) einmalig AN
@@ -4841,7 +4844,7 @@ function fmReiterFarbe(){
   const t=document.getElementById("fm-tab");
   if(!t) return;
   const etwas = fmAn() && !fmDemo && (fmOffenePlaetze().length>0 || !!fmOffeneFrage()
-    || fmGruppen().some(g=>g.art==="rest" && g.auswerten!==false && fmFruehwarnung(g, fmReihe(g))));
+    || fmGruppen().some(g=>g.art==="rest" && g.auswerten!==false && fmMeldungen(g, fmReihe(g)).length));
   t.classList.toggle("tab-orange", !!etwas);
 }
 function fmGruppeNeu(){
@@ -5127,6 +5130,48 @@ function fmFruehwarnung(g, reihe){
   return { schluessel, text:`⚠ Frühwarnung: gefressen je Tier −${fmZahl(rueckgang.toFixed(1))} ${f.e} in ${n} Tagen (ohne Regen, Hitze oder weniger Tiere)` };
 }
 function fmErledigt(schluessel){ (fmCfg.erledigt=fmCfg.erledigt||{})[schluessel]=new Date().toISOString(); fmSpeichern(); }
+// MLP-Check (nur bei Auffälligkeit): Energie knapp, frische Kühe mit Eiweiß < 3,1 % oder FEQ > 1,5, Harnstoff außerhalb
+function fmMlpCheck(g){
+  const m=fmMlpGruppe(g); if(!m) return [];
+  const aus=[], erl=fmCfg.erledigt||{}, neu=(art,text)=>{ const s=g.id+"|"+m.datum+"|"+art; if(!erl[s]) aus.push({ schluessel:s, text }); };
+  const grenze=fmWert("mlpFrischAnteil")/100;
+  if(m.frische>0 && m.frischeEiweiss/m.frische>=grenze) neu("eiweiss", `🥛 MLP: ${m.frischeEiweiss} von ${m.frische} frischen Kühen mit Eiweiß unter 3,1 % (Energie knapp?)`);
+  if(m.frische>0 && m.frischeFeq/m.frische>=grenze) neu("feq", `🥛 MLP: ${m.frischeFeq} von ${m.frische} frischen Kühen mit Fett-Eiweiß-Quotient über 1,5`);
+  if(m.harnstoff<fmWert("harnstoffMin")) neu("harnstoff", `🥛 MLP: Harnstoff niedrig (${Math.round(m.harnstoff)} mg/l) – Eiweiß knapp?`);
+  if(m.harnstoff>fmWert("harnstoffMax")) neu("harnstoff", `🥛 MLP: Harnstoff hoch (${Math.round(m.harnstoff)} mg/l) – Eiweiß-Überschuss?`);
+  const r=fmRationVon(g.karte);
+  if(r && r.total && r.total.tm>0){
+    const fe=fmFettEiweiss(g), milchE=fmMilchAusEnergie(r.total.tm, r.total.nel/r.total.tm, fe.fett, fe.eiweiss);
+    if(milchE < m.milchJeKuh-fmWert("mlpAbstand")) neu("energie", `🥛 MLP: Energie knapp – Ration reicht für ${fmZahl(milchE.toFixed(1))} kg, Kühe geben ${fmZahl(m.milchJeKuh.toFixed(1))} kg`);
+  }
+  return aus;
+}
+// „Ration neu rechnen“ (nach der Wartezeit, nur normale Tage): Fressmenge dauerhaft anders als der Ansatz der Ration,
+// oder Energie ausgeschöpft (Fressmenge steigt nicht mehr, Milch aus Energie ≈ MLP-Milch)
+function fmNeuRechnen(g, reihe){
+  const r=fmRationVon(g.karte); if(!r || !r.datum || !r.total || !(r.total.tm>0)) return [];
+  const heute=fmIso(new Date());
+  if(fmTagPlus(r.datum, fmWert("neuRechnenTage"))>heute) return [];
+  const ok=reihe.filter(t=>t.datum>=r.datum && t.jeTierTm!=null && !t.ausreisser && !t.ausgelassen && !t.regenTag && !t.hitzeTag);
+  if(ok.length<fmWert("bewertungMin")) return [];
+  const aus=[], erl=fmCfg.erledigt||{}, neu=(art,text)=>{ const s=g.id+"|"+r.datum+"|"+art; if(!erl[s]) aus.push({ schluessel:s, text }); };
+  const letzte=ok.slice(-fmWert("bewertungTage")), gefressen=letzte.reduce((s,t)=>s+t.jeTierTm,0)/letzte.length;
+  if(Math.abs(gefressen-r.total.tm)>=fmWert("ansatzAbw"))
+    neu("ansatz", `🧮 Ration neu rechnen: gefressen ${fmZahl(gefressen.toFixed(1))} kg TM je Kuh, gerechnet ist die Ration für ${fmZahl(r.total.tm.toFixed(1))} kg TM`);
+  const m=fmMlpGruppe(g), spanne=ok.slice(-fmWert("ohneAnstiegTage"));
+  if(m && spanne.length>=fmWert("ohneAnstiegTage")){
+    const anstieg=spanne[spanne.length-1].jeTierTm-spanne[0].jeTierTm, fe=fmFettEiweiss(g);
+    const milchE=fmMilchAusEnergie(gefressen, r.total.nel/r.total.tm, fe.fett, fe.eiweiss);
+    if(anstieg<=0 && milchE<=m.milchJeKuh+fmWert("mlpAbstand"))
+      neu("energie", `🧮 Ration neu rechnen: Fressmenge steigt seit ${fmWert("ohneAnstiegTage")} Tagen nicht, Energie ausgeschöpft (Milch aus Energie ${fmZahl(milchE.toFixed(1))} kg, MLP ${fmZahl(m.milchJeKuh.toFixed(1))} kg)`);
+  }
+  return aus;
+}
+// Alle offenen Meldungen einer Kuhgruppe (jede mit „erledigt“)
+function fmMeldungen(g, reihe){
+  const f=fmFruehwarnung(g, reihe);
+  return [...(f ? [f] : []), ...fmMlpCheck(g), ...fmNeuRechnen(g, reihe)];
+}
 // Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
 function fmReiheBewerten(reihe){
   reihe.forEach(t=>{
@@ -5345,7 +5390,7 @@ function fmAuswertungHtml(){
         <span>${fmOffen===g.id?"▲":"▼"}</span>
       </div>
       ${(b.art==="mehr"||b.art==="weniger") ? `<button class="save-btn" style="margin-top:6px" ${istTestversion?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmUebernehmen('${g.id}','${b.art}')">Übernehmen</button>${istTestversion?`<span style="font-size:12px;color:#666;margin-left:6px">Testversion: nur ansehen</span>`:""}` : ""}
-      ${(()=>{ const f=fmDemo ? null : fmFruehwarnung(g, reihe); return f ? `<div class="fm-meldung" style="margin-top:6px;color:#b36b00;font-size:14px">${f.text} <button onclick="fmErledigt('${f.schluessel}')" style="font-size:13px">erledigt</button></div>` : ""; })()}
+      ${(fmDemo ? [] : fmMeldungen(g, reihe)).map(f=>`<div class="fm-meldung" style="margin-top:6px;color:#b36b00;font-size:14px">${f.text} <button onclick="fmErledigt('${f.schluessel}')" style="font-size:13px">erledigt</button></div>`).join("")}
       ${fmOffen===g.id ? fmVerlaufHtml(g, reihe) : ""}
     </div>`;
   }).join("");

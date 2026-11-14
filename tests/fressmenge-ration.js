@@ -182,6 +182,31 @@ async function main() {
       promptAntwort = "0";
     });
 
+    await pruefe("MLP-Check nur bei Auffälligkeit: 2 von 10 frischen Kühen Eiweiß < 3,1 %, Energie knapp; FEQ (10 %) und Harnstoff (200) unauffällig; „erledigt“", async () => {
+      await page.evaluate(() => {
+        const d = new Date(); d.setDate(d.getDate() - 20);
+        fmCfg.rationen = [{ karte: "kuehe", titel: "Test alter Stall", datum: fmIso(d), aufwerten: false,
+          komplett: [{ name: "Mais", typ: "futter", kg: 40 }, { name: globalCfg.agfName, typ: "agf", kg: 4 }],
+          total: { fm: 44, tm: 17.56, nel: 119.6, rp: 2268, nxp: 2648, rnb: -64, ca: 108, p: 60 }, kennziffern: { naJeKgTm: 1.2, milchEiweiss: 26 } }];
+        fmMlp.mlpDatum = "2026-11-18"; fmCfg.milchpreisMlp = "2026-11-18"; fmCfg.erledigt = {}; delete fmCfg.wechsel; fmOffen = null; fmSpeichern();
+      });
+      const m = await page.evaluate(() => fmMlpCheck(fmCfg.gruppen[0]).map(x => x.text));
+      assert(m.some(x => x.includes("2 von 10 frischen Kühen mit Eiweiß unter 3,1 %")), m.join(" | "));
+      assert(m.some(x => x.includes("Energie knapp – Ration reicht für 24,3 kg, Kühe geben 30,0 kg")), m.join(" | "));
+      assert(!m.some(x => /Quotient|Harnstoff/.test(x)), m.join(" | "));
+      const vorher = await page.locator('.fm-auswertung[data-gruppe="g1"] .fm-meldung').count();
+      await page.locator('.fm-auswertung[data-gruppe="g1"] .fm-meldung', { hasText: "frischen Kühen" }).locator("button").click();
+      assert.strictEqual(await page.locator('.fm-auswertung[data-gruppe="g1"] .fm-meldung').count(), vorher - 1);
+    });
+
+    await pruefe("„Ration neu rechnen“ nach der Wartezeit: gefressen 19,2 kg TM, gerechnet für 17,6 kg TM; vor Ablauf der Wartezeit nicht", async () => {
+      const m = await page.evaluate(() => fmNeuRechnen(fmCfg.gruppen[0], fmReihe(fmCfg.gruppen[0])).map(x => x.text));
+      assert(m.some(x => x === "🧮 Ration neu rechnen: gefressen 19,2 kg TM je Kuh, gerechnet ist die Ration für 17,6 kg TM"), m.join(" | "));
+      const frueh = await page.evaluate(() => { const r = fmCfg.rationen[0]; const alt = r.datum; const d = new Date(); d.setDate(d.getDate() - 5); r.datum = fmIso(d); const x = fmNeuRechnen(fmCfg.gruppen[0], fmReihe(fmCfg.gruppen[0])).length; r.datum = alt; return x; });
+      assert.strictEqual(frueh, 0);
+      assert(await page.evaluate(() => document.getElementById("fm-tab").classList.contains("tab-orange")), "Reiter nicht eingefärbt");
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       assert.deepStrictEqual(meldungen.filter(x => x.startsWith("SEITENFEHLER")), []);
     });
