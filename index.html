@@ -5175,7 +5175,9 @@ function fmNeuRechnen(g, reihe){
 // Alle offenen Meldungen einer Kuhgruppe (jede mit „erledigt“)
 function fmMeldungen(g, reihe){
   const f=fmFruehwarnung(g, reihe);
-  return [...(f ? [f] : []), ...fmMlpCheck(g), ...fmNeuRechnen(g, reihe)];
+  const mo=fmMontag(g, reihe), moSchl=g.id+"|"+fmIso(new Date()).slice(0,7)+"|montag";
+  const montag = mo && !(fmCfg.erledigt||{})[moSchl] ? [{ schluessel:moSchl, text:`📅 Montags fressen die Kühe ${fmZahl(Math.abs(mo.diff).toFixed(1))} ${mo.einheit} je Tier ${mo.diff<0?"weniger":"mehr"} – Montage zählen für die Empfehlung nicht` }] : [];
+  return [...(f ? [f] : []), ...fmMlpCheck(g), ...fmNeuRechnen(g, reihe), ...montag];
 }
 // Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
 function fmReiheBewerten(reihe){
@@ -5185,20 +5187,24 @@ function fmReiheBewerten(reihe){
     t.regenTag = typeof t.regen==="number" && t.regen>=fmWert("regenMm");
     t.hitzeTag = typeof t.thi==="number" && t.thi>=68;
   });
-  const mit=reihe.filter(t=>t.quote!==null);
+  // Ausreißer: nur normale Tage untereinander vergleichen (Regen-/Hitzetage sind erklärt und werden nie markiert)
+  const mit=reihe.filter(t=>t.quote!==null && !t.regenTag && !t.hitzeTag);
   mit.forEach((t,i)=>{
     // Median eines Fensters von bis zu 5 Tagen (der Tag selbst eingeschlossen) – ein einzelner Ausreißer verschiebt ihn nicht
     const nachbarn=[mit[i-2],mit[i-1],t,mit[i+1],mit[i+2]].filter(Boolean).map(x=>x.quote).sort((a,b)=>a-b);
     if(nachbarn.length>=3){
       const m=nachbarn.length%2 ? nachbarn[(nachbarn.length-1)/2] : (nachbarn[nachbarn.length/2-1]+nachbarn[nachbarn.length/2])/2;
-      t.ausreisser = Math.abs(t.quote-m) > fmWert("ausreisserQuote");
+      // Regen- und Hitzetage sind erklärt (zählen in der Lernphase ohnehin nicht) – kein Ausreißer
+      t.ausreisser = !t.regenTag && !t.hitzeTag && Math.abs(t.quote-m) > fmWert("ausreisserQuote");
     }
   });
   return reihe;
 }
 // Bewertung: gleitendes Mittel der letzten Tage → Haken oder Empfehlung (die App schlägt vor, der Mensch entscheidet)
 function fmBewertung(g, reihe){
-  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.ausgelassen && !t.regenTag && !t.hitzeTag);
+  // auffällige Montage (Wochenend-Effekt) zählen nicht
+  const montag=fmMontag(g, reihe), istMo=t=>montag && new Date(t.datum+"T12:00:00").getDay()===1;
+  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.ausgelassen && !t.regenTag && !t.hitzeTag && !istMo(t));
   const letzte=ok.slice(-fmWert("bewertungTage"));
   const leer=reihe.filter(t=>t.quote!==null).slice(-fmWert("leerTage"));
   const proKuh=(data[g.karte] ? data[g.karte].items : []).reduce((s,i)=>s+(num(i.kg)||0),0);
@@ -5423,6 +5429,7 @@ function fmAuswertungHtml(){
   ${fmDemo ? `<div style="background:#fff3cd;padding:6px 10px;border-radius:8px;margin-bottom:6px;font-size:13px">Beispieldaten (30 Tage) – nicht deine echten Werte.</div>` : ""}
   ${wetter}
   ${fmWechselHtml()}
+  ${fmKorrekturZeilen()}
   ${fmOhneHtml()}
   ${zeilen || `<div class="history-box" style="color:#666">Noch keine Kuhgruppe „mit Restauswertung“ – unten unter „Einrichtung“ anlegen.</div>`}
   ${offen ? `<div class="history-box" style="margin-top:8px;color:#b36b00;font-weight:bold" onclick="fmEinrichtungZu=false;fmBauen()">${offen===1?"1 Stall ist":offen+" Ställe sind"} noch keiner Futtergruppe zugeordnet</div>` : ""}`;
@@ -6246,6 +6253,76 @@ function fmAbladenZeilen(g, gesamtVorgabe){
   return plaetze.map(p=>({ p, fest:p.id in fest, menge: p.id in fest ? fest[p.id] : (offenAnteil>0 ? Math.max(0,gesamt-festSumme)*anteil(p)/offenAnteil : 0) }));
 }
 
+// --- Lernen Regen / Hitze / Wochenende (Paket Punkt 12) ---
+// Phase A (lernt noch): Regen- und Hitzetage zählen nicht für Empfehlungen. Phase B (gelernt): mindestens N betroffene und
+// N normale Tage im Zeitraum und ein eindeutiges Ergebnis (Unterschied größer als 2 Standardfehler). Dann an solchen Tagen:
+// Regen → Soll der draußen vorgelagerten Komponenten erhöhen (TM gleich), Hitze in der Vorhersage → ganze Mischung reduzieren (max.).
+// In der Testversion nur als Zeile im Reiter „Fressmenge“; in den Rechner wird nichts eingerechnet.
+function fmLernTage(){
+  const ab=fmTagPlus(fmIso(new Date()), -fmWert("lernZeitraum")), tage=[];
+  fmGruppen().filter(g=>g.art==="rest" && g.auswerten!==false).forEach(g=>{
+    const f=fmFeld(g).k, reihe=fmReihe(g).filter(t=>t.datum>=ab && t[f]!=null && !t.ausreisser && !t.ausgelassen);
+    if(reihe.length<3) return;
+    const mittel=reihe.reduce((s,t)=>s+t[f],0)/reihe.length;
+    reihe.forEach(t=>tage.push({ datum:t.datum, rel:t[f]/mittel-1, regen:t.regenTag, hitze:t.hitzeTag }));   // relativ zum Mittel der Gruppe
+  });
+  return tage;
+}
+function fmLernErgebnis(art){
+  const tage=fmLernTage(), n=fmWert("lernTage");
+  const betroffen=tage.filter(t=>t[art]), normal=tage.filter(t=>!t.regen && !t.hitze);
+  const e={ art, betroffen:betroffen.length, normal:normal.length, noetig:n, gelernt:false };
+  if(betroffen.length<n || normal.length<n) return e;
+  const m=l=>l.reduce((s,t)=>s+t.rel,0)/l.length, v=l=>{ const x=m(l); return l.reduce((s,t)=>s+(t.rel-x)*(t.rel-x),0)/(l.length-1); };
+  const diff=m(betroffen)-m(normal), se=Math.sqrt(v(betroffen)/betroffen.length+v(normal)/normal.length);
+  e.wirkung=diff; e.eindeutig = se>0 ? Math.abs(diff)>2*se : Math.abs(diff)>0;
+  e.gelernt=e.eindeutig;
+  return e;
+}
+function fmLernText(e){
+  const name=e.art==="regen" ? "Regen" : "Hitze", tagName=e.art==="regen" ? "Regentagen" : "Hitzetagen";
+  if(e.betroffen<e.noetig || e.normal<e.noetig) return `${name}: lernt noch (${Math.min(e.betroffen,e.noetig)} von ${e.noetig} ${tagName}, ${Math.min(e.normal,e.noetig)} von ${e.noetig} normalen Tagen)`;
+  if(!e.gelernt) return `${name}: kein eindeutiger Einfluss (${e.betroffen} ${tagName})`;
+  return `${name}: gelernt – an ${tagName} ${e.wirkung<0?"−":"+"}${fmZahl(Math.abs(e.wirkung*100).toFixed(1))} % Fressmenge`;
+}
+// Wochenend-Effekt: auffällige Montage (Unterschied in kg je Tier ab Schwelle) → Meldung, Montage zählen dann nicht
+function fmMontag(g, reihe){
+  // Ausreißer zählen hier mit: ein Ausreißer, der immer montags kommt, ist der Wochenend-Effekt
+  const f=fmFeld(g).k, ok=reihe.filter(t=>t[f]!=null && !t.ausgelassen);
+  const mo=ok.filter(t=>new Date(t.datum+"T12:00:00").getDay()===1), rest=ok.filter(t=>new Date(t.datum+"T12:00:00").getDay()!==1);
+  if(mo.length<3 || rest.length<fmWert("bewertungMin")) return null;
+  const m=l=>l.reduce((s,t)=>s+t[f],0)/l.length, d=m(mo)-m(rest);
+  const schwelle = f==="jeTierTm" ? fmWert("wochenendTm") : fmWert("wochenendTm")/0.45;
+  return Math.abs(d)>=schwelle ? { diff:d, einheit:fmFeld(g).e } : null;
+}
+// Zeilen im Reiter an Regen-/Hitzetagen (nur Phase B, nur wenn der Unterschalter an ist)
+function fmHeuteAus(art){ (fmCfg.heuteAus=fmCfg.heuteAus||{})[art]=fmIso(new Date()); fmSpeichern(); }
+function fmKorrekturZeilen(){
+  const heute=fmIso(new Date()), w=(fmTage[heute]||{}).wetter, wm=(fmTage[fmTagPlus(heute,1)]||{}).wetter, aus=fmCfg.heuteAus||{}, z=[];
+  if(w && fmCfg.regen!==false && w.regen>=fmWert("regenMm") && aus.regen!==heute){
+    const e=fmLernErgebnis("regen");
+    if(e.gelernt && e.wirkung<0){
+      const plus=Math.min(25, -e.wirkung*100), kompo=String(fmCfg.draussen||"Grassilage, Maissilage");
+      z.push(`<div class="history-box fm-korrektur" data-art="regen" style="margin-top:8px">💧 Regen ${fmZahl(w.regen.toFixed(1))} mm · ${fmEsc(kompo)} +${fmZahl(plus.toFixed(0))} % <button onclick="fmHeuteAus('regen')" style="font-size:13px">heute aus</button>${istTestversion?`<div style="font-size:12px;color:#666">Testversion: nur Anzeige</div>`:""}</div>`);
+    }
+  }
+  const heiss = wm && fmThi(wm.tmax, wm.rh)>=68;
+  if(heiss && fmCfg.hitze!==false && aus.hitze!==heute){
+    const e=fmLernErgebnis("hitze");
+    if(e.gelernt && e.wirkung<0){
+      const minus=Math.min(fmWert("hitzeMax"), -e.wirkung*100);
+      z.push(`<div class="history-box fm-korrektur" data-art="hitze" style="margin-top:8px">🔥 Hitze ${Math.round(wm.tmax)} °C · Mischung −${fmZahl(minus.toFixed(0))} % <button onclick="fmHeuteAus('hitze')" style="font-size:13px">heute aus</button>${istTestversion?`<div style="font-size:12px;color:#666">Testversion: nur Anzeige</div>`:""}</div>`);
+    }
+  }
+  return z.join("");
+}
+function fmLernstandHtml(){
+  return `<div style="margin-top:10px;font-size:13px"><b>Lernen Regen/Hitze</b>
+    <div class="fm-lernstand">${fmLernText(fmLernErgebnis("regen"))}</div><div class="fm-lernstand">${fmLernText(fmLernErgebnis("hitze"))}</div>
+    <div style="margin-top:6px">Draußen vorgelagert (für den Regenzuschlag):
+      <input value="${fmEsc(fmCfg.draussen||"Grassilage, Maissilage")}" style="width:180px" onchange="fmCfg.draussen=this.value.trim();fmSpeichern()"></div></div>`;
+}
+
 // Nach dem Laden im Hintergrund neu zeichnen – aber nicht, während jemand im Reiter etwas eintippt
 function fmNeuZeichnen(){
   if(cloud.zeigerUnten && Date.now()-cloud.zeigerSeit<5000){ setTimeout(fmNeuZeichnen,300); return; }
@@ -6305,6 +6382,7 @@ function fmBauen(){
     </div>`).join("")}
     <button class="save-btn" style="margin-top:8px" onclick="fmStandard()">Standard wiederherstellen</button>
     ${fmStandardTabelleHtml()}
+    ${fmLernstandHtml()}
     </div>
   </div>
     ${istTestversion ? `<button onclick="fmTestdatenZuruecksetzen()" style="margin-top:12px;font-size:13px">Testdaten zurücksetzen</button>` : ""}
