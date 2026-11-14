@@ -153,6 +153,8 @@ async function main() {
 
     await pruefe("Rest „nicht füttern“ / zugeordnet → Reiter nicht mehr orange", async () => {
       for (const id of ["s2", "stroh", "diele"]) await T.locator(`.fm-frei[data-platz="${id}"] input`).check();
+      // Gruppe „Jungvieh“ (ohne Reste) hat ihre Startwert-Frage schon beantwortet – sonst färbt die offene Frage den Reiter
+      await T.evaluate(() => { (fmCfg.lern = fmCfg.lern || {})[fmCfg.gruppen[1].id] = { faktor: 2.5, seit: fmIso(new Date()) }; fmSpeichern(); });
       assert.strictEqual((await tab(T)).orange, false, await T.textContent("#fm-nicht-zugeordnet"));
     });
 

@@ -29,10 +29,11 @@ Die normale App (https://taupke-pixel.github.io/Futterrechner/) ist **unverände
 | 7 | Rationswechsel über __ Tage auf Basis TM (Tag x von y, Dauer ändern, pausieren, abschließen, abbrechen); normale App schreibt die Tagesration einmal je Tag, Testversion zeigt nur an |
 | 13 (Ergänzung) | Auswertung in kg TM, Milch aus Energie mit Fett/Eiweiß aus der MLP (Herdenmanager), drei Zahlen (Milch möglich/MLP, Milchgeld − Futter, Reste Vormonat €), Milchpreis-Frage bei neuer MLP |
 | 15 (Ergänzung) | MLP-Check nur bei Auffälligkeit (frische Kühe Eiweiß < 3,1 % / FEQ > 1,5 als „x von y“, Harnstoff, Energie knapp) und „Ration neu rechnen“ nach Wartezeit (Fressmenge weicht vom Ansatz ab / Energie ausgeschöpft); Grenzen in „Erweitert“ |
+| 9/10/14 | Gruppen ohne Reste: Standard-Fressmengen je Tierklasse (Art, Alter, tragend/Tage bis Kalbung; Holstein/Fleckvieh; Tabelle in „Erweitert“ änderbar), Startwert-Frage „Wie viel kg lädst du hier heute ungefähr ab?“, Menge im Rechner übernehmen (Restmischung: Zielgewicht), Abladen nach Bedarf, „Anders abgeladen?“ mit [Nur heute]/[Ab jetzt so], Lernfrage bei wiederholten Korrekturen, „Wie gerechnet?“, „Menge neu festlegen“, Stand des Lernens |
 | 0 | Beispieldaten (30 Tage) ein-/ausblenden, „Testdaten zurücksetzen“ |
 
 ## Noch offen
-- Standard-Fressmengen-Tabelle und Lernen für Gruppen ohne Reste (Punkte 9, 14), Zielgewicht Restmischung automatisch.
+- Getrennte Lernfaktoren je Tierart innerhalb einer Gruppe (Punkt 14, braucht viele Tage mit wechselnder Zusammensetzung).
 - Regen-/Hitze-Korrektur (Phase B, braucht 15+15 Tage).
 - „Übernehmen“ der Empfehlung ist in der Testversion gesperrt (Spiegel) – geht erst in der normalen App.
 

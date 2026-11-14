@@ -5030,6 +5030,9 @@ function fmTiereMerken(){
     t[g.id]={ anzahl:p.reduce((s,x)=>s+(x.anzahl||0),0), lakt:p.reduce((s,x)=>s+fmLaktierend(x),0) };
   });
   fmTag(fmIso(new Date())).tiere=t;
+  // Menge der Gruppen ohne Reste für heute merken (Plakette „+24 kg heute“ am nächsten Tag)
+  const menge={}; fmGruppen().filter(g=>g.art!=="rest").forEach(g=>{ const m=fmGruppeMenge(g); if(m) menge[g.id]=m.kg; });
+  fmTag(fmIso(new Date())).menge=menge;
   fmTageMerken();
 }
 
@@ -5094,6 +5097,8 @@ function fmMilchpreisSetzen(feld){
 }
 function fmOffeneFrage(){
   const mp=fmMilchpreisFrage(); if(mp) return mp;
+  const sw=fmStartwertFrage(); if(sw) return sw;
+  const lf=fmLernFrage(); if(lf) return lf;
   const grenze=fmTagPlus(fmIso(new Date()),-3);
   for(const g of fmGruppen().filter(x=>x.art==="rest" && x.auswerten!==false)){
     const reihe=fmReihe(g);
@@ -5401,7 +5406,13 @@ function fmAuswertungHtml(){
     <b>${frage.titel}</b><br>
     <span style="font-size:14px">${frage.text}</span>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
-      ${frage.art==="milchpreis"
+      ${frage.art==="startwert"
+        ? `<input id="fm-startwert" type="text" inputmode="decimal" style="width:90px"> kg
+           <button class="save-btn" onclick="fmStartwertSetzen('${frage.g.id}',document.getElementById('fm-startwert'))">Speichern</button>`
+        : frage.art==="lernfrage"
+        ? `<button class="save-btn" onclick="fmLernAntwort('${frage.g.id}',true,${frage.verh})">Ja</button>
+           <button class="save-btn" onclick="fmLernAntwort('${frage.g.id}',false)">Nein</button>`
+        : frage.art==="milchpreis"
         ? `<input id="fm-milchpreis-frage" type="text" inputmode="decimal" value="${typeof fmCfg.milchpreis==="number"?fmZahl(fmCfg.milchpreis):""}" style="width:90px"> ct/kg
            <button class="save-btn" onclick="fmMilchpreisSetzen(document.getElementById('fm-milchpreis-frage'))">Speichern</button>`
         : frage.knoepfe.map(([text,wert])=>`<button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.tage.join(",")}','${wert}')">${text}</button>`).join("")}
@@ -5412,6 +5423,7 @@ function fmAuswertungHtml(){
   ${fmDemo ? `<div style="background:#fff3cd;padding:6px 10px;border-radius:8px;margin-bottom:6px;font-size:13px">Beispieldaten (30 Tage) – nicht deine echten Werte.</div>` : ""}
   ${wetter}
   ${fmWechselHtml()}
+  ${fmOhneHtml()}
   ${zeilen || `<div class="history-box" style="color:#666">Noch keine Kuhgruppe „mit Restauswertung“ – unten unter „Einrichtung“ anlegen.</div>`}
   ${offen ? `<div class="history-box" style="margin-top:8px;color:#b36b00;font-weight:bold" onclick="fmEinrichtungZu=false;fmBauen()">${offen===1?"1 Stall ist":offen+" Ställe sind"} noch keiner Futtergruppe zugeordnet</div>` : ""}`;
 }
@@ -5437,17 +5449,30 @@ function fmTierzahlGruppe(g){
 function fmTierzahlUebernehmen(k, n){ data[k].anz=n; save(); buildCalc(); }
 function fmLetzteTiere(k){ const e=historyData.find(x=>x && x.kategorie===k); return e ? num(e.tiere) : null; }
 function fmAbladenHtml(g, gesamt){
-  const plaetze=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
-  const anteil=p=>g.art==="rest" ? fmLaktierend(p) : (p.anzahl||0);
-  const summe=plaetze.reduce((s,p)=>s+anteil(p),0);
-  if(plaetze.length<2 || summe<=0 || !(gesamt>0)) return "";
+  const z=fmAbladenZeilen(g, gesamt);
+  if(!z || z.length<2 || !(gesamt>0)) return "";
   let rest=gesamt;
-  return `<div class="fm-abladen" style="margin:8px 0">${plaetze.map((p,i)=>{
-    const menge=gesamt*anteil(p)/summe;
-    if(i===plaetze.length-1) return `<div style="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold">→ Rest: ${fmPlatzName(p)} ${menge.toFixed(0)} kg</div>`;
+  // Zeile antippen = „Anders abgeladen?“ (tatsächliche Menge; die übrigen Ställe werden neu verteilt)
+  return `<div class="fm-abladen" style="margin:8px 0">${z.map(({p,menge,fest},i)=>{
+    const stil=`background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold;cursor:pointer`;
+    const klick=`onclick="fmAndersOeffnen('${g.id}','${p.id}')"`, merk=fest?" ✎":"";
+    if(i===z.length-1) return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>→ Rest: ${fmPlatzName(p)} ${menge.toFixed(0)} kg${merk}</div>`;
     rest-=menge;
-    return `<div style="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold">▼ ${fmPlatzName(p)} abladen bis ${rest.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span></div>`;
+    return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>▼ ${fmPlatzName(p)} abladen bis ${rest.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span>${merk}</div>`;
   }).join("")}</div>`;
+}
+// Gruppe ohne Reste: Menge aus den Ställen übernehmen (Restmischung: Zielgewicht wie bei Eingabe von Hand, sonst Tierzahl passend zur Menge)
+function fmMengeUebernehmen(k, kg){
+  if(k==="restbullen"){
+    data.restbullen.ziel=Math.round(kg);
+    let proBulle=0; data[restZiel()].items.forEach(i=>{ if(i.kg>0) proBulle+=i.kg; });
+    data.restbullen.anz = proBulle>0 ? Math.round(data.restbullen.ziel/proBulle) : 0;
+  } else {
+    const pro=data[k].items.reduce((s,i)=>s+(i.kg>0?i.kg:0),0);
+    if(!(pro>0)) return;
+    data[k].anz=Math.round(kg/pro*10)/10;
+  }
+  save(); buildCalc();
 }
 // Rechner neu zeichnen (neue Stallzahlen) – nicht während einer Eingabe oder solange der Finger auf einem Knopf liegt
 function fmRechnerNeu(){
@@ -5465,7 +5490,23 @@ function fmRechnerErgaenzen(){
     const karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
     if(!body) return;
     const n=fmTierzahlGruppe(g);
-    if(k!=="restbullen"){
+    if(g.art!=="rest"){
+      // Gruppe ohne Reste: Menge aus den Ställen (Standard-Fressmengen × Lernfaktor), Plakette bei Änderung zu gestern
+      const m=fmGruppeMenge(g);
+      const zeile=document.createElement("div");
+      zeile.className="fm-hm-zeile";
+      zeile.style.cssText="font-size:13px;color:#555;margin:4px 0 6px";
+      if(!m) zeile.innerHTML=`Aus den Ställen (${fmTiere(n)}): Menge erst nach der Schätzung im Reiter „Fressmenge“`;
+      else {
+        const gestern=((fmTage[fmTagPlus(fmIso(new Date()),-1)]||{}).menge||{})[g.id], diff = typeof gestern==="number" ? Math.round(m.kg-gestern) : 0;
+        const ist = k==="restbullen" ? num(data.restbullen.ziel) : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
+        zeile.innerHTML=`Aus den Ställen (${fmTiere(n)}): <b>${Math.round(m.kg)} kg</b>`
+          + (diff ? ` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} kg heute</span>` : "")
+          + (Math.abs(m.kg-(ist||0))>=1 ? ` <button onclick="fmMengeUebernehmen('${k}',${m.kg.toFixed(1)})" style="font-size:13px">übernehmen</button>` : "");
+      }
+      const feld=body.querySelector("input");
+      if(feld) feld.insertAdjacentElement("afterend", zeile); else body.prepend(zeile);
+    } else if(k!=="restbullen"){
       const letzte=fmLetzteTiere(k), diff = letzte!==null ? n-letzte : 0;
       const zeile=document.createElement("div");
       zeile.className="fm-hm-zeile";
@@ -6008,6 +6049,203 @@ function fmRationNeu(r){
   return true;
 }
 
+// --- Gruppen ohne Reste (Paket Punkte 9, 10, 14): Menge je Stall aus Standard-Fressmengen × Lernfaktor ---
+// Standard-Fressmengen in kg TM je Tier und Tag (Orientierungswerte nach DLG-/GfE-Richtwerten; in „Erweitert“ änderbar).
+// Ob ein Tier zählt, hängt nur vom Stall ab. Sichtbar ist nur das Ergebnis in kg; „Wie gerechnet?“ beim Antippen.
+const FM_STANDARD=[
+  ["kalb0","Kalb 0–29 Tage (ohne Milch)",0.2,0.2],
+  ["kalb1","Kalb 30–59 Tage",0.6,0.6],
+  ["kalb2","Kalb 60–89 Tage",1.3,1.3],
+  ["kalb3","Kalb 90–179 Tage",2.8,2.9],
+  ["jr1","Jungrind weiblich 6–12 Monate",5.0,5.3],
+  ["jr2","Jungrind weiblich 12–18 Monate",7.0,7.4],
+  ["jr3","Jungrind weiblich 18–24 Monate",9.0,9.5],
+  ["jr4","Jungrind weiblich ab 24 Monate",10.0,10.5],
+  ["faerse","Färse tragend",11.0,11.5],
+  ["faerseNah","Färse tragend, unter 21 Tage bis Kalbung",10.5,11.0],
+  ["bulle1","Mastbulle 3–6 Monate",3.5,3.5],
+  ["bulle2","Mastbulle 6–12 Monate",6.5,6.5],
+  ["bulle3","Mastbulle 12–18 Monate",8.5,8.5],
+  ["bulle4","Mastbulle ab 18 Monate",9.5,9.5],
+  ["trocken","Trockensteher",12.5,12.5],
+  ["trockenNah","Trockensteher, unter 21 Tage bis Kalbung",11.0,11.0],
+  ["laktierend","Laktierende Kuh",20.0,21.0]
+];
+const FM_STANDARD_QUELLE="Orientierungswerte nach DLG-Futterwerttabellen / GfE-Empfehlungen (Mittelwerte, ohne Milch bei Kälbern)";
+function fmStandardWert(schl, fv){
+  const eig=(fmCfg.standardTm||{})[schl+(fv?"_fv":"")];
+  if(typeof eig==="number") return eig;
+  const z=FM_STANDARD.find(x=>x[0]===schl); return z ? z[fv?3:2] : 0;
+}
+const fmUnten=t=>{ const m=String(t||"").match(/^(\d+)/); return m ? +m[1] : null; };
+// Klasse eines Eintrags aus dem Herdenmanager (art, Alter in Tagen, tragend, Tage bis Kalbung)
+function fmStandardKlasse(gr){
+  const alter=fmUnten(gr.altersklasse), tbk=fmUnten(gr.tageBisKalbung);
+  const nachAlter=(stufen)=>{ for(const [bis,k] of stufen) if(alter===null || alter<bis) return k; return stufen[stufen.length-1][1]; };
+  if(gr.art==="laktierend") return "laktierend";
+  if(gr.art==="trocken") return (tbk!==null && tbk<21) ? "trockenNah" : "trocken";
+  if(gr.art==="faerse") return (tbk!==null && tbk<21) ? "faerseNah" : "faerse";
+  if(gr.art==="kalb") return nachAlter([[30,"kalb0"],[60,"kalb1"],[90,"kalb2"],[1e9,"kalb3"]]);
+  if(gr.art==="bulle") return alter!==null && alter<90 ? nachAlter([[30,"kalb0"],[60,"kalb1"],[90,"kalb2"]]) : nachAlter([[180,"bulle1"],[365,"bulle2"],[546,"bulle3"],[1e9,"bulle4"]]);
+  if(alter!==null && alter<180) return nachAlter([[30,"kalb0"],[60,"kalb1"],[90,"kalb2"],[180,"kalb3"]]);
+  return nachAlter([[365,"jr1"],[547,"jr2"],[730,"jr3"],[1e9,"jr4"]]);
+}
+function fmIstFv(gr){ const c=String(fmCfg.fvCodes||"").split(/[ ,;]+/).filter(Boolean); return gr.rasseCode!=null && c.includes(String(gr.rasseCode)); }
+// Bedarf eines Stalls in kg TM (mit Aufschlüsselung)
+function fmStallBedarf(p){
+  const teile={}; let tm=0;
+  (p && !p.entfernt ? p.gruppen||[] : []).forEach(gr=>{
+    const k=fmStandardKlasse(gr), fv=fmIstFv(gr), w=fmStandardWert(k, fv)*(gr.anzahl||0);
+    tm+=w; const t=teile[k+(fv?"_fv":"")]=teile[k+(fv?"_fv":"")]||{ k, fv, anzahl:0, tm:0 }; t.anzahl+=gr.anzahl||0; t.tm+=w;
+  });
+  return { tm, teile:Object.values(teile) };
+}
+function fmGruppeBedarf(g){
+  const st=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt).map(p=>({ p, b:fmStallBedarf(p) }));
+  return { staelle:st, tm:st.reduce((s,x)=>s+x.b.tm,0) };
+}
+// Lernfaktor (kg FM je kg TM Bedarf): Startwert aus der ersten Frage, „Ab jetzt so“ setzt ihn neu
+function fmLern(g){ return (fmCfg.lern||{})[g.id] || null; }
+function fmGruppeMenge(g){
+  const l=fmLern(g), b=fmGruppeBedarf(g);
+  if(!l || !(b.tm>0)) return null;
+  return { kg:b.tm*l.faktor, bedarf:b };
+}
+function fmStartwertSetzen(gid, feld){
+  const g=fmGruppen().find(x=>x.id===gid), kg=parseFloat(String(feld.value).replace(",","."));
+  const b=g ? fmGruppeBedarf(g) : null;
+  if(!g || !(b && b.tm>0)) return;
+  if(isNaN(kg) || kg<=0 || kg>50000){ alert("Bitte die ungefähre Menge in kg eingeben."); return; }
+  (fmCfg.lern=fmCfg.lern||{})[gid]={ faktor:kg/b.tm, seit:fmIso(new Date()), quelle:"start" };
+  fmSpeichern();
+}
+// Offene Startwert-Frage: Gruppe ohne Reste mit Ställen, aber noch ohne Lernfaktor
+function fmStartwertFrage(){
+  if(!fmStall || fmCfg.tierzahlHM===false) return null;
+  const g=fmGruppen().find(x=>x.art!=="rest" && (x.staelle||[]).length && !fmLern(x) && fmGruppeBedarf(x).tm>0);
+  return g ? { art:"startwert", g, titel:`${fmEsc(g.name)}: Wie viel kg lädst du hier heute ungefähr ab?`, text:"Einmal schätzen reicht – danach rechnet die App mit den Tierzahlen aus dem Herdenmanager weiter." } : null;
+}
+// Korrektur an der Abladen-Zeile: [Nur heute] merkt sich die Abweichung, [Ab jetzt so] setzt den Lernfaktor neu
+function fmAbladenKorrigieren(gid, stallId, art){
+  const g=fmGruppen().find(x=>x.id===gid), feld=document.getElementById("fm-anders-kg");
+  if(!g || !feld) return;
+  const ist=parseFloat(String(feld.value).replace(",","."));
+  const soll=fmAbladenSoll(g, stallId);
+  if(isNaN(ist) || ist<0 || !(soll>0)){ alert("Bitte die tatsächlich abgeladene Menge in kg eingeben."); return; }
+  const heute=fmIso(new Date());
+  const tag=fmTag(heute); ((tag.abladen=tag.abladen||{})[gid]=tag.abladen[gid]||{})[stallId]=ist; fmTageMerken();
+  if(g.art!=="rest"){
+    if(art==="immer"){ const l=fmLern(g); if(l){ l.faktor*=ist/soll; l.seit=heute; l.quelle="korrektur"; } }
+    else (fmCfg.korrekturen=fmCfg.korrekturen||[]).push({ gid, stall:stallId, datum:heute, verh:ist/soll });
+  }
+  fmAndersZu(); fmSpeichern(); buildCalc();
+}
+function fmAbladenSoll(g, stallId){
+  const z=fmAbladenZeilen(g); const x=z && z.find(y=>y.p.id===stallId); return x ? x.menge : 0;
+}
+function fmAndersOeffnen(gid, stallId){
+  const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
+  fmAndersZu();
+  const soll=fmAbladenSoll(g, stallId), p=fmPlatz(stallId);
+  const d=document.createElement("div"); d.id="fm-anders";
+  d.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:55;background:#fff;box-shadow:0 -4px 16px rgba(0,0,0,.25);border-radius:14px 14px 0 0;padding:14px 16px 18px";
+  d.innerHTML=`<b>Anders abgeladen? ${fmPlatzName(p)}</b><br><span style="font-size:14px">Gerechnet: ${Math.round(soll)} kg. Tatsächlich abgeladen:</span>
+    <div style="margin-top:8px"><input id="fm-anders-kg" type="text" inputmode="decimal" style="width:100px"> kg</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      ${g.art!=="rest" ? `<button class="save-btn" onclick="fmAbladenKorrigieren('${gid}','${stallId}','heute')">Nur heute</button>
+      <button class="save-btn" onclick="fmAbladenKorrigieren('${gid}','${stallId}','immer')">Ab jetzt so</button>`
+      : `<button class="save-btn" onclick="fmAbladenKorrigieren('${gid}','${stallId}','heute')">Übernehmen</button>`}
+      <button onclick="fmAndersZu()">Abbrechen</button></div>`;
+  document.body.appendChild(d);
+  document.getElementById("fm-anders-kg").focus();
+}
+function fmAndersZu(){ const e=document.getElementById("fm-anders"); if(e) e.remove(); }
+// Reiter „Fressmenge“: Gruppen ohne Reste – Menge heute, „Wie gerechnet?“ nur beim Antippen
+let fmOhneOffen=null;
+function fmOhneUmschalten(id){ fmOhneOffen = fmOhneOffen===id ? null : id; fmBauen(); }
+function fmMengeNeuFestlegen(id){
+  if(!confirm("Menge neu festlegen? Die App fragt dann wieder, wie viel du ungefähr ablädst.")) return;
+  delete (fmCfg.lern||{})[id]; fmSpeichern();
+}
+function fmOhneHtml(){
+  const ohne=fmGruppen().filter(g=>g.art!=="rest" && (g.staelle||[]).length);
+  if(!ohne.length || !fmStall) return "";
+  return ohne.map(g=>{
+    const m=fmGruppeMenge(g), b=fmGruppeBedarf(g), n=fmTierzahlGruppe(g);
+    const gestern=((fmTage[fmTagPlus(fmIso(new Date()),-1)]||{}).menge||{})[g.id], diff = m && typeof gestern==="number" ? Math.round(m.kg-gestern) : 0;
+    return `<div class="history-box fm-ohne" data-gruppe="${g.id}" style="margin-top:8px">
+      <div onclick="fmOhneUmschalten('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px">
+        <div><b>${fmEsc(g.name)}</b> · ${fmTiere(n)}<br><span class="fm-menge">${m ? `heute <b>${Math.round(m.kg)} kg</b>${diff?` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} kg</span>`:""}` : `<span style="color:#666">wartet auf deine Schätzung</span>`}</span></div>
+        <span style="font-size:13px;color:#555">Wie gerechnet? ${fmOhneOffen===g.id?"▲":"▼"}</span></div>
+      ${fmOhneOffen===g.id ? `<div style="font-size:13px;margin-top:6px">
+        ${b.staelle.map(({p,b:sb})=>`<div style="margin-top:4px"><b>${fmPlatzName(p)}</b>: ${fmZahl(sb.tm.toFixed(1))} kg TM${m?` → ${Math.round(sb.tm*fmLern(g).faktor)} kg`:""}
+          ${sb.teile.map(t=>`<div style="padding-left:12px;color:#555">${t.anzahl} × ${fmEsc((FM_STANDARD.find(x=>x[0]===t.k)||[0,t.k])[1])}${t.fv?" (Fleckvieh)":""} = ${fmZahl(t.tm.toFixed(1))} kg TM</div>`).join("")}</div>`).join("")}
+        <div style="margin-top:6px">Bedarf zusammen ${fmZahl(b.tm.toFixed(1))} kg TM${m?` × Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (gelernt) = ${Math.round(m.kg)} kg Mischung`:""}</div>
+        <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+function fmStandardSetzen(schl, feld){
+  const v=parseFloat(String(feld.value).replace(",","."));
+  if(isNaN(v) || v<0 || v>30){ alert("Bitte kg TM je Tier und Tag von 0 bis 30 eingeben."); feld.value=fmZahl(fmStandardWert(schl.replace(/_fv$/,""), /_fv$/.test(schl))); return; }
+  (fmCfg.standardTm=fmCfg.standardTm||{})[schl]=v; fmSpeichern();
+}
+function fmStandardTabelleHtml(){
+  const lern=fmGruppen().filter(g=>g.art!=="rest" && fmLern(g));
+  return `<div style="margin-top:14px"><b>Standard-Fressmengen</b> <span style="font-size:12px;color:#666">kg TM je Tier und Tag · ${FM_STANDARD_QUELLE}</span>
+    <div style="font-size:13px;display:grid;grid-template-columns:1fr auto auto;gap:4px 8px;align-items:center;margin-top:6px">
+      <span></span><span style="color:#666">Holstein</span><span style="color:#666">Fleckvieh</span>
+      ${FM_STANDARD.map(([k,t])=>`<span>${t}</span>
+        <input type="text" inputmode="decimal" value="${fmZahl(fmStandardWert(k,false))}" style="width:52px" onchange="fmStandardSetzen('${k}',this)">
+        <input type="text" inputmode="decimal" value="${fmZahl(fmStandardWert(k,true))}" style="width:52px" onchange="fmStandardSetzen('${k}_fv',this)">`).join("")}
+    </div>
+    <div style="margin-top:6px;font-size:13px">Rassecodes Fleckvieh (aus dem Herdenmanager, mit Komma):
+      <input value="${fmEsc(fmCfg.fvCodes||"")}" style="width:90px" onchange="fmCfg.fvCodes=this.value.trim();fmSpeichern()"></div>
+    ${lern.length ? `<div style="margin-top:8px;font-size:13px"><b>Stand des Lernens</b>${lern.map(g=>`<div>${fmEsc(g.name)}: Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (seit ${fmKurz(fmLern(g).seit)})</div>`).join("")}</div>` : ""}
+  </div>`;
+}
+// Lernfrage: wiederholte „Nur heute“-Korrekturen in dieselbe Richtung → „Du lädst in [Stall] meist 6 % mehr. Annahme anpassen?“
+function fmLernFrage(){
+  const heute=fmIso(new Date()), lf=fmCfg.lernfragen||{};
+  for(const g of fmGruppen().filter(x=>x.art!=="rest" && fmLern(x))){
+    const l=fmLern(g);
+    const k=(fmCfg.korrekturen||[]).filter(x=>x.gid===g.id && x.datum>=(l.seit||"") && x.datum>=fmTagPlus(heute,-fmWert("lernfrageTage")*2));
+    if(k.length<3) continue;
+    const letzte=k.slice(-3), richtung=letzte.every(x=>x.verh>1) ? 1 : letzte.every(x=>x.verh<1) ? -1 : 0;
+    if(!richtung) continue;
+    const mittel=letzte.reduce((s,x)=>s+x.verh,0)/3, abw=Math.abs(mittel-1)*100;
+    if(abw<fmWert("lernfrageMinAbw")) continue;
+    const vorige=lf[g.id];
+    if(vorige && ((vorige.antwort==="nein" && vorige.datum>fmTagPlus(heute,-fmWert("lernfrageNeinTage"))) || vorige.datum>fmTagPlus(heute,-fmWert("lernfrageTage")))) continue;
+    const stall=fmPlatz(letzte[2].stall);
+    return { art:"lernfrage", g, verh:mittel, titel:`Du lädst in ${stall ? fmPlatzName(stall) : fmEsc(g.name)} meist ${fmZahl(abw.toFixed(0))} % ${richtung>0?"mehr":"weniger"}.`, text:"Annahme anpassen?" };
+  }
+  return null;
+}
+function fmLernAntwort(gid, ja, verh){
+  const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
+  const heute=fmIso(new Date());
+  (fmCfg.lernfragen=fmCfg.lernfragen||{})[gid]={ datum:heute, antwort:ja?"ja":"nein" };
+  if(ja){ const l=fmLern(g); if(l){ l.faktor*=verh; l.seit=heute; l.quelle="lernfrage"; } }
+  fmSpeichern();
+}
+// Abladen-Zeilen einer Gruppe: Anteil je Stall nach Tierzahl (Kuhgruppen) bzw. Bedarf (ohne Reste);
+// heute schon anders abgeladene Ställe zählen fest, der Rest wird auf die übrigen Ställe verteilt
+function fmAbladenZeilen(g, gesamtVorgabe){
+  const plaetze=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
+  if(!plaetze.length) return null;
+  const anteil=p=>g.art==="rest" ? fmLaktierend(p) : fmStallBedarf(p).tm;
+  const summe=plaetze.reduce((s,p)=>s+anteil(p),0);
+  let gesamt=gesamtVorgabe;
+  if(!(gesamt>0)){ const m=fmGruppeMenge(g); gesamt = m ? m.kg : null; }
+  if(!(summe>0) || !(gesamt>0)) return null;
+  const fest=((fmTage[fmIso(new Date())]||{}).abladen||{})[g.id]||{};
+  const festSumme=plaetze.reduce((s,p)=>s+(p.id in fest ? fest[p.id] : 0),0);
+  const offenAnteil=plaetze.filter(p=>!(p.id in fest)).reduce((s,p)=>s+anteil(p),0);
+  return plaetze.map(p=>({ p, fest:p.id in fest, menge: p.id in fest ? fest[p.id] : (offenAnteil>0 ? Math.max(0,gesamt-festSumme)*anteil(p)/offenAnteil : 0) }));
+}
+
 // Nach dem Laden im Hintergrund neu zeichnen – aber nicht, während jemand im Reiter etwas eintippt
 function fmNeuZeichnen(){
   if(cloud.zeigerUnten && Date.now()-cloud.zeigerSeit<5000){ setTimeout(fmNeuZeichnen,300); return; }
@@ -6066,6 +6304,7 @@ function fmBauen(){
       <span style="color:#666;font-size:13px;margin-left:6px">Standard ${fmZahl(std)}</span>
     </div>`).join("")}
     <button class="save-btn" style="margin-top:8px" onclick="fmStandard()">Standard wiederherstellen</button>
+    ${fmStandardTabelleHtml()}
     </div>
   </div>
     ${istTestversion ? `<button onclick="fmTestdatenZuruecksetzen()" style="margin-top:12px;font-size:13px">Testdaten zurücksetzen</button>` : ""}
