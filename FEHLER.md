@@ -25,6 +25,7 @@ Rückfrage, F10: zusätzlicher Hinweis). Alle anderen Zahlen sind unverändert.
 | F12 | **Lager: App in der ersten halben Sekunde nach „Speichern“ geschlossen → Abzug fehlt oder doppelt** | ✅ behoben 23.10.2026 (main 2168769, Test `tests/f12.js`) |
 | F13 | Altes Backup (vor dem 3. Futter) laden → beim 3. Futter steht „undefined“ bis zum nächsten Öffnen | ➖ wird nicht behoben (Entscheidung Fritz 23.10.2026) |
 | F14 | Formular (z. B. Lieferung) kann sich zurücksetzen, wenn gerade Daten vom Betrieb ankommen | ✅ behoben 05.11.2026 (main 9310ae2, Test `tests/f14.js`) |
+| F15 | History zeigt nach schnellem Speichern kurz einen veralteten Stand aus der Cloud | 🔎 gemeldet 14.11.2026 – nur melden, Entscheidung Fritz |
 
 ---
 
@@ -138,3 +139,14 @@ History/Einstellungen neu (`neuZeichnen`). Das wartet zwar, solange ein Eingabef
 Tippen auf den Knopf kann es aber dazwischenkommen: Auswahl (Futter) springt auf den ersten Eintrag, eingetippte Menge ist weg.
 Selten im Alltag; Rechnung und gespeicherte Daten sind nicht betroffen. Mögliche Behebung: Vergleich in `empfangen` mit sortierten
 Feldern (keine unnötigen Neuzeichnungen) und offene Formularwerte beim Neuzeichnen erhalten. Nur mit Freigabe von Fritz.
+
+## F15 – History zeigt kurz einen veralteten Stand (gefunden 14.11.2026)
+
+- **Beobachtet:** Werden mehrere Mischungen kurz hintereinander gespeichert (z. B. Kühe, Bullen, Restmischung innerhalb von Sekunden),
+  kommt manchmal kurz ein älterer Stand aus der Cloud zurück (z. B. 46 statt 47 Einträge), gleich danach der richtige.
+  Am Ende stimmt alles; in 6 von 6 Diagnose-Läufen war der Endstand vollständig.
+- **Folge:** Für einen Moment fehlt ein Eintrag in der History-Anzeige bzw. in einem genau dann erstellten Backup.
+  Der Vergleichstest wird dadurch zufällig rot (auch mit der unveränderten Live-Fassung 9310ae2: 3 von 6 Läufen).
+- **Ursache (vermutlich):** `cloudAbonnieren`/`empfangen` übernimmt einen Schnappschuss ohne „hasPendingWrites“, der älter ist als der
+  lokale Stand (je Speichern ein eigenes Paket an Firestore).
+- **Status:** nur gemeldet, nicht behoben (Regel 2). Behebung wäre in der Speicherschicht möglich (veralteten Stand nicht übernehmen).
