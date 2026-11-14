@@ -37,5 +37,5 @@ Die normale App (https://taupke-pixel.github.io/Futterrechner/) ist **unverände
 ## Für Fritz zu tun
 1. Tablet: Testversion neu laden → Reiter „Fressmenge“ → „⚙ Einrichtung“ → Kopplungscode eintragen → „Verbinden“.
 2. Futtergruppen anlegen und Ställe zuordnen; Rest als „nicht füttern“ abhaken.
-3. Entscheiden: Regel-Ergänzung `test/` veröffentlichen? (dann gelten die Einstellungen auf allen Geräten)
+3. Regel-Ergänzung `test/`: **nicht nötig** – Fritz testet nur auf dem Tablet (Entscheidung 14.11.2026). Bleibt unveröffentlicht.
 4. Berater-PDF schicken.
