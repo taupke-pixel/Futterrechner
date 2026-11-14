@@ -63,7 +63,7 @@ async function main() {
   const context = await browser.newContext({ timezoneId: "Europe/Berlin", locale: "de-DE" });
   const page = await context.newPage();
   const meldungen = [];
-  page.on("dialog", d => { meldungen.push(d.message()); d.accept(); });
+  page.on("dialog", d => { meldungen.push(d.message()); d.accept(d.type() === "prompt" ? "0" : undefined); });
   page.on("pageerror", e => meldungen.push("SEITENFEHLER: " + e.message));
   await zugang.vorbereiten(context, page, "emulator");
   const lesen = async bytes => page.evaluate(async b64 => {

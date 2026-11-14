@@ -4799,6 +4799,11 @@ async function fmStallzahlenHolen(erzwingen){
     fmStallFehler="";
     fmTiereMerken();
     fmRechnerNeu();
+    // MLP-Summen je Stall (gleicher Weg, nur lesen); fehlt das Dokument, bleibt der letzte Stand
+    try{
+      const m=await fetch(url.replace("/stallzahlen?","/mlpStall?"));
+      if(m.ok){ fmMlp=fmRest({ mapValue:{ fields:(await m.json()).fields||{} } }); try{ localStorage.setItem("fmMlp", JSON.stringify(fmMlp)); }catch(e){} }
+    }catch(e){}
   }catch(e){
     fmStallFehler = (e && e.message && !/fetch/i.test(e.message)) ? e.message : "Keine Verbindung zum Herdenmanager – es gelten die zuletzt geholten Zahlen.";
   }
@@ -5053,8 +5058,16 @@ function fmReihe(g){
     const w=(fmTage[v] && fmTage[v].wetter) || {};
     reihe.push({ datum:v, vorlage:vorlage[v], rest, fehlt, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
-  return fmAntwortenAnwenden(g, fmReiheBewerten(reihe));
+  return fmAntwortenAnwenden(g, fmTmErgaenzen(g, fmReiheBewerten(reihe)));
 }
+// Mit der Trockensubstanz der Mischung (aus der Berater-Ration) zusätzlich in kg TM rechnen
+function fmTmErgaenzen(g, reihe){
+  const ts=fmTsVon(g.karte);
+  reihe.forEach(t=>{ t.ts=ts; t.jeTierTm = (ts && t.jeTier!==null) ? t.jeTier*ts : null; });
+  return reihe;
+}
+// Einheit der Anzeige: kg TM, sobald die Trockensubstanz bekannt ist, sonst kg FM
+function fmFeld(g){ return fmTsVon(g.karte) ? { k:"jeTierTm", e:"kg TM" } : { k:"jeTier", e:"kg FM" }; }
 // Antworten auf „Heute etwas anders?“: „Alles normal“ = Tag zählt doch, „Später gefüttert“/„Problem“ = Tag zählt nicht
 function fmAntwortenAnwenden(g, reihe){
   const a=fmCfg.antworten||{};
@@ -5063,7 +5076,21 @@ function fmAntwortenAnwenden(g, reihe){
 }
 function fmAntworten(gid, tage, x){ fmCfg.antworten=fmCfg.antworten||{}; String(tage).split(",").forEach(d=>{ fmCfg.antworten[gid+"|"+d]=x; }); fmSpeichern(); }
 // Offene Frage: jüngster Ausreißer der letzten 3 Tage ohne Antwort (je Gruppe einmal)
+// Neue MLP im Herdenmanager → einmal nach dem Milchpreis fragen (letzter vorausgefüllt)
+function fmMilchpreisFrage(){
+  if(!fmMlp || !fmMlp.mlpDatum || fmCfg.milchpreisMlp===fmMlp.mlpDatum) return null;
+  if(!fmGruppen().some(g=>g.art==="rest" && fmMlpGruppe(g))) return null;
+  return { art:"milchpreis", titel:`Neue MLP vom ${fmKurz(fmMlp.mlpDatum)}${fmMlp.mlpDatum.slice(0,4)}`, text:"Welcher Milchpreis gilt gerade (ct je kg)?" };
+}
+function fmMilchpreisSetzen(feld){
+  const v=parseFloat(String(feld.value).replace(",","."));
+  if(isNaN(v) || v<10 || v>100){ alert("Bitte den Milchpreis in Cent je kg eingeben (z. B. 45,5)."); return; }
+  fmCfg.milchpreis=Math.round(v*100)/100;
+  if(fmMlp && fmMlp.mlpDatum) fmCfg.milchpreisMlp=fmMlp.mlpDatum;
+  fmSpeichern();
+}
 function fmOffeneFrage(){
+  const mp=fmMilchpreisFrage(); if(mp) return mp;
   const grenze=fmTagPlus(fmIso(new Date()),-3);
   for(const g of fmGruppen().filter(x=>x.art==="rest" && x.auswerten!==false)){
     const reihe=fmReihe(g);
@@ -5084,19 +5111,20 @@ function fmOffeneFrage(){
   return null;
 }
 // Frühwarnung: gefressen je Tier fällt über ein paar Tage deutlich – ohne Regen, Hitze oder weniger Tiere.
-// Bis die Ration mit Trockensubstanz da ist, wird in kg FM verglichen (Schwelle aus „Erweitert“ in kg TM, umgerechnet mit 45 % TS).
+// Mit Berater-Ration in kg TM; bis dahin in kg FM (Schwelle aus „Erweitert“ in kg TM, umgerechnet mit 45 % TS).
 function fmFruehwarnung(g, reihe){
-  const ok=reihe.filter(t=>t.jeTier!==null && !t.ausreisser && !t.ausgelassen);
+  const f=fmFeld(g), wert=t=>t[f.k];
+  const ok=reihe.filter(t=>wert(t)!==null && wert(t)!==undefined && !t.ausreisser && !t.ausgelassen);
   const n=fmWert("fruehTage"), letzte=ok.slice(-n), davor=ok.slice(-n-fmWert("bewertungTage"), -n);
   if(letzte.length<n || davor.length<fmWert("bewertungMin")) return null;
   if(letzte.some(t=>t.regenTag || t.hitzeTag)) return null;
   const mittel=(l,f)=>l.reduce((s,t)=>s+f(t),0)/l.length;
   if(mittel(letzte,t=>t.tiere) < mittel(davor,t=>t.tiere)-0.5) return null;
-  const rueckgang=mittel(davor,t=>t.jeTier)-mittel(letzte,t=>t.jeTier);
-  if(rueckgang < fmWert("fruehTm")/0.45) return null;
+  const rueckgang=mittel(davor,wert)-mittel(letzte,wert);
+  if(rueckgang < (f.k==="jeTierTm" ? fmWert("fruehTm") : fmWert("fruehTm")/0.45)) return null;
   const schluessel=g.id+"|"+letzte[letzte.length-1].datum+"|frueh";
   if((fmCfg.erledigt||{})[schluessel]) return null;
-  return { schluessel, text:`⚠ Frühwarnung: gefressen je Tier −${fmZahl(rueckgang.toFixed(1))} kg FM in ${n} Tagen (ohne Regen, Hitze oder weniger Tiere)` };
+  return { schluessel, text:`⚠ Frühwarnung: gefressen je Tier −${fmZahl(rueckgang.toFixed(1))} ${f.e} in ${n} Tagen (ohne Regen, Hitze oder weniger Tiere)` };
 }
 function fmErledigt(schluessel){ (fmCfg.erledigt=fmCfg.erledigt||{})[schluessel]=new Date().toISOString(); fmSpeichern(); }
 // Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
@@ -5189,24 +5217,72 @@ function fmVerlaufHtml(g, reihe){
     ${[7,30,90].map(n=>knopf(fmZeitraum===n,n+" Tage",`fmZeitraumSetzen(${n})`)).join("")}</div>`;
   if(!r.length) return kopf+`<div style="color:#666;font-size:13px">Für diesen Zeitraum gibt es noch keine Tage.</div>`;
   if(fmAnsicht==="liste"){
-    return kopf+`<div class="fm-liste">${r.slice().reverse().map((t,i,arr)=>{
+    return kopf+fmDreiZahlenHtml(g, reihe)+`<div class="fm-liste">${r.slice().reverse().map((t,i,arr)=>{
       const davor=arr[i+1], geaendert = davor && t.tiere && davor.tiere && Math.abs(t.vorlage/t.tiere - davor.vorlage/davor.tiere) > 0.05*(davor.vorlage/davor.tiere);
       const im = t.quote!==null && t.quote>=fmWert("restZielVon") && t.quote<=fmWert("restZielBis");
       return `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #eee;font-size:14px">
         <span style="width:52px">${fmKurz(t.datum)}</span>
         <span style="width:64px;font-weight:bold;color:${t.quote===null?"#999":im?"#2e7d32":"#d97a00"}">${t.quote===null?"–":fmZahl(t.quote.toFixed(1))+" %"}</span>
-        <span style="width:84px">${t.jeTier===null?"":fmZahl(t.jeTier.toFixed(1))+" kg/Tier"}</span>
+        <span style="width:96px">${t[fmFeld(g).k]==null?"":fmZahl(t[fmFeld(g).k].toFixed(1))+" "+fmFeld(g).e}</span>
         <span style="width:46px">${typeof t.tmax==="number"?Math.round(t.tmax)+" °C":""}</span>
         <span>${t.regenTag?"💧":""}${geaendert?" ↑":""}${t.ausreisser?" ⚠":""}${t.hitzeTag?" 🔥":""}</span></div>`; }).join("")}</div>`;
   }
-  const jeTier=r.filter(t=>t.jeTier!==null);
-  const titel = jeTier.length>1 ? `${fmZahl(jeTier[0].jeTier.toFixed(1))} → ${fmZahl(jeTier[jeTier.length-1].jeTier.toFixed(1))} kg FM je Tier` : "";
+  const f=fmFeld(g), jeTier=r.filter(t=>t[f.k]!=null);
+  const titel = jeTier.length>1 ? `${fmZahl(jeTier[0][f.k].toFixed(1))} → ${fmZahl(jeTier[jeTier.length-1][f.k].toFixed(1))} ${f.e} je Tier` : "";
   return kopf+`
+    ${fmDreiZahlenHtml(g, reihe)}
     <div style="font-weight:bold;margin-top:4px">Reste, Temperatur, Regen</div>
     <div style="position:relative;height:240px"><canvas id="fm-chart-reste"></canvas></div>
     <div style="font-weight:bold;margin-top:12px">Gefressen je Tier ${titel ? "· "+titel : ""}</div>
     <div style="position:relative;height:180px"><canvas id="fm-chart-gefressen"></canvas></div>
-    <div style="font-size:12px;color:#666;margin-top:4px">kg Frischmasse – in kg TM, sobald die Berater-Ration (Trockensubstanz) da ist.</div>`;
+    ${f.k==="jeTier" ? `<div style="font-size:12px;color:#666;margin-top:4px">kg Frischmasse – in kg TM, sobald die Berater-Ration (Trockensubstanz) da ist.</div>` : ""}`;
+}
+// --- MLP aus dem Herdenmanager (Summen je Stall) und Kennzahlen für Milch und Geld ---
+let fmMlp=(()=>{ try{ return JSON.parse(localStorage.getItem("fmMlp")||"null"); }catch(e){ return null; } })();
+function fmMlpGruppe(g){
+  if(!fmMlp || !fmMlp.staelle) return null;
+  const s=(g.staelle||[]).map(id=>fmMlp.staelle[id]).filter(Boolean);
+  if(!s.length) return null;
+  const sum=k=>s.reduce((x,y)=>x+(num(y[k])||0),0), milch=sum("milchSumme"), n=sum("anzahl");
+  if(!(milch>0) || !(n>0)) return null;
+  return { datum:fmMlp.mlpDatum, anzahl:n, milchJeKuh:milch/n, fett:sum("fettKgSumme")/milch*100, eiweiss:sum("eiweissKgSumme")/milch*100,
+    harnstoff:sum("harnstoffMalMilchSumme")/milch, frische:sum("anzahlFrische"), frischeFeq:sum("anzahlFrischeFeqUeber15"), frischeEiweiss:sum("anzahlFrischeEiweissUnter31") };
+}
+// Fett/Eiweiß der Gruppe: aus der MLP, sonst Standard aus „Erweitert“ (Gruppe 1 = Kühe, Gruppe 2 = Kühe Gruppe 2)
+function fmFettEiweiss(g){
+  const m=fmMlpGruppe(g);
+  if(m) return { fett:m.fett, eiweiss:m.eiweiss, ausMlp:true };
+  return g.karte==="kuehe2" ? { fett:fmWert("fett2"), eiweiss:fmWert("eiweiss2") } : { fett:fmWert("fett1"), eiweiss:fmWert("eiweiss1") };
+}
+// Milch aus Energie = (kg TM × NEL je kg TM − Erhaltung) / (0,38·Fett + 0,21·Eiweiß + 1,05)
+function fmMilchAusEnergie(kgTm, nelJeKgTm, fett, eiweiss){
+  return (kgTm*nelJeKgTm - fmWert("erhaltungNel")) / (0.38*fett + 0.21*eiweiss + 1.05);
+}
+// Futterkosten je Tier und Tag aus der kompletten Ration (Preise je t aus der Berater-Ration)
+function fmKomponente(z){ const l=(fmCfg.komponenten||{})[z.typ==="futter" ? z.name : z.typ]; return l && l.length ? l[l.length-1] : null; }
+function fmKosten(komplett){
+  let euro=0, ohnePreis=0;
+  komplett.forEach(z=>{ const k=fmKomponente(z); if(k && typeof k.preis==="number") euro+=z.kg*k.preis/1000; else if(z.kg>0) ohnePreis++; });
+  return { euro, ohnePreis };
+}
+function fmDreiZahlenHtml(g, reihe){
+  const r=fmRationVon(g.karte), m=fmMlpGruppe(g), fe=fmFettEiweiss(g);
+  if(!r) return `<div style="font-size:13px;color:#666;margin:6px 0">Für Milch aus Energie und Futterkosten bitte Berater-Ration hochladen.</div>`;
+  const ok=reihe.filter(t=>t.jeTierTm!=null && !t.ausreisser && !t.ausgelassen).slice(-fmWert("bewertungTage"));
+  const tm = ok.length ? ok.reduce((s,t)=>s+t.jeTierTm,0)/ok.length : null;
+  const nel=r.total.nel/r.total.tm, milch = tm!==null ? fmMilchAusEnergie(tm, nel, fe.fett, fe.eiweiss) : null;
+  const kosten=fmKosten(r.komplett), preis=fmCfg.milchpreis;
+  const geld = (m && typeof preis==="number") ? m.milchJeKuh*preis/100 - kosten.euro : null;
+  // Wert der Reste im Vormonat (Rest × Preis der Stallmischung je kg)
+  const heute=new Date(), vm=new Date(heute.getFullYear(), heute.getMonth()-1, 1), vmKey=fmIso(vm).slice(0,7);
+  const restKg=reihe.filter(t=>t.datum.slice(0,7)===vmKey && t.rest>0).reduce((s,t)=>s+t.rest,0);
+  const restEuro = restKg>0 && r.total.fm>0 ? restKg*kosten.euro/r.total.fm : null;
+  const kachel=(t,w,u)=>`<div style="flex:1;min-width:90px;background:#f4f6f8;border-radius:8px;padding:6px 8px"><div style="font-size:12px;color:#666">${t}</div><div style="font-weight:bold">${w}</div>${u?`<div style="font-size:11px;color:#888">${u}</div>`:""}</div>`;
+  return `<div class="fm-drei" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px">
+    ${kachel("Milch möglich / MLP", `${milch!==null?fmZahl(milch.toFixed(1)):"–"} / ${m?fmZahl(m.milchJeKuh.toFixed(1)):"–"} kg`, fe.ausMlp ? `Fett ${fmZahl(fe.fett.toFixed(2))} %, Eiweiß ${fmZahl(fe.eiweiss.toFixed(2))} %` : "Fett/Eiweiß: Standard")}
+    ${kachel("Milchgeld − Futter je Kuh", geld!==null ? fmZahl(geld.toFixed(2))+" €/Tag" : "–", typeof preis==="number" ? `Futter ${fmZahl(kosten.euro.toFixed(2))} €, Milch ${fmZahl(preis)} ct` : "Milchpreis fehlt")}
+    ${kachel("Reste Vormonat an Bullen", restEuro!==null ? fmZahl(restEuro.toFixed(0))+" €" : "–", restKg>0 ? fmZahl(restKg.toFixed(0))+" kg" : "")}
+  </div>`;
 }
 function fmChartsZeichnen(g, reihe){
   fmCharts.forEach(c=>{ try{ c.destroy(); }catch(e){} }); fmCharts=[];
@@ -5234,9 +5310,10 @@ function fmChartsZeichnen(g, reihe){
         y2:{ position:"right", min:0, max:35, grid:{ drawOnChartArea:false }, ticks:{ color:"#d32f2f", callback:v=>[0,5,15,25,35].includes(v)?v+" °C":"", stepSize:5 } },
         y3:{ display:false, min:0, max:maxRegen*2.2, reverse:true }
       } } }));
-    const plan=r.map(t=>t.tiere ? t.vorlage/t.tiere : null);
+    const f=fmFeld(g), faktor = f.k==="jeTierTm" ? fmTsVon(g.karte) : 1;
+    const plan=r.map(t=>t.tiere ? t.vorlage/t.tiere*faktor : null);
     fmCharts.push(new Chart(c2,{ type:"line", data:{ labels, datasets:[
-      { label:"gefressen", data:r.map(t=>t.jeTier), borderColor:"#2f3a45", backgroundColor:"#2f3a45", pointRadius:2, spanGaps:true },
+      { label:"gefressen ("+f.e+")", data:r.map(t=>t[f.k]), borderColor:"#2f3a45", backgroundColor:"#2f3a45", pointRadius:2, spanGaps:true },
       { label:"vorgelegt (Plan)", data:plan, borderColor:"#888", borderDash:[6,4], pointRadius:0 }
     ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false,
       plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
@@ -5258,8 +5335,9 @@ function fmAuswertungHtml(){
   const zeilen=kuehe.map(g=>{
     const reihe=fmReihe(g), b=fmBewertung(g, reihe);
     const farbe = b.art==="ok" ? "#2e7d32" : b.art==="warten" ? "#666" : "#d97a00";
+    const ts=fmTsVon(g.karte);
     const ziel = (b.art==="mehr"||b.art==="weniger") && b.proKuh>0
-      ? ` → ${fmZahl((b.proKuh*(1+(b.art==="mehr"?1:-1)*fmWert("restSchritt")/100)).toFixed(1))} kg FM je Kuh` : "";
+      ? ` → ${fmZahl((b.proKuh*(ts||1)*(1+(b.art==="mehr"?1:-1)*fmWert("restSchritt")/100)).toFixed(1))} ${ts?"kg TM":"kg FM"} je Kuh` : "";
     return `
     <div class="history-box fm-auswertung" data-gruppe="${g.id}" style="margin-top:8px">
       <div onclick="fmGruppeOeffnen('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -5278,13 +5356,17 @@ function fmAuswertungHtml(){
     <b>${frage.titel}</b><br>
     <span style="font-size:14px">${frage.text}</span>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
-      ${frage.knoepfe.map(([text,wert])=>`<button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.tage.join(",")}','${wert}')">${text}</button>`).join("")}
+      ${frage.art==="milchpreis"
+        ? `<input id="fm-milchpreis-frage" type="text" inputmode="decimal" value="${typeof fmCfg.milchpreis==="number"?fmZahl(fmCfg.milchpreis):""}" style="width:90px"> ct/kg
+           <button class="save-btn" onclick="fmMilchpreisSetzen(document.getElementById('fm-milchpreis-frage'))">Speichern</button>`
+        : frage.knoepfe.map(([text,wert])=>`<button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.tage.join(",")}','${wert}')">${text}</button>`).join("")}
     </div>
   </div>` : "";
   return frageHtml + `
   ${istTestversion ? `<div style="text-align:right;margin-bottom:6px"><button onclick="fmDemoUmschalten()" style="font-size:13px">${fmDemo?"Beispieldaten ausblenden":"Beispieldaten anzeigen"}</button></div>` : ""}
   ${fmDemo ? `<div style="background:#fff3cd;padding:6px 10px;border-radius:8px;margin-bottom:6px;font-size:13px">Beispieldaten (30 Tage) – nicht deine echten Werte.</div>` : ""}
   ${wetter}
+  ${fmWechselHtml()}
   ${zeilen || `<div class="history-box" style="color:#666">Noch keine Kuhgruppe „mit Restauswertung“ – unten unter „Einrichtung“ anlegen.</div>`}
   ${offen ? `<div class="history-box" style="margin-top:8px;color:#b36b00;font-weight:bold" onclick="fmEinrichtungZu=false;fmBauen()">${offen===1?"1 Stall ist":offen+" Ställe sind"} noch keiner Futtergruppe zugeordnet</div>` : ""}`;
 }
@@ -5478,6 +5560,7 @@ function fmSeiteLesen(items){
         else if(l==="P" && /kg TM/.test(e)) s.kennziffern.pJeKgTm=v;
         else if(l==="Kg Milk Energie") s.kennziffern.milchEnergie=v;
         else if(l==="Kg Milch Eiweiß") s.kennziffern.milchEiweiss=v;
+        else if(l==="Na" && /kg TM/.test(e)) s.kennziffern.naJeKgTm=v;
       }
     });
     const t=s.total.werte, k=s.kennziffern, pruef=(name,ist,soll,tol)=>{
@@ -5641,11 +5724,12 @@ function fmImportUebernehmen(){
     komplett:fmKomplett(imp,i).map(k=>{ const z=imp.seiten[k.seite].zeilen[k.zeile]; return { name:z.ziel.name, typ:z.ziel.typ, kg:Math.round(k.kg*1000)/1000 }; }),
     total:s.total.werte, kennziffern:s.kennziffern
   } : null).filter(Boolean);
-  neu.forEach(r=>{ rationen.push(r); });
   fmSpeichern();
   fmImportSchliessen();
-  if(istTestversion){ alert("In der Testversion gespeichert (nur auf diesem Gerät). Deine echten Rationen bleiben unverändert – unter „Rationen“ siehst du, wie sie im Rechner stehen würden."); return; }
-  if(confirm("Rationen jetzt im Rechner umstellen?")) neu.forEach(fmRationInRechner);
+  // je Mischung: „Sofort umstellen oder über __ Tage?“ (Rationswechsel)
+  neu.forEach(r=>fmRationNeu(r));
+  if(istTestversion) alert("In der Testversion gespeichert (nur auf diesem Gerät). Deine echten Rationen bleiben unverändert – unter „Rationen“ siehst du, wie sie im Rechner stehen würden.");
+  fmBauen();
 }
 // Normale App: Ration in die Mischung schreiben (gleicher Name bzw. AGF/MLF → kg je Tier; freie „Futter n“-Zeilen für neue Komponenten)
 function fmRationInRechner(r){
@@ -5675,8 +5759,208 @@ function fmRationenHtml(){
       <b>${fmEsc(globalCfg[x.karte+"Name"])}</b> <span style="font-size:13px;color:#666">· ${fmEsc(x.titel||"")}${x.datum?" vom "+fmKurz(x.datum)+x.datum.slice(0,4):""}${x.aufwerten?" · Rest der "+fmEsc(globalCfg.kueheName)+"-Mischung + Zugabe":""}</span>
       ${x.komplett.map(z=>`<div style="display:flex;justify-content:space-between;font-size:14px"><span>${fmEsc(z.name)}</span><span>${fmKg(z.kg)} kg</span></div>`).join("")}
       <div style="font-size:13px;color:#555;margin-top:2px">${fmKg(x.total.fm)} kg FM · ${fmKg(x.total.tm)} kg TM · TS ${fmZahl((x.total.tm/x.total.fm*100).toFixed(1))} %${x.kennziffern && x.kennziffern.milchEnergie?` · Milch aus Energie ${fmZahl(x.kennziffern.milchEnergie)} kg`:""}</div>
+      ${fmCfg.rationsvergleich===false ? "" : (()=>{ const h=fmRationHinweise(x, fmGruppen().find(g=>g.karte===x.karte)); return `<div class="fm-hinweise" style="font-size:13px;margin-top:4px">${h.length ? h.map(t=>`<div style="color:#b36b00">⚠ ${fmEsc(t)}</div>`).join("") : `<div style="color:#2e7d32">✓ Ration unauffällig</div>`}</div>
+        <button onclick="fmVergleichUmschalten('${x.karte}')" style="margin-top:6px;font-size:13px">${fmVergleichOffen===x.karte?"▲":"▼"} Rationsvergleich</button>
+        ${fmVergleichOffen===x.karte ? fmVergleichHtml(x.karte) : ""}`; })()}
     </div>`).join("") : `<div style="font-size:13px;color:#666;margin-top:6px">Noch keine Ration hochgeladen.</div>`}
   </div>`;
+}
+
+// --- Hinweise zur Ration und Rationsvergleich (Paket Punkt 6, Unterschalter „Rationsvergleich“) ---
+// Feste Richtwerte; gezeigt werden NUR Auffälligkeiten. Die App ändert nichts und optimiert nicht.
+const FM_RICHTWERTE={ ts:[35,50], rnbJeTier:[0,50], ca:[5.5,8], p:[3.4,4.5], na:[1.5,2.5] };
+// Nährstoffe einer kompletten Ration aus den Komponenten-Werten (je kg FM)
+function fmNaehrstoffe(komplett){
+  const s={ fm:0, tm:0, nel:0, rp:0, nxp:0, rnb:0, ca:0, p:0, fehlt:[] };
+  komplett.forEach(z=>{
+    const k=fmKomponente(z);
+    s.fm+=z.kg;
+    if(!k){ if(z.kg>0) s.fehlt.push(z.name); return; }
+    s.tm+=z.kg*k.ts/100; ["nel","rp","nxp","rnb","ca","p"].forEach(n=>{ s[n]+=z.kg*k[n]; });
+  });
+  return s;
+}
+function fmRationHinweise(r, g){
+  const h=[], n=fmNaehrstoffe(r.komplett), k=r.kennziffern||{}, rw=FM_RICHTWERTE;
+  const ts = n.fm>0 ? n.tm/n.fm*100 : null;
+  if(ts!==null && (ts<rw.ts[0] || ts>rw.ts[1])) h.push(`TS der Mischung ${ts<rw.ts[0]?"niedrig":"hoch"} (${fmZahl(ts.toFixed(1))} %)`);
+  if(n.rnb<rw.rnbJeTier[0]) h.push(`RNB negativ (${fmZahl(n.rnb.toFixed(1))} g): Eiweiß im Pansen knapp`);
+  if(n.rnb>rw.rnbJeTier[1]) h.push(`RNB hoch (${fmZahl(n.rnb.toFixed(1))} g): Eiweiß-Überschuss`);
+  if(n.tm>0){
+    const ca=n.ca/n.tm, p=n.p/n.tm;
+    if(ca<rw.ca[0]) h.push(`Calcium knapp (${fmZahl(ca.toFixed(1))} g/kg TM)`); else if(ca>rw.ca[1]) h.push(`Calcium hoch (${fmZahl(ca.toFixed(1))} g/kg TM)`);
+    if(p<rw.p[0]) h.push(`Phosphor knapp (${fmZahl(p.toFixed(1))} g/kg TM)`); else if(p>rw.p[1]) h.push(`Phosphor hoch (${fmZahl(p.toFixed(1))} g/kg TM)`);
+  }
+  if(typeof k.naJeKgTm==="number"){ if(k.naJeKgTm<rw.na[0]) h.push(`Natrium knapp (${fmZahl(k.naJeKgTm)} g/kg TM)`); else if(k.naJeKgTm>rw.na[1]) h.push(`Natrium hoch (${fmZahl(k.naJeKgTm)} g/kg TM)`); }
+  // Energie und nXP für die MLP-Leistung der Gruppe
+  const m=g ? fmMlpGruppe(g) : null;
+  if(m && n.tm>0){
+    const fe=fmFettEiweiss(g), milchE=fmMilchAusEnergie(n.tm, n.nel/n.tm, fe.fett, fe.eiweiss);
+    if(milchE < m.milchJeKuh - fmWert("mlpAbstand")) h.push(`Energie knapp: reicht für ${fmZahl(milchE.toFixed(1))} kg Milch, MLP ${fmZahl(m.milchJeKuh.toFixed(1))} kg`);
+    if(typeof k.milchEiweiss==="number" && k.milchEiweiss < m.milchJeKuh - fmWert("mlpAbstand")) h.push(`nXP knapp: reicht für ${fmZahl(k.milchEiweiss)} kg Milch, MLP ${fmZahl(m.milchJeKuh.toFixed(1))} kg`);
+  }
+  if(n.fehlt.length) h.push(`Ohne Werte: ${n.fehlt.join(", ")}`);
+  return h;
+}
+// Eigene Variante: Kopie der Ration, Mengen von Hand ändern, Komponenten aus den bekannten Werten
+function fmVarianteNeu(karte){
+  const r=fmRationVon(karte); if(!r) return;
+  const v=fmCfg.varianten=fmCfg.varianten||[];
+  const nr=v.filter(x=>x.karte===karte).length+1;
+  v.push({ id:"v"+Date.now().toString(36), karte, name:"Eigene Variante "+nr, komplett:r.komplett.map(z=>({ ...z })) });
+  fmVergleichOffen=karte; fmSpeichern();
+}
+function fmVarianteKg(id, i, feld){
+  const v=(fmCfg.varianten||[]).find(x=>x.id===id); if(!v) return;
+  const kg=parseFloat(String(feld.value).replace(",","."));
+  if(isNaN(kg) || kg<0 || kg>200){ alert("Bitte eine Menge von 0 bis 200 kg eingeben."); feld.value=fmZahl(v.komplett[i].kg); return; }
+  v.komplett[i].kg=kg; fmSpeichern();
+}
+function fmVarianteDazu(id, sel){
+  const v=(fmCfg.varianten||[]).find(x=>x.id===id), schl=sel.value; sel.value="";
+  if(!v || !schl) return;
+  const typ = schl==="agf"||schl==="mlf" ? schl : "futter";
+  const name = typ==="agf" ? globalCfg.agfName : typ==="mlf" ? globalCfg.mlfName : schl;
+  if(!v.komplett.some(z=>z.typ===typ && z.name===name)) v.komplett.push({ name, typ, kg:0 });
+  fmSpeichern();
+}
+function fmVarianteLoeschen(id){ if(!confirm("Variante löschen?")) return; fmCfg.varianten=(fmCfg.varianten||[]).filter(x=>x.id!==id); fmSpeichern(); }
+let fmVergleichOffen=null;
+function fmVergleichUmschalten(k){ fmVergleichOffen = fmVergleichOffen===k ? null : k; fmBauen(); }
+// Kennzahlen einer Ration für den Vergleich (Milch aus Energie, Futter je Kuh, je kg Milch, Milchgeld − Futter)
+function fmVergleichWerte(komplett, g, karte){
+  const n=fmNaehrstoffe(komplett), kosten=fmKosten(komplett), fe=g ? fmFettEiweiss(g) : (karte==="kuehe2" ? { fett:fmWert("fett2"), eiweiss:fmWert("eiweiss2") } : { fett:fmWert("fett1"), eiweiss:fmWert("eiweiss1") });
+  const milch = n.tm>0 ? fmMilchAusEnergie(n.tm, n.nel/n.tm, fe.fett, fe.eiweiss) : null;
+  const preis=fmCfg.milchpreis;
+  return { n, kosten:kosten.euro, milch, jeKgMilch: milch>0 ? kosten.euro/milch : null,
+    geld: (milch!==null && typeof preis==="number") ? milch*preis/100 - kosten.euro : null };
+}
+function fmVariantenWaehlen(id){
+  const v=(fmCfg.varianten||[]).find(x=>x.id===id); if(!v || istTestversion) return;
+  const r=fmRationVon(v.karte);
+  fmRationNeu({ ...r, titel:v.name, datei:null, datum:fmIso(new Date()), komplett:v.komplett.map(z=>({ ...z })), total:(()=>{ const n=fmNaehrstoffe(v.komplett); return { fm:n.fm, tm:n.tm, nel:n.nel, rp:n.rp, nxp:n.nxp, rnb:n.rnb, ca:n.ca, p:n.p }; })() });
+}
+function fmVergleichHtml(karte){
+  const r=fmRationVon(karte), g=fmGruppen().find(x=>x.karte===karte), v=(fmCfg.varianten||[]).filter(x=>x.karte===karte);
+  const spalten=[{ name:"Berater", komplett:r.komplett, id:null }, ...v.map(x=>({ name:x.name, komplett:x.komplett, id:x.id }))];
+  const werte=spalten.map(s=>fmVergleichWerte(s.komplett, g, karte));
+  const zeile=(t,f)=>`<tr><td style="text-align:left">${t}</td>${werte.map(f).map(x=>`<td>${x}</td>`).join("")}</tr>`;
+  const zahl=(x,d,e)=>x===null||x===undefined||isNaN(x) ? "–" : fmZahl(x.toFixed(d))+(e||"");
+  const bekannte=Object.keys(fmCfg.komponenten||{});
+  return `<div class="fm-vergleich" style="margin-top:8px;overflow-x:auto">
+    <table style="font-size:13px">
+      <tr><th></th>${spalten.map(s=>`<th>${fmEsc(s.name)}</th>`).join("")}</tr>
+      ${zeile("kg TM je Kuh", w=>zahl(w.n.tm,1))}
+      ${zeile("Milch aus Energie", w=>zahl(w.milch,1," kg"))}
+      ${zeile("Futter je Kuh", w=>zahl(w.kosten,2," €"))}
+      ${zeile("Futter je kg Milch", w=>zahl(w.jeKgMilch!==null?w.jeKgMilch*100:null,1," ct"))}
+      ${zeile("Milchgeld − Futter", w=>zahl(w.geld,2," €"))}
+      <tr><td style="text-align:left">Auffällig</td>${spalten.map(s=>`<td>${fmRationHinweise({ komplett:s.komplett, kennziffern:s.id?{}:r.kennziffern }, g).length||"✓"}</td>`).join("")}</tr>
+    </table>
+    ${typeof fmCfg.milchpreis!=="number" ? `<div style="font-size:12px;color:#666">Für „Milchgeld − Futter“ den Milchpreis unter Einrichtung eintragen.</div>` : ""}
+    ${v.map(x=>`<div class="history-box fm-variante" data-variante="${x.id}" style="margin-top:8px">
+      <b>${fmEsc(x.name)}</b>
+      ${x.komplett.map((z,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:2px 0"><span>${fmEsc(z.name)}</span>
+        <span><input type="text" inputmode="decimal" value="${fmZahl(Math.round(z.kg*100)/100)}" style="width:64px" onchange="fmVarianteKg('${x.id}',${i},this)"> kg</span></div>`).join("")}
+      <select onchange="fmVarianteDazu('${x.id}',this)" style="margin-top:6px;max-width:100%"><option value="">+ Komponente …</option>
+        ${bekannte.map(b=>`<option value="${fmEsc(b)}">${fmEsc(b==="agf"?globalCfg.agfName:b==="mlf"?globalCfg.mlfName:b)}</option>`).join("")}</select>
+      ${fmRationHinweise({ komplett:x.komplett, kennziffern:{} }, g).map(t=>`<div style="color:#b36b00;font-size:13px">⚠ ${fmEsc(t)}</div>`).join("")}
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="save-btn" ${istTestversion?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmVariantenWaehlen('${x.id}')">Diese nehmen</button>
+        <button onclick="fmVarianteLoeschen('${x.id}')" style="font-size:13px">Löschen</button></div>
+    </div>`).join("")}
+    <button onclick="fmVarianteNeu('${karte}')" style="margin-top:8px">+ Eigene Variante</button>
+  </div>`;
+}
+
+// --- Rationswechsel über mehrere Tage (Paket Punkt 7): täglich von alt nach neu, alle Komponenten auf Basis TM ---
+// Silo gegen Silo, neue Komponente (von 0), wegfallende (auf 0), Mengenänderung. Am Ende genau die neue Ration.
+function fmTsKomponente(z, sonst){ const k=fmKomponente(z); return k && k.ts>0 ? k.ts/100 : sonst; }
+function fmWechselTag(w, heute){
+  const d=heute||fmIso(new Date());
+  if(w.fertig) return w.tage;
+  const bis = w.pause || d;
+  // Starttag = Tag 1 (erster Schritt), am letzten Tag genau die neue Ration
+  const tage=Math.round((new Date(bis+"T12:00:00")-new Date(w.start+"T12:00:00"))/864e5) + 1 - (w.pausiert||0);
+  return Math.max(1, Math.min(w.tage, tage));
+}
+function fmWechselRation(w, heute){
+  const f = w.tage>0 ? fmWechselTag(w, heute)/w.tage : 1;
+  const schl=z=>z.typ==="futter" ? "f:"+z.name : z.typ;
+  const alle=new Map();
+  w.von.forEach(z=>alle.set(schl(z), { ...z, alt:z.kg, neu:0 }));
+  w.nach.forEach(z=>{ const x=alle.get(schl(z)); if(x) x.neu=z.kg; else alle.set(schl(z), { ...z, alt:0, neu:z.kg }); });
+  let ohneTs=false;
+  const r=[...alle.values()].map(z=>{
+    const ts=fmTsKomponente(z, null);
+    if(!ts){ ohneTs=true; return { name:z.name, typ:z.typ, kg:z.alt+(z.neu-z.alt)*f }; }
+    const tm=z.alt*ts+(z.neu*ts-z.alt*ts)*f;     // eine TS je Komponente → TM-Übergang
+    return { name:z.name, typ:z.typ, kg:tm/ts };
+  }).filter(z=>z.kg>0.0001);
+  return { zeilen:r, ohneTs, f };
+}
+function fmWechselStarten(karte, von, nach, tage){
+  (fmCfg.wechsel=fmCfg.wechsel||{})[karte]={ von:von.map(z=>({ ...z })), nach:nach.map(z=>({ ...z })), start:fmIso(new Date()), tage, pause:null, pausiert:0, fertig:false };
+}
+function fmWechselAendern(karte, aktion){
+  const w=(fmCfg.wechsel||{})[karte]; if(!w) return;
+  if(aktion==="dauer"){
+    const n=parseInt(prompt("Rationswechsel: Dauer in Tagen", w.tage),10);
+    if(!(n>=1 && n<=60)){ if(!isNaN(n)) alert("Bitte 1 bis 60 Tage."); return; }
+    w.tage=n;
+  }
+  if(aktion==="pause"){
+    if(w.pause){ w.pausiert=(w.pausiert||0)+Math.round((new Date(fmIso(new Date())+"T12:00:00")-new Date(w.pause+"T12:00:00"))/864e5); w.pause=null; }
+    else w.pause=fmIso(new Date());
+  }
+  if(aktion==="fertig"){ if(!confirm("Rationswechsel abschließen? Ab jetzt gilt die neue Ration.")) return; w.fertig=true; }
+  if(aktion==="abbrechen"){ if(!confirm("Rationswechsel abbrechen? Es gilt wieder die alte Ration.")) return; w.abgebrochen=true; }
+  fmSpeichern();
+  fmWechselAnwenden();
+}
+// Normale App: Tagesration in die Mischung schreiben (einmal je Tag). Testversion: nur anzeigen.
+function fmWechselAnwenden(){
+  if(istTestversion || !fmAn()) return;
+  Object.entries(fmCfg.wechsel||{}).forEach(([karte,w])=>{
+    const heute=fmIso(new Date());
+    const ziel = w.abgebrochen ? w.von : w.fertig ? w.nach : fmWechselRation(w).zeilen;
+    const marke=heute+"|"+(w.abgebrochen?"ab":w.fertig?"fertig":fmWechselTag(w))+"|"+w.tage+"|"+(w.pause||"");
+    if(w.angewendet===marke) return;
+    fmRationInRechner({ karte, komplett:ziel, aufwerten: karte==="kuehe2" ? globalCfg.kuehe2Modus==="aufwerten" : false });
+    w.angewendet=marke;
+    if(w.abgebrochen || w.fertig) delete fmCfg.wechsel[karte];
+  });
+  fmSpeichern();
+}
+function fmWechselHtml(){
+  return Object.entries(fmCfg.wechsel||{}).filter(([,w])=>!w.abgebrochen).map(([karte,w])=>{
+    const tag=fmWechselTag(w), r=fmWechselRation(w);
+    return `<div class="history-box fm-wechsel" data-karte="${karte}" style="margin-top:8px">
+      <b>Rationswechsel ${fmEsc(globalCfg[karte+"Name"])}: Tag ${tag} von ${w.tage}</b>${w.pause?" · pausiert":""}${w.fertig?" · abgeschlossen":""}
+      ${r.zeilen.map(z=>`<div style="display:flex;justify-content:space-between;font-size:14px"><span>${fmEsc(z.name)}</span><span>${fmKg(z.kg)} kg</span></div>`).join("")}
+      ${r.ohneTs ? `<div style="font-size:12px;color:#b36b00">Für einige Komponenten fehlt die Trockensubstanz – dort wird nach Frischmasse übergegangen.</div>` : ""}
+      ${istTestversion ? `<div style="font-size:12px;color:#666">Testversion: nur Anzeige – der Rechner wird nicht verändert.</div>` : ""}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button onclick="fmWechselAendern('${karte}','dauer')">Dauer ändern</button>
+        <button onclick="fmWechselAendern('${karte}','pause')">${w.pause?"Fortsetzen":"Pausieren"}</button>
+        <button onclick="fmWechselAendern('${karte}','fertig')">Abschließen</button>
+        <button onclick="fmWechselAendern('${karte}','abbrechen')">Abbrechen</button>
+      </div></div>`;
+  }).join("");
+}
+// Neue Ration übernehmen: „Sofort umstellen oder über __ Tage?“ (Vorschlag 14). Alt = bisherige Ration der Mischung im Rechner.
+function fmRationNeu(r){
+  const alt=(data[r.karte]||{items:[]}).items.filter(i=>i.kg>0).map(i=>({ name:futterName(i), typ:i.type||"futter", kg:i.kg }));
+  const antwort=prompt(`${globalCfg[r.karte+"Name"]}: Sofort umstellen (0) oder über wie viele Tage?`, "14");
+  if(antwort===null) return false;
+  const tage=parseInt(antwort,10);
+  if(isNaN(tage) || tage<0 || tage>60){ alert("Bitte 0 bis 60 Tage eingeben."); return false; }
+  (fmCfg.rationen=fmCfg.rationen||[]).push(r);
+  if(tage===0 || !alt.length){ if(!istTestversion) fmRationInRechner(r); delete (fmCfg.wechsel||{})[r.karte]; }
+  else fmWechselStarten(r.karte, alt, r.komplett, tage);
+  fmSpeichern();
+  fmWechselAnwenden();
+  return true;
 }
 
 // Nach dem Laden im Hintergrund neu zeichnen – aber nicht, während jemand im Reiter etwas eintippt
@@ -5723,6 +6007,8 @@ function fmBauen(){
     <label style="display:block;margin:6px 0">
       <input type="checkbox" id="fm-${k}" ${fmCfg[k]!==false?"checked":""} onchange="fmSchalter('${k}',this.checked)"> ${t}
     </label>`).join("")}
+    <div style="margin-top:8px">Milchpreis
+      <input id="fm-milchpreis" type="text" inputmode="decimal" value="${typeof fmCfg.milchpreis==="number"?fmZahl(fmCfg.milchpreis):""}" style="width:70px" onchange="fmMilchpreisSetzen(this)"> ct/kg</div>
   </div>
   ${fmGruppenHtml()}
   <div class="history-box" style="margin-top:10px">
@@ -5901,6 +6187,7 @@ function zeigeApp(){
   fmStallzahlenHolen(true);
   fmWetterHolen();
   fmRestAbonnieren();
+  fmWechselAnwenden();
 }
 
 async function starten(){

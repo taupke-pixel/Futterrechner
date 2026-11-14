@@ -99,8 +99,9 @@ async function main() {
       await T.fill("#fm-kopplung", CODE);
       await T.click("#fressmenge >> text=Verbinden");
       await T.waitForFunction(() => (document.getElementById("fm-hm-stand")||{textContent:""}).textContent.includes("Ställe"), null, { timeout: 8000 }).catch(async e => { throw new Error("Reiter zeigt: " + (await T.evaluate(() => document.getElementById("fressmenge").innerText.slice(0, 600)))); });
-      const url = anfragen[anfragen.length - 1];
-      assert(url.includes("/projects/herdenmanager-test/databases/(default)/documents/test/BETRIEB123/schluessel456/stallzahlen?key="), url);
+      const basis = "/projects/herdenmanager-test/databases/(default)/documents/test/BETRIEB123/schluessel456/";
+      assert(anfragen.some(u => u.includes(basis + "stallzahlen?key=")), anfragen.join(" | "));
+      assert(anfragen.some(u => u.includes(basis + "mlpStall?key=")), "MLP nicht gelesen: " + anfragen.join(" | "));
       assert((await T.textContent("#fm-hm-stand")).includes("6 Ställe"), await T.textContent("#fm-hm-stand"));
       assert.strictEqual(await T.evaluate(() => JSON.parse(localStorage.getItem("fressmenge")).kopplung), CODE);
     });

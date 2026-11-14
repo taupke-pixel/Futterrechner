@@ -24,18 +24,19 @@ Die normale App (https://taupke-pixel.github.io/Futterrechner/) ist **unverände
 | 13 | Restquote, gleitendes Mittel, Ampel/Empfehlung ±3 %, Leergefressen, Ausreißer, Regen/Hitze zählen in der Lernphase nicht, Hitze angesagt → nicht erhöhen |
 | 16 | Reiter „Fressmenge“: je Kuhgruppe Zeile mit Haken/Empfehlung; antippen → Verlauf (Diagramm Reste/Temperatur/Regen, Gefressen je Tier, Liste, 7/30/90 Tage) |
 | 15 (Teil) | Fragen (einmal, Fenster von unten): „Heute etwas anders?“ bei Ausreißer; „Normale Bullenration heute – Kühe leergefressen?“; nach 2 Tagen „Keine Reste eingetragen – leergefressen oder vergessen?“. Frühwarnung bei Fressmengen-Einbruch (mit „erledigt“). Reiter färbt sich bei offener Frage/Meldung |
+| 4/5 | Berater-PDF (GS agri) einlesen: zwei Leseverfahren, Gegenprobe Summen/Kennziffern, „Mischung …“-Zeile gegen Grundration geprüft, komplette Ration für Stall 2 (Rest + Zugabe), Vorschau mit änderbaren Namen/Art, Komponenten mit TS/Nährstoffen/Preis; Test mit Fritz’ echtem PDF (privat, nicht im Repo) |
+| 6 | Hinweise zur Ration (nur Auffälligkeiten: TS, RNB, Ca, P, Na, Energie/nXP für die MLP-Leistung); eigene Variante + Vergleich (Milch aus Energie, Futter je Kuh/je kg Milch, Milchgeld − Futter); „Diese nehmen“ nur normale App |
+| 7 | Rationswechsel über __ Tage auf Basis TM (Tag x von y, Dauer ändern, pausieren, abschließen, abbrechen); normale App schreibt die Tagesration einmal je Tag, Testversion zeigt nur an |
+| 13 (Ergänzung) | Auswertung in kg TM, Milch aus Energie mit Fett/Eiweiß aus der MLP (Herdenmanager), drei Zahlen (Milch möglich/MLP, Milchgeld − Futter, Reste Vormonat €), Milchpreis-Frage bei neuer MLP |
 | 0 | Beispieldaten (30 Tage) ein-/ausblenden, „Testdaten zurücksetzen“ |
 
 ## Noch offen
-- **Berater-PDF** (Punkte 4, 5, 6, 7): wartet auf das PDF von Fritz. Erst damit gibt es TS/Nährstoffe/Preise
-  (Auswertung dann in kg TM statt kg FM, Milch aus Energie, Rationsvergleich, Rationswechsel).
 - Standard-Fressmengen-Tabelle und Lernen für Gruppen ohne Reste (Punkte 9, 14), Zielgewicht Restmischung automatisch.
-- MLP-Check und „Ration neu rechnen“ (Punkt 15, brauchen Nährstoffe aus dem PDF) und Regen-/Hitze-Korrektur (Phase B, braucht 15+15 Tage).
-- Frühwarnung vergleicht bis zum PDF in kg FM (Schwelle aus „Erweitert“ mit 45 % TS umgerechnet).
+- MLP-Check (frische Kühe, Harnstoff) und „Ration neu rechnen“ (Punkt 15) und Regen-/Hitze-Korrektur (Phase B, braucht 15+15 Tage).
 - „Übernehmen“ der Empfehlung ist in der Testversion gesperrt (Spiegel) – geht erst in der normalen App.
 
 ## Für Fritz zu tun
 1. Tablet: Testversion neu laden → Reiter „Fressmenge“ → „⚙ Einrichtung“ → Kopplungscode eintragen → „Verbinden“.
 2. Futtergruppen anlegen und Ställe zuordnen; Rest als „nicht füttern“ abhaken.
 3. Regel-Ergänzung `test/`: **nicht nötig** – Fritz testet nur auf dem Tablet (Entscheidung 14.11.2026). Bleibt unveröffentlicht.
-4. Berater-PDF schicken.
+4. ~~Berater-PDF schicken~~ erledigt (14.11.) – in der Testversion „📄 Neue Ration hochladen“ ausprobieren.
