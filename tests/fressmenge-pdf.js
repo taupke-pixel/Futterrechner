@@ -207,7 +207,11 @@ async function main() {
         nah(k.reduce((a, b) => a + b, 0), 53.5, 1e-3, "Summe");
       });
       await pruefe("PRIVAT: Vorschau – AGF/MLF erkannt, Stroh 0,2 kg als ungenau markiert", async () => {
+        await page.evaluate(() => { ["Maissilage", "Grassilage", "Gras 02-26", "Stroh"].forEach((n, i) => { data.kuehe.items[i].name = n; }); });
         await page.setInputFiles("#fm-pdf-datei", { name: "ration.pdf", mimeType: "application/pdf", buffer: fs.readFileSync(PRIVAT_PDF) });
+        await page.waitForSelector("#fm-import .fm-import-seite");
+        // Zuordnung zu den eigenen Namen: „Gras 02-26 Stickt…“ → Gras 02-26 (genauer Anfang), „Gras 05-25/Dairy…“ → Grassilage
+        assert.deepStrictEqual(await page.evaluate(() => fmImport.seiten[0].zeilen.map(z => z.ziel.name)), ["Maissilage", "Grassilage", "Gras 02-26", "Stroh", await page.evaluate(() => globalCfg.agfName)]);
         await page.waitForSelector("#fm-import .fm-import-seite");
         const r = await page.evaluate(() => ({ typen: fmImport.seiten[0].zeilen.map(z => z.ziel.typ), mlf: fmImport.seiten[1].zeilen[1].ziel.typ, stroh: fmImport.seiten[0].zeilen[3].ungenau }));
         assert.deepStrictEqual(r.typen, erw.typen); assert.strictEqual(r.mlf, "mlf"); assert.strictEqual(r.stroh, true);

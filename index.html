@@ -5900,7 +5900,7 @@ function fmKomplett(imp, i){
   return aus;
 }
 // Vorschlag für den Namen im Rechner: vorhandene Komponente mit gleichem Anfang, sonst bereinigter PDF-Name
-function fmNamensVorschlag(name, karte, vergeben, titel){
+function fmNamensVorschlag(name, karte, vergeben, titel, nurPraefix){
   // Betriebsname (erstes Wort des Rationsnamens, im PDF oft abgekürzt oder angeklebt) und „...“ entfernen
   const hof=String(titel||"").split(" ")[0].slice(0,8).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
   let roh=String(name).replace(/\.\.\.$/,"");
@@ -5911,6 +5911,10 @@ function fmNamensVorschlag(name, karte, vergeben, titel){
   const erstes=(roh.match(/^[A-Za-zÄÖÜäöüß]+/)||[""])[0].toLowerCase();
   // Futter-Namen aus allen Mischungen (ohne leere „Futter n“-Zeilen)
   const namen=[...new Set(["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].flatMap(k=>(data[k]||{items:[]}).items).filter(it=>!it.type && !/^Futter \d+$/.test(it.name)).map(it=>it.name))];
+  // 1. PDF-Name beginnt mit einem vorhandenen Namen (längster zuerst), z. B. „Gras 02-26 Stickt…“ → „Gras 02-26“
+  const praefix=namen.filter(n=>!vergeben.has(n) && roh.toLowerCase().startsWith(n.toLowerCase())).sort((a,b)=>b.length-a.length)[0];
+  if(praefix) return { typ:"futter", name:praefix };
+  if(nurPraefix) return null;
   const items=namen.map(name=>({ name }));
   const treffer=erstes ? items.filter(it=>it.name.toLowerCase().startsWith(erstes) && !vergeben.has(it.name)) : [];
   if(treffer.length===1) return { typ:"futter", name:treffer[0].name };
@@ -5931,8 +5935,10 @@ function fmImportVorbereiten(imp, dateiname){
   // gleiches Futter auf mehreren Seiten nur einmal vorschlagen (Namen je Seite eindeutig)
   imp.seiten.forEach((s,i)=>{
     s.karte = basisSeiten.has(i) ? "kuehe" : s.zeilen.some(z=>z.basis) ? "kuehe2" : (i===0 ? "kuehe" : "");
+    // erst eindeutige Treffer (PDF-Name beginnt mit eigenem Namen), dann die übrigen mit den noch freien Namen
     const vergeben=new Set();
-    s.zeilen.forEach(z=>{ if(z.basis) return; const v=fmNamensVorschlag(z.name, s.karte||"kuehe", vergeben, s.titel); z.ziel=v; vergeben.add(v.name); });
+    s.zeilen.forEach(z=>{ if(z.basis) return; const v=fmNamensVorschlag(z.name, s.karte||"kuehe", vergeben, s.titel, true); if(v){ z.ziel=v; vergeben.add(v.name); } });
+    s.zeilen.forEach(z=>{ if(z.basis || z.ziel) return; const v=fmNamensVorschlag(z.name, s.karte||"kuehe", vergeben, s.titel); z.ziel=v; vergeben.add(v.name); });
   });
   imp.bestaetigt=false; imp.tage=14;
   fmImport=imp;
