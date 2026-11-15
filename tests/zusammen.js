@@ -79,11 +79,11 @@ async function main() {
     await pruefe(`Schritte: 1. Grundmischung (${S1 + S2} × 49,7 kg), 2. Kühe abladen bis ${PLAN_REST.toFixed(0)} kg, 3. MLF ${S2 * MLF} kg, 4. Rest ${(PLAN_REST + S2 * MLF).toFixed(0)} kg; im Normalfall nichts antippen`, async () => {
       const t = await page.locator(".zusammen-karte").innerText();
       assert(t.includes(`Maissilage\t${(29 * (S1 + S2)).toFixed(1)}`), t);
-      assert(t.includes(`2. ▼ Kühe abladen bis ${PLAN_REST.toFixed(0)} kg (${PLAN1.toFixed(0)} kg)`), t);
-      assert(t.includes("anders abgeladen? hier antippen"), t);
+      assert(t.includes(`2. Kühe abladen bis ${PLAN_REST.toFixed(0)} kg`), t);
+      assert(t.includes("anders abgeladen? antippen"), t);
       assert(t.includes("3. Für Kühe Gruppe 2 dazumischen"), t);
       assert(t.includes(`${(S2 * MLF).toFixed(1)}`), t);
-      assert(t.includes(`4. → Kühe Gruppe 2 abladen: ${(PLAN_REST + S2 * MLF).toFixed(0)} kg`), t);
+      assert(t.includes(`4. Kühe Gruppe 2: Rest abladen (${(PLAN_REST + S2 * MLF).toFixed(0)} kg)`), t);
       assert.deepStrictEqual(await page.evaluate(() => zusammenPlan().zugabe.map(z => z.it.type || z.it.name)), ["mlf"]);
     });
 
@@ -175,14 +175,15 @@ async function main() {
         return { hm: [...k.querySelectorAll(".zusammen-hm")].map(e => e.innerText), ablade: k.querySelector(".zusammen-abladen").innerText, rest: k.querySelector(".zusammen-rest").innerText,
                  fremd: k.querySelectorAll(".fm-hm-zeile, .fm-abladen").length, G: zusammenPlan().G, geplant: zusammenPlan().geplant };
       });
-      assert(r.hm[0].includes("Herdenmanager: 45 Tiere") && r.hm[0].includes("übernehmen"), r.hm.join(" | "));
-      assert(r.hm[1].includes("Herdenmanager: 47 Tiere") && !r.hm[1].includes("übernehmen"), r.hm.join(" | "));
+      // nur die abweichende Tierzahl wird angeboten (Kühe 37 → 45), Gruppe 2 stimmt (47) → nichts
+      assert.strictEqual(r.hm.length, 1, r.hm.join(" | "));
+      assert(r.hm[0].includes("Herdenmanager: 45 – übernehmen"), r.hm.join(" | "));
       assert.strictEqual(r.fremd, 0, "allgemeine Ergänzung in der gemeinsamen Karte");
       const stroh = PLAN1 * 8 / 45;
-      assert(r.ablade.includes(`2. ▼ Strohstall abladen bis ${(G - stroh).toFixed(0)} kg (${stroh.toFixed(0)} kg)`), r.ablade);
-      assert(r.ablade.includes(`▼ Stall 1 abladen bis ${PLAN_REST.toFixed(0)} kg (${(PLAN1 - stroh).toFixed(0)} kg)`), r.ablade);
-      assert(r.rest.includes("→ Kühe Gruppe 2 abladen"), r.rest);
-      await page.locator(".zusammen-hm button", { hasText: "übernehmen" }).click();
+      assert(r.ablade.includes(`2. Strohstall abladen bis ${(G - stroh).toFixed(0)} kg`), r.ablade);
+      assert(r.ablade.includes(`3. Stall 1 abladen bis ${PLAN_REST.toFixed(0)} kg`), r.ablade);
+      assert(r.rest.includes(`5. Stall 2: Rest abladen`), r.rest);
+      await page.locator("button.zusammen-hm").click();
       assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 45);
       await page.evaluate(s1 => { data.kuehe.anz = s1; fmCfg.an = false; fmCfg.gruppen = []; fmStall = null; save(); buildCalc(); }, S1);
       assert.strictEqual(await page.locator(".zusammen-hm").count(), 0);

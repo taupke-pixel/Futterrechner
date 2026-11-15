@@ -4851,7 +4851,8 @@ function zusammenStaelle(g, menge){
 function zusammenHmTiere(g, k){
   if(!g) return "";
   const n=fmTierzahlGruppe(g);
-  return ` <span class="zusammen-hm" style="font-size:13px;color:#555">Herdenmanager: <b>${fmTiere(n)}</b>${n!==num(data[k].anz) ? ` <button onclick="event.stopPropagation();fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px">übernehmen</button>` : ""}</span>`;
+  if(n===num(data[k].anz)) return "";
+  return ` <button class="zusammen-hm" onclick="fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px;background:#fff3cd;border:1px solid #e0c060;border-radius:10px;padding:2px 8px">Herdenmanager: ${n} – übernehmen</button>`;
 }
 function zusammenKarteHtml(){
   const p=zusammenPlan(), n1=globalCfg.kueheName, n2=globalCfg.kuehe2Name;
@@ -4863,29 +4864,33 @@ function zusammenKarteHtml(){
   const gesamt=lauf+p.zugabe.reduce((s,z)=>s+z.kg,0), gespeichert=alreadySavedToday("kuehe") || alreadySavedToday("kuehe2");
   const gruen="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:8px;margin-top:6px;font-weight:bold";
   const hm=zusammenHm(), st1=hm && zusammenStaelle(hm.g1, p.G-p.geplant), st2=hm && zusammenStaelle(hm.g2, lauf2);
-  let wagen=p.G;
-  const ablade1 = st1 ? st1.map(({p:pl,menge},i)=>{ wagen-=menge; return `<div class="zusammen-stall">${i===0?"2. ":""}▼ ${fmPlatzName(pl)} abladen bis ${(i===st1.length-1?p.geplant:wagen).toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span></div>`; }).join("")
-    : `2. ▼ ${n1} abladen bis ${p.geplant.toFixed(0)} kg <span style="font-weight:normal">(${(p.G-p.geplant).toFixed(0)} kg)</span>`;
+  // nur ein Stall in der Futtergruppe → dessen Name statt Gruppenname
+  const einStall=(g, ersatz)=>{ const pl=g ? (g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt) : []; return pl.length===1 ? fmPlatzName(pl[0]) : ersatz; };
+  let nr=1, wagen=p.G;
+  const box=(inhalt, extra)=>`<div class="zusammen-stall" style="${gruen}">${inhalt}${extra||""}</div>`;
+  const teile1 = st1 ? st1.map(({p:pl,menge},i)=>{ wagen-=menge; return { name:fmPlatzName(pl), bis:i===st1.length-1?p.geplant:wagen }; }) : [{ name:einStall(hm && hm.g1, n1), bis:p.geplant }];
+  const tipp = p.echt!==null ? "" : `<div style="font-weight:normal;font-size:12px">anders abgeladen? antippen</div>`;
+  const ablade1 = teile1.map((t,i)=>box(`${++nr}. ${t.name} abladen bis ${t.bis.toFixed(0)} kg`, i===teile1.length-1 ? tipp : "")).join("");
+  const nrZug = zug ? ++nr : null;
   let wagen2=lauf2;
-  const ablade2 = st2 ? st2.map(({p:pl,menge},i)=>{ wagen2-=menge; const nr=i===0?(zug?"4. ":"3. "):"";
-      return i===st2.length-1 ? `<div class="zusammen-stall">${nr}→ Rest: ${fmPlatzName(pl)} ${menge.toFixed(0)} kg</div>` : `<div class="zusammen-stall">${nr}▼ ${fmPlatzName(pl)} abladen bis ${wagen2.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span></div>`; }).join("")
-    : `${zug?"4.":"3."} → ${n2} abladen: ${lauf2.toFixed(0)} kg`;
+  const teile2 = st2 ? st2.map(({p:pl,menge},i)=>{ wagen2-=menge; return { name:fmPlatzName(pl), bis:wagen2, letzter:i===st2.length-1 }; }) : [{ name:einStall(hm && hm.g2, n2), letzter:true }];
+  const ablade2 = teile2.map(t=>box(t.letzter ? `${++nr}. ${t.name}: Rest abladen (${(st2 ? t.bis+st2[st2.length-1].menge : lauf2).toFixed(0)} kg)` : `${++nr}. ${t.name} abladen bis ${t.bis.toFixed(0)} kg`)).join("");
   return `
   <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
     <div class="cat-header cat-kuehe" onclick="data.kuehe.collapsed=!data.kuehe.collapsed;save();buildCalc();">
       ${n1} + ${n2}<span>${data.kuehe.collapsed?'▼':'▲'}</span>
     </div>
     <div class="cat-body">
-      ${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g1,"kuehe") : ""}<br>
-      ${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}
+      <div>${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g1,"kuehe") : ""}</div>
+      <div style="margin-top:4px">${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}</div>
       ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
-      <div style="font-weight:bold;margin-top:10px">1. Grundmischung (für beide)</div>
+      <div style="font-weight:bold;margin-top:10px">1. Grundmischung laden (für beide)</div>
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
-      <div class="zusammen-abladen" style="${gruen};cursor:pointer" onclick="zusammenRestEingeben()">${ablade1}
-        ${p.echt!==null ? `<div style="font-weight:normal;margin-top:4px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>${p.echt!==null && data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+1 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr bei ${n1} rechnet die Auswertung beim Rest mit.</div>` : ""}${p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : ""}` : `<div style="font-weight:normal;font-size:12px">anders abgeladen? hier antippen</div>`}</div>
-      ${zug ? `<div style="font-weight:bold;margin-top:10px">3. Für ${n2} ${p.echt!==null&&p.echt<p.geplant?"nachladen und dazumischen":"dazumischen"}</div>
+      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenRestEingeben()">${ablade1}
+        ${p.echt!==null ? `<div style="font-weight:normal;margin-top:4px;font-size:13px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>${p.echt!==null && data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+1 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr bei ${n1} rechnet die Auswertung beim Rest mit.</div>` : ""}${p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : ""}` : ""}</div>
+      ${zug ? `<div style="font-weight:bold;margin-top:10px">${nrZug}. Für ${n2} ${p.echt!==null&&p.echt<p.geplant?"nachladen und dazumischen":"dazumischen"}</div>
       <table>${zug}</table>` : ""}
-      <div class="zusammen-rest" style="${gruen}">${ablade2}</div>
+      <div class="zusammen-rest">${ablade2}</div>
       <div class="total">
         <span>Gesamt: ${gesamt.toFixed(1)} kg</span>
         <button class="save-btn ${gespeichert?'saved':''}" ${gespeichert?'disabled':''} onclick="zusammenSpeichern()">${gespeichert?'Gespeichert':'Speichern'}</button>
@@ -5157,7 +5162,6 @@ function fmGruppenHtml(){
         ${frei.map(p=>`<option value="${p.id}">${fmPlatzName(p)} (${fmTiere(p.anzahl||0)})</option>`).join("")}
       </select>` : ""}
       <div style="margin-top:8px;font-weight:bold">Zusammen: ${fmTiere(summe)}${g.art==="rest" && lakt!==summe ? ` <span style="font-weight:normal">(davon ${lakt} laktierend)</span>` : ""}</div>
-      ${plaetze.length>1 ? `<div style="font-size:12px;color:#666">Reihenfolge = Reihenfolge beim Abladen (▲ = früher abladen)</div>` : ""}
       <button onclick="fmGruppeLoeschen('${g.id}')" style="margin-top:8px;font-size:13px">Gruppe löschen</button>
     </div>`;
   }).join("");
