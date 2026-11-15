@@ -136,46 +136,51 @@ async function main() {
       await page.click("#fm-import >> text=Abbrechen");
     });
 
-    await pruefe("Vorschau Muster-PDF: Vorschläge (Mischung Kühe / Kühe Gruppe 2, AGF/MLF erkannt), Name vor dem Übernehmen änderbar", async () => {
+    await pruefe("Vorschau Muster-PDF: nur Futterwerte (keine Mischungs-Auswahl), AGF/MLF erkannt, Name vor dem Übernehmen änderbar", async () => {
+      await page.evaluate(() => { data.kuehe.items[0].name = "Maissilage"; data.kuehe.items[1].name = "Grassilage"; });
       await page.setInputFiles("#fm-pdf-datei", { name: "muster.pdf", mimeType: "application/pdf", buffer: muster });
       await page.waitForSelector("#fm-import .fm-import-seite");
-      const karten = await page.$$eval("#fm-import .fm-import-seite select", s => s.filter(x => x.closest(".fm-import-seite") && x.parentElement.textContent.includes("Für Mischung")).map(x => x.value));
-      assert.deepStrictEqual(karten, ["kuehe", "kuehe2"]);
+      assert(!(await page.textContent("#fm-import")).includes("Für Mischung"), "Mischungs-Auswahl in der Vorschau");
+      assert((await page.textContent("#fm-import")).includes("Deine Mengen bleiben"));
       assert((await page.textContent("#fm-import")).includes("✓ Alle Werte doppelt gelesen"));
-      assert.deepStrictEqual(await page.evaluate(() => fmImport.seiten[0].zeilen.map(z => z.ziel.typ)), ["futter", "futter", "futter", "agf"]);
+      // Vorschlag aus den eigenen Futter-Namen: „Mais …“ → Maissilage, „Gras …“ → Grassilage
+      assert.deepStrictEqual(await page.evaluate(() => fmImport.seiten[0].zeilen.map(z => [z.ziel.typ, z.ziel.name])), [["futter", "Maissilage"], ["futter", "Grassilage"], ["futter", "Stroh"], ["agf", await page.evaluate(() => globalCfg.agfName)]]);
       assert.strictEqual(await page.evaluate(() => fmImport.seiten[1].zeilen[1].ziel.typ), "mlf");
       const feld = page.locator("#fm-import .fm-import-name").first();
       await feld.fill("Maissilage neu"); await feld.dispatchEvent("change");
       assert.strictEqual(await page.evaluate(() => fmImport.seiten[0].zeilen[0].ziel.name), "Maissilage neu");
-      assert((await page.textContent('#fm-import .fm-import-seite[data-seite="1"]')).includes("Maissilage neu"), "neuer Name nicht in der kompletten Ration von Stall 2");
     });
 
-    await pruefe("Übernehmen (Testversion): Rationen + Komponenten mit Nährstoffen gespeichert, echte Rationen unverändert", async () => {
+    await pruefe("Übernehmen: nur Werte je Futter (TS, Nährstoffe, Preis) gespeichert, Mengen/Rationen unverändert; Tabelle „Futtermittel“", async () => {
       const vorher = await page.evaluate(() => JSON.stringify(data));
       await page.click("#fm-import-ok");
       assert.strictEqual(await page.locator("#fm-import").count(), 0);
-      assert(meldungen.some(x => x.includes("In der Testversion gespeichert")));
+      assert(meldungen.some(x => x.includes("Werte für 5 Futtermittel übernommen")), meldungen.join(" | "));
       assert.strictEqual(await page.evaluate(() => JSON.stringify(data)), vorher);
-      const r = await page.evaluate(() => ({ k: fmRationVon("kuehe"), k2: fmRationVon("kuehe2"), mais: fmCfg.komponenten["Maissilage neu"][0], agf: fmCfg.komponenten.agf[0], ts: fmTsVon("kuehe2") }));
-      assert.strictEqual(r.k2.aufwerten, true);
-      assert.deepStrictEqual(r.k2.komplett.map(z => z.name), ["Maissilage neu", "Gras 05-26", "Stroh", await page.evaluate(() => globalCfg.agfName), await page.evaluate(() => globalCfg.mlfName)]);
+      const r = await page.evaluate(() => ({ mais: fmCfg.komponenten["Maissilage neu"][0], agf: fmCfg.komponenten.agf[0], mlf: fmCfg.komponenten.mlf[0], schl: Object.keys(fmCfg.komponenten) }));
+      assert.deepStrictEqual(r.schl, ["Maissilage neu", "Grassilage", "Stroh", "agf", "mlf"]);
       nah(r.mais.ts, 35, 1e-9, "TS Mais"); nah(r.mais.nel, 70 / 30, 1e-9, "NEL je kg"); assert.strictEqual(r.mais.preis, 45);
-      nah(r.agf.preis, 371.5, 0, "Preis AGF"); nah(r.ts, 18.9 / 44, 1e-9, "TS Stall 2");
-      assert(await page.locator('#fm-rationen .fm-ration[data-karte="kuehe2"]').isVisible());
+      nah(r.agf.preis, 371.5, 0, "Preis AGF"); nah(r.mlf.ts, 90, 1e-9, "TS MLF");
+      const t = await page.locator("#fm-rationen .fm-futtermittel").innerText();
+      assert(t.includes("Maissilage neu\t45,00\t35") && t.includes("Stroh\t36,00\t80 ≈"), t);
     });
 
-    await pruefe("Normale App: „Übernehmen“ schreibt die komplette Ration in die Mischungen (Stall 2 = Rest + Zugabe)", async () => {
-      const r = await page.evaluate(() => {
-        const altT = istTestversion; istTestversion = false;
-        const merk = JSON.stringify(data), merkG = JSON.stringify(globalCfg);
-        const r2 = fmRationVon("kuehe2"); fmRationInRechner(fmRationVon("kuehe")); fmRationInRechner(r2);
-        const erg = { k: data.kuehe.items.filter(i => i.kg > 0).map(i => [i.type || i.name, i.kg]), k2: data.kuehe2.items.filter(i => i.kg > 0).map(i => [i.type || i.name, i.kg]), modus: globalCfg.kuehe2Modus };
-        data = JSON.parse(merk); globalCfg = JSON.parse(merkG); istTestversion = altT; buildCalc();
-        return erg;
-      });
-      assert.deepStrictEqual(r.k, [["Maissilage neu", 30], ["Gras 05-26", 10], ["Stroh", 0.5], ["agf", 3]]);
-      assert.deepStrictEqual(r.k2, [["Maissilage neu", 27.59], ["Gras 05-26", 9.2], ["Stroh", 0.46], ["agf", 2.76], ["mlf", 4]]);
-      assert.strictEqual(r.modus, "aufwerten");
+    await pruefe("Futtermittel-Zeile antippen → Preis und TS ändern (Nährstoffe je kg passen sich der TS an)", async () => {
+      page.removeAllListeners("dialog");
+      const antworten = ["48", "33"];
+      page.on("dialog", d => { meldungen.push(d.message()); d.accept(d.type() === "prompt" ? antworten.shift() : undefined); });
+      await page.click('#fm-rationen tr[data-futter="Maissilage neu"]');
+      const m = await page.evaluate(() => { const l = fmCfg.komponenten["Maissilage neu"]; return l[l.length - 1]; });
+      assert.strictEqual(m.preis, 48); assert.strictEqual(m.ts, 33); nah(m.nel, 70 / 30 * 33 / 35, 1e-9, "NEL je kg nach TS");
+      page.removeAllListeners("dialog");
+      page.on("dialog", d => { meldungen.push(d.message()); d.accept(d.type() === "prompt" ? "0" : undefined); });
+    });
+
+    await pruefe("Ration = Mengen aus den Einstellungen × Futterwerte (TS der Mischung, Hinweise)", async () => {
+      const r = await page.evaluate(() => { const k = data.kuehe.items; k.forEach(i => i.kg = 0); k[0].name = "Maissilage neu"; k[0].kg = 30; k.find(i => i.type === "agf").kg = 3; buildCalc();
+        const x = fmRationVon("kuehe"); return { fm: x.total.fm, tm: x.total.tm, ts: fmTsVon("kuehe"), fehlt: x.fehlt }; });
+      nah(r.fm, 33, 1e-9, "kg FM"); nah(r.tm, 30 * 0.33 + 3 * 0.9, 1e-9, "kg TM"); assert.deepStrictEqual(r.fehlt, []);
+      nah(r.ts, (30 * 0.33 + 3 * 0.9) / 33, 1e-9, "TS");
     });
 
     if (fs.existsSync(PRIVAT_PDF) && fs.existsSync(PRIVAT_ERW)) {
@@ -201,12 +206,11 @@ async function main() {
         assert.deepStrictEqual(k, erw.komplettStall2);
         nah(k.reduce((a, b) => a + b, 0), 53.5, 1e-3, "Summe");
       });
-      await pruefe("PRIVAT: Vorschau – AGF/MLF erkannt, Stroh 0,2 kg als ungenau markiert, Vorschlag alter Stall → Kühe, neuer Stall → Kühe Gruppe 2", async () => {
+      await pruefe("PRIVAT: Vorschau – AGF/MLF erkannt, Stroh 0,2 kg als ungenau markiert", async () => {
         await page.setInputFiles("#fm-pdf-datei", { name: "ration.pdf", mimeType: "application/pdf", buffer: fs.readFileSync(PRIVAT_PDF) });
         await page.waitForSelector("#fm-import .fm-import-seite");
-        const r = await page.evaluate(() => ({ typen: fmImport.seiten[0].zeilen.map(z => z.ziel.typ), mlf: fmImport.seiten[1].zeilen[1].ziel.typ, stroh: fmImport.seiten[0].zeilen[3].ungenau, karten: fmImport.seiten.map(s => s.karte) }));
+        const r = await page.evaluate(() => ({ typen: fmImport.seiten[0].zeilen.map(z => z.ziel.typ), mlf: fmImport.seiten[1].zeilen[1].ziel.typ, stroh: fmImport.seiten[0].zeilen[3].ungenau }));
         assert.deepStrictEqual(r.typen, erw.typen); assert.strictEqual(r.mlf, "mlf"); assert.strictEqual(r.stroh, true);
-        assert.deepStrictEqual(r.karten, ["kuehe", "kuehe2"]);
         assert((await page.textContent("#fm-import")).includes("✓ Alle Werte doppelt gelesen"));
         await page.click("#fm-import >> text=Abbrechen");
       });

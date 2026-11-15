@@ -42,9 +42,7 @@ async function main() {
         agf: [{ ab: "2026-11-05", ts: 89, nel: 6.9, rp: 287, nxp: 202, rnb: 14, ca: 21, p: 8, preis: 370 }],
         Gras: [{ ab: "2026-11-05", ts: 30, nel: 1.9, rp: 50, nxp: 40, rnb: 2, ca: 1.5, p: 1, preis: 35 }]
       };
-      fmCfg.rationen = [{ karte: "kuehe", titel: "Test alter Stall", datum: "2026-11-05", aufwerten: false,
-        komplett: [{ name: "Mais", typ: "futter", kg: 40 }, { name: globalCfg.agfName, typ: "agf", kg: 4 }],
-        total: { fm: 44, tm: 17.56, nel: 119.6, rp: 2268, nxp: 2648, rnb: -64, ca: 108, p: 60 }, kennziffern: { naJeKgTm: 1.2, milchEiweiss: 26 } }];
+      data.kuehe.items.forEach(i => i.kg = 0); data.kuehe.items[0].name = "Mais"; data.kuehe.items[0].kg = 40; data.kuehe.items.find(i => i.type === "agf").kg = 4;
       historyData = h; fmSpeichern();
     }, [[1, 2, 3, 4, 5, 6].flatMap(n => [
       { id: "v" + n, datum: tt(tagMinus(n)), kategorie: "kuehe", tiere: 40, gesamt: 2000, agf: 0, mlf: 0, futter: [] },
@@ -55,7 +53,7 @@ async function main() {
       const r = await page.evaluate(() => { const t = fmReihe(fmCfg.gruppen[0]).pop(); return { fm: t.jeTier, tm: t.jeTierTm, feld: fmFeld(fmCfg.gruppen[0]) }; });
       nah(r.fm, 48, 1e-9, "kg FM"); nah(r.tm, 48 * 17.56 / 44, 1e-9, "kg TM");
       assert.deepStrictEqual(r.feld, { k: "jeTierTm", e: "kg TM" });
-      await page.evaluate(() => { [1, 2, 3, 4, 5, 6].forEach(n => { const d = new Date(); d.setHours(12); d.setDate(d.getDate() - n + 1); fmTag(fmIso(d)).rest = { kuehe: 20 }; }); data.kuehe.items.forEach((it, i) => it.kg = i === 0 ? 44 : 0); showTab("fressmenge"); });
+      await page.evaluate(() => { [1, 2, 3, 4, 5, 6].forEach(n => { const d = new Date(); d.setHours(12); d.setDate(d.getDate() - n + 1); fmTag(fmIso(d)).rest = { kuehe: 20 }; }); showTab("fressmenge"); });
       const t = await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text');
       // 44 kg FM × 0,3991 TS × 1,03 = 18,09 kg TM
       assert(t.includes("Fressmenge +3 %") && t.includes("→ 18,1 kg TM je Kuh"), t);
@@ -86,24 +84,22 @@ async function main() {
       await page.evaluate(() => { fmCfg.milchpreis = 45; fmSpeichern(); });
     });
 
-    await pruefe("Hinweise zur Ration: nur Auffälligkeiten (RNB negativ, Natrium knapp, Energie knapp für MLP-Leistung)", async () => {
+    await pruefe("Hinweise zur Ration: nur Auffälligkeiten (RNB negativ, Energie knapp für MLP-Leistung)", async () => {
       const h = await page.evaluate(() => fmRationHinweise(fmRationVon("kuehe"), fmCfg.gruppen[0]));
       assert(h.some(x => x.startsWith("RNB negativ (-64,0 g)")), h.join(" | "));
-      assert(h.some(x => x === "Natrium knapp (1,2 g/kg TM)"), h.join(" | "));
       assert(h.some(x => x === "Energie knapp: reicht für 24,3 kg Milch, MLP 30,0 kg"), h.join(" | "));
-      assert(h.some(x => x === "nXP knapp: reicht für 26 kg Milch, MLP 30,0 kg"), h.join(" | "));
       assert(!h.some(x => /Calcium|Phosphor|TS der/.test(x)), "unnötiger Hinweis: " + h.join(" | "));
-      assert(await page.locator('#fm-rationen .fm-ration[data-karte="kuehe"] .fm-hinweise').isVisible());
+      assert((await page.textContent('#fm-rationen .fm-ration[data-karte="kuehe"]')).includes("2 Hinweise"));
     });
 
     await pruefe("Unterschalter „Rationsvergleich“ aus → keine Hinweise", async () => {
       await page.evaluate(() => { fmCfg.rationsvergleich = false; fmBauen(); });
-      assert.strictEqual(await page.locator(".fm-hinweise").count(), 0);
+      assert.strictEqual(await page.locator(".fm-ration").count(), 0);
       await page.evaluate(() => { fmCfg.rationsvergleich = true; fmBauen(); });
     });
 
     await pruefe("Eigene Variante: Mais 40 → 46 kg; Vergleich nebeneinander (Milch aus Energie, Futter je Kuh, Milchgeld − Futter); „Diese nehmen“ in der Testversion gesperrt", async () => {
-      await page.click('#fm-rationen .fm-ration[data-karte="kuehe"] >> text=Rationsvergleich');
+      await page.click('#fm-rationen .fm-ration[data-karte="kuehe"] button');
       await page.click("text=+ Eigene Variante");
       const feld = page.locator(".fm-variante input").first();
       await feld.fill("46"); await feld.dispatchEvent("change");
@@ -174,20 +170,18 @@ async function main() {
       const r = await page.evaluate(() => {
         delete fmCfg.wechsel; data.kuehe.items.forEach((it, i) => { it.kg = 0; }); data.kuehe.items[0].name = "Mais"; data.kuehe.items[0].kg = 40;
         const ok = fmRationNeu({ karte: "kuehe", titel: "neu", komplett: [{ name: "Mais", typ: "futter", kg: 30 }, { name: "Gras", typ: "futter", kg: 20 }], total: { fm: 50, tm: 16.5 } });
-        return { ok, w: fmCfg.wechsel && fmCfg.wechsel.kuehe && { tage: fmCfg.wechsel.kuehe.tage, von: fmCfg.wechsel.kuehe.von.map(z => [z.name, z.kg]) }, letzte: fmRationVon("kuehe").titel };
+        return { ok, w: fmCfg.wechsel && fmCfg.wechsel.kuehe && { tage: fmCfg.wechsel.kuehe.tage, von: fmCfg.wechsel.kuehe.von.map(z => [z.name, z.kg]) } };
       });
       assert.strictEqual(r.ok, true);
       assert.deepStrictEqual(r.w, { tage: 14, von: [["Mais", 40]] });
-      assert.strictEqual(r.letzte, "neu");
       promptAntwort = "0";
     });
 
     await pruefe("MLP-Check nur bei Auffälligkeit: 2 von 10 frischen Kühen Eiweiß < 3,1 %, Energie knapp; FEQ (10 %) und Harnstoff (200) unauffällig; „erledigt“", async () => {
       await page.evaluate(() => {
         const d = new Date(); d.setDate(d.getDate() - 20);
-        fmCfg.rationen = [{ karte: "kuehe", titel: "Test alter Stall", datum: fmIso(d), aufwerten: false,
-          komplett: [{ name: "Mais", typ: "futter", kg: 40 }, { name: globalCfg.agfName, typ: "agf", kg: 4 }],
-          total: { fm: 44, tm: 17.56, nel: 119.6, rp: 2268, nxp: 2648, rnb: -64, ca: 108, p: 60 }, kennziffern: { naJeKgTm: 1.2, milchEiweiss: 26 } }];
+        data.kuehe.items.forEach(i => i.kg = 0); data.kuehe.items[0].name = "Mais"; data.kuehe.items[0].kg = 40; data.kuehe.items.find(i => i.type === "agf").kg = 4;
+        fmRationStandPruefen(); fmCfg.rationStand.kuehe.datum = fmIso(d);
         fmMlp.mlpDatum = "2026-11-18"; fmCfg.milchpreisMlp = "2026-11-18"; fmCfg.erledigt = {}; delete fmCfg.wechsel; fmOffen = null; fmSpeichern();
       });
       const m = await page.evaluate(() => fmMlpCheck(fmCfg.gruppen[0]).map(x => x.text));
@@ -202,7 +196,7 @@ async function main() {
     await pruefe("„Ration neu rechnen“ nach der Wartezeit: gefressen 19,2 kg TM, gerechnet für 17,6 kg TM; vor Ablauf der Wartezeit nicht", async () => {
       const m = await page.evaluate(() => fmNeuRechnen(fmCfg.gruppen[0], fmReihe(fmCfg.gruppen[0])).map(x => x.text));
       assert(m.some(x => x === "🧮 Ration neu rechnen: gefressen 19,2 kg TM je Kuh, gerechnet ist die Ration für 17,6 kg TM"), m.join(" | "));
-      const frueh = await page.evaluate(() => { const r = fmCfg.rationen[0]; const alt = r.datum; const d = new Date(); d.setDate(d.getDate() - 5); r.datum = fmIso(d); const x = fmNeuRechnen(fmCfg.gruppen[0], fmReihe(fmCfg.gruppen[0])).length; r.datum = alt; return x; });
+      const frueh = await page.evaluate(() => { const r = fmCfg.rationStand.kuehe; const alt = r.datum; const d = new Date(); d.setDate(d.getDate() - 5); r.datum = fmIso(d); const x = fmNeuRechnen(fmCfg.gruppen[0], fmReihe(fmCfg.gruppen[0])).length; r.datum = alt; return x; });
       assert.strictEqual(frueh, 0);
       assert(await page.evaluate(() => document.getElementById("fm-tab").classList.contains("tab-orange")), "Reiter nicht eingefärbt");
     });

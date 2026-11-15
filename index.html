@@ -1365,13 +1365,14 @@ produkt === "agf"
 // Aufwerten: ein Teil der Kuh-Mischung bleibt im Wagen (vorhanden kg), dazu kommt, was die Ration dieser Gruppe mehr braucht
 // (z. B. Kraftfutter). Gespeichert wird NUR die Zugabe – die Kuh-Mischung selbst speichert die Gruppe Kühe (nichts doppelt).
 function kuehe2Aufwerten(){ return globalCfg.kuehe2Modus==="aufwerten"; }
-function kuehe2ModusSetzen(m){ globalCfg.kuehe2Modus = m==="aufwerten" ? "aufwerten" : "normal"; saveGlobal(); buildSettings(); buildCalc(); }
+function kuehe2ModusSetzen(m){ globalCfg.kuehe2Modus = (m==="aufwerten" || m==="zusammen") ? m : "normal"; if(m==="zusammen"){ zusammenAbgleich(); save(); } saveGlobal(); buildSettings(); buildCalc(); }
 function kuehe2Einstellung(){
   return `<div id="kuehe2-modus" style="margin:4px 0 12px 0">
     Arbeitet als:
     <select onchange="kuehe2ModusSetzen(this.value)">
-      <option value="normal" ${kuehe2Aufwerten()?"":"selected"}>eigene Mischung (normale Gruppe)</option>
+      <option value="normal" ${(kuehe2Aufwerten()||globalCfg.kuehe2Modus==="zusammen")?"":"selected"}>eigene Mischung (normale Gruppe)</option>
       <option value="aufwerten" ${kuehe2Aufwerten()?"selected":""}>Rest der ${globalCfg.kueheName}-Mischung + Zugabe</option>
+      <option value="zusammen" ${globalCfg.kuehe2Modus==="zusammen"?"selected":""}>zusammen mit ${globalCfg.kueheName} mischen (erst ${globalCfg.kueheName} abladen, dann Zugabe)</option>
     </select>
   </div>`;
 }
@@ -4717,6 +4718,167 @@ showTab = function(t){
   document.getElementById("betrieb").classList.toggle("hidden", t!=="settings");
 };
 
+/* === 🔗 KÜHE + KÜHE GRUPPE 2 ZUSAMMEN MISCHEN (Wunsch Fritz 15.11.2026) ===
+   Kühe Gruppe 2 „zusammen mit Kühe mischen“: Beide Rationen stehen wie gewohnt getrennt in den Einstellungen.
+   Im Rechner gibt es dafür EINE Karte: 1. gemeinsame Grundmischung für beide Gruppen, 2. Kühe abladen bis …kg (Waage),
+   3. für Gruppe 2 dazumischen, 4. Rest an Gruppe 2. Gespeichert wird wie bisher je Gruppe (zwei Einträge).
+   Grundmischung = Kühe-Ration; Gruppe 2 bekommt davon den größten Anteil, der in ihre Ration passt, der Rest ist Zugabe. */
+function kuehe2Zusammen(){ return globalCfg.kuehe2Modus==="zusammen"; }
+function zusammenPlan(){
+  const k1=data.kuehe.items.filter(i=>i.kg>0), k2=data.kuehe2.items.filter(i=>i.kg>0);
+  const gleich=(a,b)=>(a.type||b.type) ? a.type===b.type : a.name===b.name;
+  const s1=num(data.kuehe.anz)||0, s2=num(data.kuehe2.anz)||0;
+  // Anteil Grundmischung je Tier der Gruppe 2: so viel, wie bei JEDEM Futter der Grundmischung in ihre Ration passt
+  let f = k1.length ? Infinity : 0;
+  k1.forEach(a=>{ const b=k2.find(x=>gleich(a,x)); f=Math.min(f, b ? b.kg/a.kg : 0); });
+  if(!isFinite(f)) f=0;
+  const grund=k1.map(a=>({ it:a, kg:a.kg*s1 + a.kg*f*s2 }));
+  const G=grund.reduce((s,g)=>s+g.kg,0), proTier1=k1.reduce((s,a)=>s+a.kg,0);
+  const geplant=proTier1*f*s2;
+  // Rest auf dem Wagen nach dem Abladen in Stall 1: wie geplant oder wie die Waage tatsächlich zeigt („anders abgeladen“)
+  const echt = typeof data.kuehe2.zusRest==="number" ? Math.max(0, Math.min(G, data.kuehe2.zusRest)) : null;
+  const R = echt!==null ? echt : geplant;
+  // Stall 1 hat mehr bekommen als geplant → Gruppe 2 bekommt prozentual genauso mehr (damit beide gleich lange reichen).
+  // Hat Stall 1 weniger bekommen, liegt der Rest ohnehin auf dem Wagen → keine Verkleinerung.
+  const plan1=G-geplant, faktor2 = (echt!==null && plan1>0 && data.kuehe2.zusAnpassen!==false) ? Math.max(1, (G-R)/plan1) : 1;
+  // Für Gruppe 2 je Futter: im Wagen (Rest × Anteil in der Grundmischung) gegen Soll (Ration × Tiere) – wie bei der Restmischung.
+  // Rundungsreste unter 20 g je Tier zählen nicht. Positiv = dazu bzw. nachladen, negativ = schon zu viel im Wagen.
+  const alle=[...k1, ...k2.filter(b=>!k1.some(a=>gleich(a,b)))];
+  const zeilen2=alle.map(it=>{
+    const a=k1.find(x=>gleich(x,it)), b=k2.find(x=>gleich(x,it));
+    const ist = a && proTier1>0 ? R*a.kg/proTier1 : 0, soll = b ? b.kg*s2*faktor2 : 0;
+    let diff=soll-ist; if(Math.abs(diff) < 0.02*Math.max(1,s2)) diff=0;
+    return { it, ist, soll, diff };
+  });
+  const zugabe=zeilen2.filter(z=>z.diff>0).map(z=>({ it:z.it, kg:z.diff }));
+  const zuViel=zeilen2.filter(z=>z.diff<0).map(z=>({ it:z.it, kg:z.diff }));
+  return { s1, s2, f, grund, G, zugabe, zuViel, zeilen2, rest2:R, geplant, echt, menge1:G-R, faktor2, plan1, plan2:k2.reduce((x,b)=>x+b.kg,0)*s2 };
+}
+function zusammenZeit(it, kg){
+  if(it.type==="agf") return `<span class="agf">${fmt(kg/globalCfg.agfKg)}</span>`;
+  if(it.type==="mlf") return `<span class="mlf">${fmt(kg/globalCfg.mlfKg)}</span>`;
+  if(it.type==="wasser") return `<span class="wasser">${fmt(kg/globalCfg.wasserKg)}</span>`;
+  return "-";
+}
+// „Anders abgeladen?“: was zeigt die Waage nach dem Abladen in Stall 1? (leer = wieder wie geplant)
+function zusammenRestEingeben(){
+  const p=zusammenPlan();
+  const a=prompt(`Was zeigt die Waage nach dem Abladen bei ${globalCfg.kueheName}? (kg)\nGeplant: ${p.geplant.toFixed(0)} kg – leer lassen = wie geplant`, p.echt!==null ? String(Math.round(p.echt)) : "");
+  if(a===null) return;
+  const v=parseFloat(String(a).replace(",","."));
+  if(String(a).trim()===""){ data.kuehe2.zusRest=null; }
+  else if(isNaN(v) || v<0){ alert("Bitte eine Zahl in kg eingeben."); return; }
+  else data.kuehe2.zusRest=v;
+  data.kuehe2.zusAnpassen=null;
+  // Stall 1 hat mehr bekommen → einmal fragen: Gruppe 2 prozentual mitziehen oder normal füttern (Mehrmenge zählt bei den Resten)
+  const q=zusammenPlan();
+  if(q.echt!==null && q.plan1>0 && (q.G-q.echt)>q.plan1*1.005){
+    const proz=Math.round(((q.G-q.echt)/q.plan1-1)*100);
+    data.kuehe2.zusAnpassen = confirm(`${globalCfg.kueheName} hat ${(q.G-q.echt-q.plan1).toFixed(0)} kg (+${proz} %) mehr bekommen.
+
+OK = ${globalCfg.kuehe2Name} auch um +${proz} % erhöhen (beide reichen gleich lange)
+Abbrechen = ${globalCfg.kuehe2Name} normal füttern (die Mehrmenge wird bei den Resten berücksichtigt)`);
+  }
+  save(); buildCalc();
+}
+// Speichern (zugleich Zeitstempel der Mischung): jedes kg genau einmal – Stall 1 bekommt Grundmischung minus Rest,
+// Gruppe 2 den Rest plus alles, was dazu bzw. nachgeladen wurde. Lager wie bei „Speichern“ je Gruppe.
+// „zusammen“: Gruppe 2 übernimmt die Grundmischung von Kühe automatisch (gleiche Futter, Werte, Reihenfolge).
+// Nur Felder, die bei Kühe leer sind, gehören Gruppe 2 selbst (Zugabe, z. B. MLF) und bleiben erhalten.
+function zusammenAbgleich(){
+  if(!kuehe2Zusammen()) return;
+  const a=data.kuehe.items, b=data.kuehe2.items;
+  a.forEach((it,i)=>{
+    if(!(it.kg>0)) return;                  // leeres Kühe-Feld → Zugabe-Feld von Gruppe 2 bleibt, wie es ist
+    const z=b[i] || (b[i]={ kg:0 });
+    if(it.type){ z.type=it.type; delete z.name; } else { delete z.type; z.name=it.name; }
+    z.kg=it.kg;
+  });
+}
+// In den Einstellungen: übernommene Zeilen bei Gruppe 2 grau (nicht änderbar, „wie Kühe“)
+function zusammenEinstellungen(){
+  if(!kuehe2Zusammen()) return;
+  const modus=document.getElementById("kuehe2-modus"); if(!modus) return;
+  modus.insertAdjacentHTML("beforeend", `<div class="zusammen-hinweis" style="font-size:13px;color:#666;margin-top:4px">Grundmischung wie bei „${globalCfg.kueheName}“ (grau). Zugabe in die freien Felder eintragen.</div>`);
+  let i=0;
+  for(let e=modus.nextElementSibling; e && e.id!=="edit-faersen"; e=e.nextElementSibling){
+    if(!e.classList || !e.classList.contains("sort-row")) continue;
+    const it=data.kuehe.items[i++];
+    if(it && it.kg>0){ e.classList.add("zusammen-wie-kuehe"); e.querySelectorAll("input").forEach(x=>{ x.disabled=true; x.style.background="#eee"; x.style.color="#777"; }); }
+  }
+}
+function zusammenSpeichern(){
+  if(alreadySavedToday("kuehe") || alreadySavedToday("kuehe2")){ alert("Heute bereits gespeichert"); return; }
+  const p=zusammenPlan(), zeit=new Date().toISOString(), anteil1 = p.G>0 ? (p.G-p.rest2)/p.G : 0;
+  const eintrag=(cat, tiere, liste)=>{
+    const e={ id:Date.now()+Math.random().toString(36).substr(2,5), datum:getToday(), kategorie:cat, tiere, gesamt:0, agf:0, mlf:0, futter:[], zeit };
+    liste.forEach(({it,kg})=>{
+      if(!(kg>0)) return;
+      e.futter.push({ name:futterName(it), kg });
+      e.gesamt+=kg;
+      if(it.type==="agf"){ e.agf+=kg; lagerData.agf.bestand-=kg; }
+      if(it.type==="mlf"){ e.mlf+=kg; lagerData.mlf.bestand-=kg; }
+      if(it.type==="wasser"){ e.wasser=(e.wasser||0)+kg; lagerData.wasser.bestand-=kg; }
+    });
+    return e;
+  };
+  const e1=eintrag("kuehe", p.s1, p.grund.map(g=>({ it:g.it, kg:g.kg*anteil1 })));
+  const e2=eintrag("kuehe2", p.s2, p.zeilen2.map(z=>({ it:z.it, kg:z.ist+Math.max(0,z.diff) })));
+  // Mehr als geplant gefüttert (verladen): merken, damit die Reste-Auswertung den höheren Rest nicht als „zu viel übrig“ zählt
+  if(p.echt!==null){
+    if(e1.gesamt-p.plan1>1) e1.mehr=e1.gesamt-p.plan1;
+    if(e2.gesamt-p.plan2>1) e2.mehr=e2.gesamt-p.plan2;
+  }
+  historyData.unshift(e2); historyData.unshift(e1);
+  data.kuehe2.zusRest=null; data.kuehe2.zusAnpassen=null;
+  save();
+  saveHistoryStorage();
+  saveLagerStorage();
+  buildCalc();
+  buildHistory();
+}
+function zusammenKarteHtml(){
+  const p=zusammenPlan(), n1=globalCfg.kueheName, n2=globalCfg.kuehe2Name;
+  let lauf=0;
+  const zeilen=p.grund.map(({it,kg})=>{ lauf+=kg; return `<tr><td>${futterName(it)}</td><td>${kg.toFixed(1)}</td><td>${lauf.toFixed(1)}</td><td>${zusammenZeit(it,kg)}</td></tr>`; }).join("");
+  let lauf2=p.rest2;
+  const zug=p.zugabe.map(({it,kg})=>{ lauf2+=kg; return `<tr><td>${futterName(it)}</td><td>${kg.toFixed(1)}</td><td>${lauf2.toFixed(1)}</td><td>${zusammenZeit(it,kg)}</td></tr>`; }).join("")
+    + p.zuViel.map(({it,kg})=>`<tr><td>${futterName(it)}</td><td class="minus">${kg.toFixed(1)}</td><td class="minus">schon zu viel</td><td>-</td></tr>`).join("");
+  const gesamt=lauf+p.zugabe.reduce((s,z)=>s+z.kg,0), gespeichert=alreadySavedToday("kuehe") || alreadySavedToday("kuehe2");
+  const gruen="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:8px;margin-top:6px;font-weight:bold";
+  return `
+  <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
+    <div class="cat-header cat-kuehe" onclick="data.kuehe.collapsed=!data.kuehe.collapsed;save();buildCalc();">
+      ${n1} + ${n2}<span>${data.kuehe.collapsed?'▼':'▲'}</span>
+    </div>
+    <div class="cat-body">
+      ${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere<br>
+      ${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere
+      <div style="font-weight:bold;margin-top:10px">1. Grundmischung (für beide)</div>
+      <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
+      <div class="zusammen-abladen" style="${gruen};cursor:pointer" onclick="zusammenRestEingeben()">2. ▼ ${n1} abladen bis ${p.geplant.toFixed(0)} kg <span style="font-weight:normal">(${(p.G-p.geplant).toFixed(0)} kg)</span>
+        ${p.echt!==null ? `<div style="font-weight:normal;margin-top:4px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>${p.echt!==null && data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+1 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr bei ${n1} rechnet die Auswertung beim Rest mit.</div>` : ""}${p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : ""}` : `<div style="font-weight:normal;font-size:12px">anders abgeladen? hier antippen</div>`}</div>
+      ${zug ? `<div style="font-weight:bold;margin-top:10px">3. Für ${n2} ${p.echt!==null&&p.echt<p.geplant?"nachladen und dazumischen":"dazumischen"}</div>
+      <table>${zug}</table>` : ""}
+      <div class="zusammen-rest" style="${gruen}">${zug?"4.":"3."} → ${n2} abladen: ${lauf2.toFixed(0)} kg</div>
+      <div class="total">
+        <span>Gesamt: ${gesamt.toFixed(1)} kg</span>
+        <button class="save-btn ${gespeichert?'saved':''}" ${gespeichert?'disabled':''} onclick="zusammenSpeichern()">${gespeichert?'Gespeichert':'Speichern'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+// Im Rechner: statt der beiden Karten die gemeinsame Karte (an der Stelle der Kühe-Karte)
+function zusammenKarteEinbauen(){
+  if(!kuehe2Zusammen()) return;
+  const karte=h=>{ const e=document.querySelector(`#calc .cat-header.cat-${h}`); return e && e.closest(".category"); };
+  const k1=karte("kuehe"), k2=karte("kuehe2");
+  if(!k1) return;
+  k1.insertAdjacentHTML("beforebegin", zusammenKarteHtml());
+  k1.style.display="none";
+  if(k2) k2.style.display="none";
+}
+
 /* === 📊 FRESSMENGE (Paket Fressmengen, nur Testversion-Zweig) ===
    Hauptschalter + Einstellungen › Module. AUS = Futterrechner exakt wie vorher (Punkt 1 des Pakets).
    Gespeichert vorerst nur im Gerät ("fressmenge"); in den Testbereich test/{betriebId} erst nach Fritz' OK zur Regel. */
@@ -5062,10 +5224,10 @@ function fmTiereMerken(){
 // Tagesreihe einer Kuhgruppe: je Mischtag Vorlage, Rest (vom nächsten Tag mit gespeicherter Restmischung), Tiere, Wetter
 function fmReihe(g){
   if(fmDemo) return fmDemoReihe(g);
-  const vorlage={}, tiere={}, restTage=new Set(), bullenTage=new Set();
+  const vorlage={}, tiere={}, mehr={}, restTage=new Set(), bullenTage=new Set();
   historyData.forEach(e=>{
     const d=fmAusDatum(e && e.datum); if(!d) return;
-    if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; }
+    if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; mehr[d]=(mehr[d]||0)+(num(e.mehr)||0); }
     if(e.kategorie==="restbullen") restTage.add(d);
     else if(e.kategorie===restZiel() && e.kategorie!==g.karte) bullenTage.add(d);
   });
@@ -5085,7 +5247,7 @@ function fmReihe(g){
     const hm=fmTage[v] && fmTage[v].tiere && fmTage[v].tiere[g.id];
     const n = (hm && hm.lakt) || tiere[v] || 0;
     const w=(fmTage[v] && fmTage[v].wetter) || {};
-    reihe.push({ datum:v, vorlage:vorlage[v], rest, fehlt, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
+    reihe.push({ datum:v, vorlage:vorlage[v], mehr:mehr[v]||0, rest, fehlt, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
   return fmAntwortenAnwenden(g, fmTmErgaenzen(g, fmReiheBewerten(reihe)));
 }
@@ -5205,7 +5367,9 @@ function fmMeldungen(g, reihe){
 // Kennzahlen + Markierungen (Ausreißer, Regen/Hitze in der Lernphase)
 function fmReiheBewerten(reihe){
   reihe.forEach(t=>{
-    t.quote = (t.rest!==null && t.vorlage>0) ? t.rest/t.vorlage*100 : null;
+    // verladen (mehr als geplant): die Mehrmenge liegt am nächsten Tag zusätzlich im Rest → für die Restquote abziehen
+    const m=t.mehr||0;
+    t.quote = (t.rest!==null && t.vorlage-m>0) ? Math.max(0, t.rest-m)/(t.vorlage-m)*100 : null;
     t.jeTier = (t.rest!==null && t.tiere>0) ? (t.vorlage-t.rest)/t.tiere : null;
     t.regenTag = typeof t.regen==="number" && t.regen>=fmWert("regenMm");
     t.hitzeTag = typeof t.thi==="number" && t.thi>=68;
@@ -5745,7 +5909,9 @@ function fmNamensVorschlag(name, karte, vergeben, titel){
   if(/\bAGF\b/i.test(roh)) return { typ:"agf", name:globalCfg.agfName };
   if(/\bMLF\b/i.test(roh)) return { typ:"mlf", name:globalCfg.mlfName };
   const erstes=(roh.match(/^[A-Za-zÄÖÜäöüß]+/)||[""])[0].toLowerCase();
-  const items=(data[karte]||{items:[]}).items.filter(it=>!it.type && !/^Futter \d+$/.test(it.name));
+  // Futter-Namen aus allen Mischungen (ohne leere „Futter n“-Zeilen)
+  const namen=[...new Set(["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].flatMap(k=>(data[k]||{items:[]}).items).filter(it=>!it.type && !/^Futter \d+$/.test(it.name)).map(it=>it.name))];
+  const items=namen.map(name=>({ name }));
   const treffer=erstes ? items.filter(it=>it.name.toLowerCase().startsWith(erstes) && !vergeben.has(it.name)) : [];
   if(treffer.length===1) return { typ:"futter", name:treffer[0].name };
   return { typ:"futter", name:roh };
@@ -5762,6 +5928,7 @@ async function fmPdfGewaehlt(feld){
 function fmImportVorbereiten(imp, dateiname){
   imp.datei=dateiname;
   const basisSeiten=new Set(imp.seiten.flatMap(s=>s.zeilen.filter(z=>z.basis).map(z=>z.basis.seite)));
+  // gleiches Futter auf mehreren Seiten nur einmal vorschlagen (Namen je Seite eindeutig)
   imp.seiten.forEach((s,i)=>{
     s.karte = basisSeiten.has(i) ? "kuehe" : s.zeilen.some(z=>z.basis) ? "kuehe2" : (i===0 ? "kuehe" : "");
     const vergeben=new Set();
@@ -5786,48 +5953,33 @@ function fmImportZeigen(){
   el.style.cssText="position:fixed;inset:0;z-index:60;background:#eef1f4;overflow:auto;padding:12px";
   const imp=fmImport, fehler=imp.seiten.flatMap(s=>s.fehler), hinweise=imp.seiten.flatMap(s=>s.hinweise);
   const unbekannt=imp.seiten.some(s=>!s.total);
-  const karten=ALLE_KATEGORIEN.filter(k=>k!=="restbullen");
+  const namen=[...new Set(["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].flatMap(k=>(data[k]||{items:[]}).items).filter(it=>!it.type && !/^Futter \d+$/.test(it.name)).map(it=>it.name))];
   el.innerHTML=`
-  <h3 style="margin:4px 0 8px">📄 Ration aus PDF – Vorschau</h3>
-  <div style="font-size:13px;color:#555;margin-bottom:8px">${fmEsc(imp.datei||"")} · Gespeichert wird erst mit „Übernehmen“.</div>
+  <h3 style="margin:4px 0 8px">📄 Futterwerte aus PDF – Vorschau</h3>
+  <div style="font-size:13px;color:#555;margin-bottom:8px">${fmEsc(imp.datei||"")} · Übernommen werden nur Preis, TS, Energie und Eiweiß je Futter. Deine Mengen bleiben, wie sie in den Einstellungen stehen.</div>
+  <datalist id="fm-namen">${namen.map(n=>`<option value="${fmEsc(n)}">`).join("")}</datalist>
   ${fehler.length ? `<div class="history-box" style="background:#fff3e0;color:#b36b00"><b>⚠ Bitte prüfen:</b><ul style="margin:6px 0 0 18px;padding:0">${fehler.map(f=>`<li>${fmEsc(f)}</li>`).join("")}</ul></div>`
     : `<div class="history-box" style="color:#2e7d32">✓ Alle Werte doppelt gelesen und gleich, Summen = „Total“, Kennziffern nachgerechnet.</div>`}
   ${hinweise.length ? `<div style="font-size:13px;color:#666;margin:6px 0">${hinweise.map(fmEsc).join("<br>")}</div>` : ""}
   ${unbekannt ? "" : imp.seiten.map((s,i)=>{
-    const komplett=fmKomplett(imp,i), hatBasis=s.zeilen.some(z=>z.basis);
     return `
     <div class="history-box fm-import-seite" data-seite="${i}" style="margin-top:10px">
       <b>${fmEsc(s.titel||"Seite "+(i+1))}</b>${s.datum?` <span style="color:#666;font-size:13px">vom ${fmKurz(s.datum)}${s.datum.slice(0,4)}</span>`:""}
-      <div style="margin:6px 0">Für Mischung:
-        <select onchange="fmImportKarte(${i},this.value)">
-          <option value="">– nicht übernehmen –</option>
-          ${karten.map(k=>`<option value="${k}" ${s.karte===k?"selected":""}>${globalCfg[k+"Name"]}</option>`).join("")}
-        </select>${hatBasis && s.karte==="kuehe2" ? `<div style="font-size:13px;color:#555;margin-top:4px">Arbeitet als „Rest der ${fmEsc(globalCfg.kueheName)}-Mischung + Zugabe“.</div>` : ""}</div>
       ${s.zeilen.map((z,zi)=>{
-        if(z.basis) return `<div style="padding:6px 0;border-bottom:1px solid #eee">
-          <b>${fmEsc(z.name)}</b> · ${fmKg(z.werte.fm)} kg FM<br><span style="font-size:13px;color:#555">= ${fmZahl((z.basis.anteil*100).toFixed(1))} % der Ration „${fmEsc(imp.seiten[z.basis.seite].titel)}“</span></div>`;
+        if(z.basis) return `<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:13px;color:#555">
+          ${fmEsc(z.name)}: Mischung von Seite ${z.basis.seite+1} – passt (Menge, Nährstoffe, Preis geprüft)</div>`;
         const ts=z.werte.fm>0 ? z.werte.tm/z.werte.fm*100 : 0, unsicher=z.unsicher.length>0;
         return `<div class="fm-import-zeile" style="padding:6px 0;border-bottom:1px solid #eee;${unsicher?"background:#fff3e0":""}">
           <div style="font-size:12px;color:#666">PDF: ${fmEsc(z.name)}</div>
-          <input class="fm-import-name" value="${fmEsc(z.ziel.name)}" ${z.ziel.typ!=="futter"?"disabled":""} onchange="fmImportAendern(${i},${zi},'name',this.value)" style="width:58%;max-width:240px">
+          <input class="fm-import-name" list="fm-namen" value="${fmEsc(z.ziel.name)}" ${z.ziel.typ!=="futter"?"disabled":""} onchange="fmImportAendern(${i},${zi},'name',this.value)" style="width:58%;max-width:240px">
           <select onchange="fmImportAendern(${i},${zi},'typ',this.value)">
             <option value="futter" ${z.ziel.typ==="futter"?"selected":""}>Futter</option>
             <option value="agf" ${z.ziel.typ==="agf"?"selected":""}>${fmEsc(globalCfg.agfName)} (AGF)</option>
             <option value="mlf" ${z.ziel.typ==="mlf"?"selected":""}>${fmEsc(globalCfg.mlfName)} (MLF)</option>
           </select>
-          <div style="font-size:14px;margin-top:3px">${fmKg(z.werte.fm)} kg FM · TS ${z.ungenau?`<span style="color:#d97a00" title="kleine Menge: durch Rundung im PDF ungenau">${fmZahl(ts.toFixed(0))} % ⚠</span>`:fmZahl(ts.toFixed(1))+" %"} · ${fmZahl((z.werte.preis||0).toFixed(2))} €/t</div>
+          <div style="font-size:14px;margin-top:3px">TS ${z.ungenau?`<span style="color:#d97a00" title="kleine Menge: durch Rundung im PDF ungenau">${fmZahl(ts.toFixed(0))} % ⚠</span>`:fmZahl(ts.toFixed(1))+" %"} · ${fmZahl((z.werte.preis||0).toFixed(2))} €/t · NEL ${fmZahl((z.werte.nel/z.werte.fm).toFixed(2))} MJ/kg</div>
         </div>`; }).join("")}
-      <div style="font-weight:bold;margin-top:6px">Gesamt: ${fmKg(s.total.werte.fm)} kg FM · ${fmKg(s.total.werte.tm)} kg TM je Tier</div>
-      ${hatBasis ? `<div style="margin-top:8px"><b>Komplette Ration je Tier</b> (so steht sie danach in den Einstellungen)
-        ${komplett.map(k=>{ const z=imp.seiten[k.seite].zeilen[k.zeile]; return `<div style="display:flex;justify-content:space-between;font-size:14px;padding:2px 0"><span>${fmEsc(z.ziel ? z.ziel.name : z.name)}</span><span>${fmKg(k.kg)} kg</span></div>`; }).join("")}
-        <div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #ccc;margin-top:2px"><span>Summe</span><span>${fmKg(komplett.reduce((x,k)=>x+k.kg,0))} kg</span></div></div>` : ""}
     </div>`; }).join("")}
-  ${unbekannt ? "" : `<div class="history-box" style="margin-top:10px">Umstellen:
-    <select id="fm-import-art" onchange="fmImport.tage = this.value==='sofort' ? 0 : (fmImport.tage||14); fmImportZeigen()">
-      <option value="sofort" ${imp.tage===0?"selected":""}>sofort</option>
-      <option value="tage" ${imp.tage!==0?"selected":""}>über mehrere Tage</option></select>
-    ${imp.tage!==0 ? `<input id="fm-import-tage" type="text" inputmode="numeric" value="${imp.tage}" style="width:50px" onchange="fmImport.tage=Math.max(1,Math.min(60,parseInt(this.value,10)||14)); fmImportZeigen()"> Tage` : ""}
-  </div>`}
   ${fehler.length && !unbekannt ? `<label style="display:block;margin:10px 0"><input type="checkbox" ${imp.bestaetigt?"checked":""} onchange="fmImport.bestaetigt=this.checked;fmImportZeigen()"> Ich habe die markierten Stellen geprüft</label>` : ""}
   <div style="display:flex;gap:8px;margin:12px 0 30px">
     ${unbekannt ? "" : `<button class="save-btn" id="fm-import-ok" ${fehler.length && !imp.bestaetigt ? "disabled" : ""} onclick="fmImportUebernehmen()">Übernehmen</button>`}
@@ -5839,27 +5991,21 @@ function fmImportUebernehmen(){
   const imp=fmImport; if(!imp) return;
   const fehler=imp.seiten.flatMap(s=>s.fehler);
   if(fehler.length && !imp.bestaetigt) return;
-  const komp=fmCfg.komponenten=fmCfg.komponenten||{}, rationen=fmCfg.rationen=fmCfg.rationen||[];
+  // Nur die Werte je Futter (Preis, TS, Nährstoffe je kg FM) – die Mengen bleiben, wie sie in den Einstellungen stehen
+  const komp=fmCfg.komponenten=fmCfg.komponenten||{};
   const ab=imp.seiten.map(s=>s.datum).filter(Boolean)[0] || fmIso(new Date());
+  const gesehen=new Set();
   imp.seiten.forEach(s=>s.zeilen.forEach(z=>{
     if(z.basis || !z.werte.fm) return;
-    const w=z.werte, je=k=>w[k]/w.fm;
     const schl=z.ziel.typ==="futter" ? z.ziel.name : z.ziel.typ;
+    if(gesehen.has(schl)) return;       // gleiches Futter auf mehreren Seiten: einmal
+    gesehen.add(schl);
+    const w=z.werte, je=k=>w[k]/w.fm;
     (komp[schl]=komp[schl]||[]).push({ ab, ts:w.tm/w.fm*100, nel:je("nel"), rp:je("rp"), nxp:je("nxp"), rnb:je("rnb"), ca:je("ca"), p:je("p"), preis:w.preis, pdfName:z.name, ungenau:!!z.ungenau, quelle:imp.datei });
   }));
-  const neu=imp.seiten.map((s,i)=>s.karte ? {
-    karte:s.karte, titel:s.titel, datum:s.datum, datei:imp.datei, aufwerten: s.zeilen.some(z=>z.basis),
-    komplett:fmKomplett(imp,i).map(k=>{ const z=imp.seiten[k.seite].zeilen[k.zeile]; return { name:z.ziel.name, typ:z.ziel.typ, kg:Math.round(k.kg*1000)/1000 }; }),
-    total:s.total.werte, kennziffern:s.kennziffern
-  } : null).filter(Boolean);
   fmSpeichern();
   fmImportSchliessen();
-  // je Mischung: „Sofort umstellen oder über __ Tage?“ (Rationswechsel)
-  neu.forEach(r=>fmRationNeu(r, imp.tage));
-  // ausgeblendete Mischung? Sonst sieht man die übernommene Ration im Rechner nicht
-  const versteckt=neu.filter(r=>typeof kategorieAn==="function" && !kategorieAn(r.karte)).map(r=>globalCfg[r.karte+"Name"]);
-  if(versteckt.length) alert(versteckt.join(", ")+" ist im Rechner ausgeblendet. Zum Anzeigen: Einstellungen → „Kategorien auf dem Start anzeigen“.");
-  if(fmNurAnsehen()) alert("In der Testversion gespeichert (nur auf diesem Gerät). Deine echten Rationen bleiben unverändert – unter „Rationen“ siehst du, wie sie im Rechner stehen würden.");
+  alert(`Werte für ${gesehen.size} Futtermittel übernommen. Du findest sie im Reiter „Fressmenge“ unter „Futtermittel“.`);
   fmBauen();
 }
 // Normale App: Ration in die Mischung schreiben (gleicher Name bzw. AGF/MLF → kg je Tier; freie „Futter n“-Zeilen für neue Komponenten)
@@ -5875,25 +6021,68 @@ function fmRationInRechner(r){
   if(r.karte==="kuehe2") globalCfg.kuehe2Modus = r.aufwerten ? "aufwerten" : "normal";
   save(); saveGlobal(); buildCalc(); buildSettings();
 }
-// Aktuelle Ration einer Mischung (letzte übernommene) und Trockensubstanz der Mischung
-function fmRationVon(karte){ return (fmCfg.rationen||[]).filter(r=>r.karte===karte).pop() || null; }
-function fmTsVon(karte){ const r=fmRationVon(karte); return r && r.total && r.total.fm>0 ? r.total.tm/r.total.fm : null; }
+// Ration einer Mischung = die Mengen je Tier aus den Einstellungen; Nährstoffe/TS aus den Futtermittel-Werten (PDF oder von Hand)
+const FM_RATIONSKARTEN=["kuehe","kuehe2","faersen","bullen","trocken","kaelber"];
+function fmRationVon(karte){
+  const k=data[karte]; if(!k || !k.items) return null;
+  const komplett=k.items.filter(i=>i.kg>0).map(i=>({ name:futterName(i), typ:i.type||"futter", kg:i.kg }));
+  if(!komplett.length) return null;
+  const n=fmNaehrstoffe(komplett);
+  if(n.fehlt.length===komplett.length) return null;       // noch keine Werte für diese Mischung
+  const stand=(fmCfg.rationStand||{})[karte]||{};
+  return { karte, komplett, total:{ fm:n.fm, tm:n.tm, nel:n.nel, rp:n.rp, nxp:n.nxp, rnb:n.rnb, ca:n.ca, p:n.p }, datum:stand.datum||null, kennziffern:{}, fehlt:n.fehlt };
+}
+// TS der Mischung nur, wenn für alle Futter Werte da sind (sonst wäre sie falsch)
+function fmTsVon(karte){ const r=fmRationVon(karte); return r && !r.fehlt.length && r.total.fm>0 ? r.total.tm/r.total.fm : null; }
+// Seit wann gilt die Ration? (für „Ration neu rechnen“ nach der Wartezeit) – merkt sich jede Änderung der Mengen
+function fmRationStandPruefen(){
+  const st=fmCfg.rationStand=fmCfg.rationStand||{}; let neu=false;
+  FM_RATIONSKARTEN.forEach(k=>{
+    const sig=JSON.stringify((data[k]||{items:[]}).items.filter(i=>i.kg>0).map(i=>[i.type||i.name, i.kg]));
+    if(!st[k] || st[k].sig!==sig){ st[k]={ sig, datum:fmIso(new Date()) }; neu=true; }
+  });
+  if(neu) try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
+}
+// Futtermittel-Tabelle: Preis und TS je Futter; Zeile antippen = ändern (z. B. neuer Preis vom Händler)
+function fmFutterAendern(schl){
+  const l=(fmCfg.komponenten||{})[schl], alt=l && l[l.length-1];
+  const name = schl==="agf" ? globalCfg.agfName : schl==="mlf" ? globalCfg.mlfName : schl;
+  const preis=prompt(`${name}: Preis in € je t`, alt && typeof alt.preis==="number" ? fmZahl(alt.preis) : "");
+  if(preis===null) return;
+  const ts=prompt(`${name}: Trockensubstanz in %`, alt && alt.ts ? fmZahl(Math.round(alt.ts*10)/10) : "");
+  if(ts===null) return;
+  const p=parseFloat(String(preis).replace(",",".")), t=parseFloat(String(ts).replace(",","."));
+  if(isNaN(p) || p<0 || p>5000 || isNaN(t) || t<=0 || t>100){ alert("Bitte Preis (0–5000 €/t) und TS (1–100 %) eingeben."); return; }
+  const neu={ ...(alt||{ nel:0, rp:0, nxp:0, rnb:0, ca:0, p:0, geschaetzt:true }), ab:fmIso(new Date()), preis:p, quelle:"von Hand" };
+  // TS geändert: Nährstoffe je kg FM mitziehen (gleicher Gehalt in der Trockenmasse)
+  if(alt && alt.ts>0 && t!==alt.ts) ["nel","rp","nxp","rnb","ca","p"].forEach(k=>{ neu[k]=alt[k]*t/alt.ts; });
+  neu.ts=t;
+  ((fmCfg.komponenten=fmCfg.komponenten||{})[schl]=fmCfg.komponenten[schl]||[]).push(neu);
+  fmSpeichern();
+}
 function fmRationenHtml(){
-  const r=["kuehe","kuehe2","faersen","bullen","trocken","kaelber"].map(fmRationVon).filter(Boolean);
+  const komp=fmCfg.komponenten||{}, schl=Object.keys(komp);
+  const name=k=>k==="agf" ? globalCfg.agfName : k==="mlf" ? globalCfg.mlfName : k;
+  const letzte=k=>komp[k][komp[k].length-1];
+  const pdf=schl.map(letzte).filter(x=>x.quelle && x.quelle!=="von Hand").map(x=>x.ab).sort().pop();
+  const karten=FM_RATIONSKARTEN.filter(k=>kategorieAn(k) && fmRationVon(k));
   return `
   <div class="history-box" id="fm-rationen" style="margin-top:10px">
-    <h3 style="margin-top:0">Rationen</h3>
-    <label class="save-btn" style="display:inline-block;cursor:pointer">📄 Neue Ration hochladen
+    <h3 style="margin-top:0">Futtermittel</h3>
+    ${schl.length ? `<table class="fm-futtermittel" style="font-size:15px">
+      <tr><th style="text-align:left">Futter</th><th>€/t</th><th>TS %</th></tr>
+      ${schl.map(k=>{ const x=letzte(k); return `<tr data-futter="${fmEsc(k)}" onclick="fmFutterAendern('${fmEsc(k).replace(/'/g,"\\'")}')" style="cursor:pointer"><td style="text-align:left">${fmEsc(name(k))}</td><td>${typeof x.preis==="number"?fmZahl(x.preis.toFixed(2)):"–"}</td><td>${fmZahl(Math.round(x.ts))}${x.ungenau||x.geschaetzt?' <span style="color:#d97a00">≈</span>':""}</td></tr>`; }).join("")}
+    </table>
+    <div style="font-size:12px;color:#666;margin-top:6px">Zeile antippen = ändern · ≈ ungenau/geschätzt${pdf?` · aus PDF vom ${fmKurz(pdf)}${pdf.slice(0,4)}`:""}</div>`
+    : `<div style="font-size:13px;color:#666">Noch keine Werte. Einmal das Berater-PDF hochladen – dann rechnet die App mit Preis, TS, Energie und Eiweiß.</div>`}
+    <label class="save-btn" style="display:inline-block;cursor:pointer;margin-top:8px">📄 Neues PDF
       <input type="file" accept="application/pdf,.pdf" id="fm-pdf-datei" style="display:none" onchange="fmPdfGewaehlt(this)"></label>
-    ${r.length ? r.map(x=>`
-    <div class="fm-ration" data-karte="${x.karte}" style="margin-top:10px;border-top:1px solid #eee;padding-top:6px">
-      <b>${fmEsc(globalCfg[x.karte+"Name"])}</b> <span style="font-size:13px;color:#666">· ${fmEsc(x.titel||"")}${x.datum?" vom "+fmKurz(x.datum)+x.datum.slice(0,4):""}${x.aufwerten?" · Rest der "+fmEsc(globalCfg.kueheName)+"-Mischung + Zugabe":""}</span>
-      ${x.komplett.map(z=>`<div style="display:flex;justify-content:space-between;font-size:14px"><span>${fmEsc(z.name)}</span><span>${fmKg(z.kg)} kg</span></div>`).join("")}
-      <div style="font-size:13px;color:#555;margin-top:2px">${fmKg(x.total.fm)} kg FM · ${fmKg(x.total.tm)} kg TM · TS ${fmZahl((x.total.tm/x.total.fm*100).toFixed(1))} %${x.kennziffern && x.kennziffern.milchEnergie?` · Milch aus Energie ${fmZahl(x.kennziffern.milchEnergie)} kg`:""}</div>
-      ${fmCfg.rationsvergleich===false ? "" : (()=>{ const h=fmRationHinweise(x, fmGruppen().find(g=>g.karte===x.karte)); return `<div class="fm-hinweise" style="font-size:13px;margin-top:4px">${h.length ? h.map(t=>`<div style="color:#b36b00">⚠ ${fmEsc(t)}</div>`).join("") : `<div style="color:#2e7d32">✓ Ration unauffällig</div>`}</div>
-        <button onclick="fmVergleichUmschalten('${x.karte}')" style="margin-top:6px;font-size:13px">${fmVergleichOffen===x.karte?"▲":"▼"} Rationsvergleich</button>
-        ${fmVergleichOffen===x.karte ? fmVergleichHtml(x.karte) : ""}`; })()}
-    </div>`).join("") : `<div style="font-size:13px;color:#666;margin-top:6px">Noch keine Ration hochgeladen.</div>`}
+    ${fmCfg.rationsvergleich===false ? "" : karten.map(k=>{ const x=fmRationVon(k), h=fmRationHinweise(x, fmGruppen().find(g=>g.karte===k));
+      return `<div class="fm-ration" data-karte="${k}" style="margin-top:10px;border-top:1px solid #eee;padding-top:6px;font-size:14px">
+        <b>${fmEsc(globalCfg[k+"Name"])}</b>: ${h.length ? `<span style="color:#b36b00">⚠ ${h.length===1?"1 Hinweis":h.length+" Hinweise"}</span>` : `<span style="color:#2e7d32">✓ unauffällig</span>`}
+        <button onclick="fmVergleichUmschalten('${k}')" style="font-size:13px;margin-left:6px">${fmVergleichOffen===k?"▲":"▼"}</button>
+        ${fmVergleichOffen===k ? `<div class="fm-hinweise" style="font-size:13px;margin-top:4px">${h.map(t=>`<div style="color:#b36b00">⚠ ${fmEsc(t)}</div>`).join("")}</div>${fmVergleichHtml(k)}` : ""}
+      </div>`; }).join("")}
   </div>`;
 }
 
@@ -6375,6 +6564,7 @@ function fmNeuZeichnen(){
   fmBauen();
 }
 function fmBauen(){
+  if(fmAn()) fmRationStandPruefen();
   // Reiter „Fressmenge“ oben nur bei AN (Wunsch Fritz: Schalter in den Einstellungen, alles andere im eigenen Reiter)
   const reiter=document.getElementById("fm-tab");
   if(reiter) reiter.style.display = fmAn() ? "" : "none";
@@ -6434,10 +6624,13 @@ function fmBauen(){
 // Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  _buildCalcVorFressmenge(); fmRechnerErgaenzen();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen();
   // Testversion mit eigener Kopie: Reste der Restmischung aus diesem Gerät mitschreiben (sonst kommen sie aus dem Betrieb)
   if(fmAn() && testEigeneDaten()) fmRestBeobachten({ restbullen:data.restbullen }, new Date());
 };
+// Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
+const _buildSettingsVorZusammen = buildSettings;
+buildSettings = function(){ zusammenAbgleich(); _buildSettingsVorZusammen(); zusammenEinstellungen(); };
 const _showTabVorFressmenge = showTab;
 showTab = function(t){
   _showTabVorFressmenge(t);
