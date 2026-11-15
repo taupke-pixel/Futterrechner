@@ -196,6 +196,49 @@ async function main() {
       assert(!keys.some(k => k.startsWith("fmtest:")), "Testeinträge nicht gelöscht: " + keys.join(","));
     });
 
+    await pruefe("Eigene Kopie: Knopf „Echte Daten kopieren“ → Testversion übernimmt den echten Stand, Hinweisleiste „eigene Kopie“", async () => {
+      await T.goto(`http://localhost:${PORT}/?emulator=1&testversion=1`);
+      await zugang.warteAufApp(T, "emulator", true);
+      await T.waitForFunction(() => historyData.length > 10);
+      await T.evaluate(() => showTab("fressmenge"));
+      await Promise.all([T.waitForNavigation(), T.click("#fm-testdaten >> text=Echte Daten kopieren")]);
+      await zugang.warteAufApp(T, "emulator", true);
+      assert.strictEqual(await T.evaluate(() => testEigeneDaten()), true);
+      assert((await T.textContent("#testversion-hinweis")).includes("eigene Kopie deiner Daten"));
+      assert.strictEqual(await T.textContent("#sync-status"), "📱 nur auf diesem Gerät");
+      const a = JSON.parse(await stand(A)), t = JSON.parse(await stand(T));
+      assert.deepStrictEqual(t.data, a.data); assert.deepStrictEqual(t.historyData, a.historyData); assert.deepStrictEqual(t.lagerData, a.lagerData);
+    });
+
+    await pruefe("Eigene Kopie: Speichern bleibt im Gerät (auch nach Neuladen), der Betrieb ändert sich nicht, Änderungen der normalen App kommen nicht an", async () => {
+      vorher = await betriebRoh(bid);
+      await T.evaluate(() => { data.kuehe.anz = 88; save(); lagerData.agf.bestand += 7; saveLagerStorage(); });
+      await T.waitForTimeout(1500);
+      assert.strictEqual(await betriebRoh(bid), vorher, "Betrieb wurde verändert!");
+      await T.reload(); await zugang.warteAufApp(T, "emulator", true);
+      assert.strictEqual(await T.evaluate(() => data.kuehe.anz), 88);
+      await A.evaluate(() => { data.kuehe.anz = 44; save(); });
+      await A.evaluate(() => cloudSyncFertig());
+      await T.waitForTimeout(1500);
+      assert.strictEqual(await T.evaluate(() => data.kuehe.anz), 88, "Änderung der normalen App ist in der Kopie angekommen");
+    });
+
+    await pruefe("Eigene Kopie: neue Ration darf jetzt in den Rechner (sofort umstellen), Betrieb bleibt unverändert", async () => {
+      vorher = await betriebRoh(bid);
+      await T.evaluate(() => { fmRationNeu({ karte: "kuehe", titel: "Test", komplett: [{ name: "Mais neu", typ: "futter", kg: 30 }], total: { fm: 30, tm: 10 } }, 0); });
+      assert.deepStrictEqual(await T.evaluate(() => data.kuehe.items.filter(i => i.kg > 0).map(i => [i.name, i.kg])), [["Mais neu", 30]]);
+      await T.waitForTimeout(1500);
+      assert.strictEqual(await betriebRoh(bid), vorher, "Betrieb wurde verändert!");
+    });
+
+    await pruefe("„Zurück zum Spiegel“ → Testversion zeigt wieder den echten Stand", async () => {
+      await T.evaluate(() => showTab("fressmenge"));
+      await Promise.all([T.waitForNavigation(), T.click("#fm-testdaten >> text=Zurück zum Spiegel")]);
+      await zugang.warteAufApp(T, "emulator", true);
+      assert.strictEqual(await T.evaluate(() => testEigeneDaten()), false);
+      await T.waitForFunction(() => data.kuehe.anz === 44, null, { timeout: 15000 });
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       assert.deepStrictEqual([...A.meldungen, ...T.meldungen].filter(m => m.startsWith("SEITENFEHLER")), []);
     });

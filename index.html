@@ -25,7 +25,10 @@ if (istTestversion) {
   document.addEventListener("DOMContentLoaded", function(){
     var b = document.createElement("div");
     b.id = "testversion-hinweis";
-    b.textContent = "🧪 TESTVERSION – zeigt deine echten Zahlen. Änderungen hier werden nicht gespeichert (eintragen in der normalen App).";
+    var kopie = localStorage.getItem("eigeneDaten");
+    b.textContent = kopie
+      ? "🧪 TESTVERSION – eigene Kopie deiner Daten vom " + kopie.split("-").reverse().join(".") + ". Speichert nur auf diesem Gerät, die normale App bleibt unverändert."
+      : "🧪 TESTVERSION – zeigt deine echten Zahlen. Änderungen hier werden nicht gespeichert (eintragen in der normalen App).";
     b.style.cssText = "background:#f2a900;color:#fff;text-align:center;font-weight:bold;padding:6px;font-size:15px";
     document.body.insertBefore(b, document.body.firstChild);
   });
@@ -342,6 +345,26 @@ if(istTestversion){
     F.CollectionReference.prototype.add=function(){ return this.path.split("/")[0]==="test" ? add.apply(this, arguments) : Promise.reject(sperre(this)); };
     F.Firestore.prototype.runTransaction=function(){ return Promise.reject(sperre({ path:"(transaction)" })); };
   })();
+}
+// Testversion mit eigener Kopie (Wunsch Fritz 15.11.2026): einmal die echten Daten kopiert, danach speichert sie nur auf diesem Gerät.
+// Der Betrieb (normale App) wird dabei nie verändert – die Sperre oben bleibt aktiv. Daten später per Backup übertragbar.
+function testEigeneDaten(){ try{ return istTestversion && !!localStorage.getItem("eigeneDaten"); }catch(e){ return false; } }
+function fmNurAnsehen(){ return istTestversion && !testEigeneDaten(); }
+function testDatenKopieren(){
+  if(!istTestversion || testEigeneDaten() || !cloud.aktiv) return;
+  if(!confirm("Jetzt deine echten Daten (Rationen, Einstellungen, Lager, History, Lieferungen) in die Testversion kopieren?\n\nDanach speichert die Testversion nur noch auf diesem Gerät. Die normale App bleibt unverändert.")) return;
+  localStorage.setItem("futter",JSON.stringify(data)); localStorage.setItem("gCfg",JSON.stringify(globalCfg));
+  localStorage.setItem("history",JSON.stringify(historyData)); localStorage.setItem("lager",JSON.stringify(lagerData));
+  localStorage.setItem("lieferungen",JSON.stringify(lieferungen));
+  localStorage.setItem("eigeneDaten", fmIso(new Date()));
+  cloud.abos.forEach(a=>a()); cloud.abos=[]; cloud.aktiv=false;
+  location.reload();
+}
+function testZurueckZumSpiegel(){
+  if(!testEigeneDaten()) return;
+  if(!confirm("Zurück zum Spiegel? Alles, was du seit der Kopie in der Testversion gespeichert hast (Mischungen, Lager, History), ist dann weg.\n\nVorher im Tab History „Backup erstellen“, wenn du es behalten willst.")) return;
+  localStorage.removeItem("eigeneDaten");
+  location.reload();
 }
 // Testversion: kurz zeigen, dass eine Änderung nicht gespeichert wird (die Hinweisleiste blinkt rot)
 function testversionHinweis(){
@@ -5014,7 +5037,7 @@ function fmRestBeobachten(inhalt, zeit){
 }
 let fmRestAbo=null;
 function fmRestAbonnieren(){
-  if(fmRestAbo || !betriebId || !fmAn()) return;
+  if(fmRestAbo || !betriebId || !fmAn() || testEigeneDaten()) return;   // eigene Kopie: Reste kommen aus diesem Gerät (siehe buildCalc)
   fmRestAbo=db.collection("betriebe").doc(betriebId).collection("daten").doc("futter").onSnapshot(s=>{
     if(!s.exists) return;
     const d=s.data(), g=d.geaendert && d.geaendert.toDate ? d.geaendert.toDate() : new Date();
@@ -5400,7 +5423,7 @@ function fmAuswertungHtml(){
         <div><b>${fmEsc(g.name)}</b><br><span class="fm-text" style="color:${farbe}">${b.art==="ok"?"✓ ":""}${b.text}${ziel}</span></div>
         <span>${fmOffen===g.id?"▲":"▼"}</span>
       </div>
-      ${(b.art==="mehr"||b.art==="weniger") ? `<button class="save-btn" style="margin-top:6px" ${istTestversion?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmUebernehmen('${g.id}','${b.art}')">Übernehmen</button>${istTestversion?`<span style="font-size:12px;color:#666;margin-left:6px">Testversion: nur ansehen</span>`:""}` : ""}
+      ${(b.art==="mehr"||b.art==="weniger") ? `<button class="save-btn" style="margin-top:6px" ${fmNurAnsehen()?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmUebernehmen('${g.id}','${b.art}')">Übernehmen</button>${fmNurAnsehen()?`<span style="font-size:12px;color:#666;margin-left:6px">Testversion: nur ansehen</span>`:""}` : ""}
       ${(fmDemo ? [] : fmMeldungen(g, reihe)).map(f=>`<div class="fm-meldung" style="margin-top:6px;color:#b36b00;font-size:14px">${f.text} <button onclick="fmErledigt('${f.schluessel}')" style="font-size:13px">erledigt</button></div>`).join("")}
       ${fmOffen===g.id ? fmVerlaufHtml(g, reihe) : ""}
     </div>`;
@@ -5424,7 +5447,13 @@ function fmAuswertungHtml(){
         : frage.knoepfe.map(([text,wert])=>`<button class="save-btn" onclick="fmAntworten('${frage.g.id}','${frage.tage.join(",")}','${wert}')">${text}</button>`).join("")}
     </div>
   </div>` : "";
-  return frageHtml + `
+  const testKasten = !istTestversion ? "" : testEigeneDaten()
+    ? `<div class="history-box" id="fm-testdaten" style="margin-bottom:8px;font-size:14px">🧪 Eigene Kopie deiner Daten vom ${fmKurz(localStorage.getItem("eigeneDaten"))}${localStorage.getItem("eigeneDaten").slice(0,4)} – alles, was du hier speicherst, bleibt auf diesem Gerät.
+       <div style="font-size:12px;color:#666;margin-top:4px">Regelmäßig im Tab History „Backup erstellen“ – und den Browserverlauf auf diesem Gerät nicht löschen.</div>
+       <button onclick="testZurueckZumSpiegel()" style="margin-top:6px;font-size:13px">Zurück zum Spiegel</button></div>`
+    : `<div class="history-box" id="fm-testdaten" style="margin-bottom:8px;font-size:14px">🧪 Die Testversion zeigt gerade deine echten Daten nur an.
+       <button class="save-btn" style="margin-top:6px" onclick="testDatenKopieren()">Echte Daten kopieren und in der Testversion weiterarbeiten</button></div>`;
+  return frageHtml + testKasten + `
   ${istTestversion ? `<div style="text-align:right;margin-bottom:6px"><button onclick="fmDemoUmschalten()" style="font-size:13px">${fmDemo?"Beispieldaten ausblenden":"Beispieldaten anzeigen"}</button></div>` : ""}
   ${fmDemo ? `<div style="background:#fff3cd;padding:6px 10px;border-radius:8px;margin-bottom:6px;font-size:13px">Beispieldaten (30 Tage) – nicht deine echten Werte.</div>` : ""}
   ${wetter}
@@ -5436,7 +5465,7 @@ function fmAuswertungHtml(){
 }
 // „Übernehmen“: Fressmenge je Kuh der Ration um den Schritt ändern (alle Futter gleichmäßig). Nur in der normalen App.
 function fmUebernehmen(id, art){
-  const g=fmGruppen().find(x=>x.id===id); if(!g || istTestversion || !data[g.karte]) return;
+  const g=fmGruppen().find(x=>x.id===id); if(!g || fmNurAnsehen() || !data[g.karte]) return;
   const f=1+(art==="mehr"?1:-1)*fmWert("restSchritt")/100;
   if(!confirm(`${g.name}: Ration ${globalCfg[g.karte+"Name"]} um ${art==="mehr"?"+":"−"}${fmZahl(fmWert("restSchritt"))} % ändern?`)) return;
   const vorher=data[g.karte].items.map(i=>i.kg);
@@ -5738,7 +5767,7 @@ function fmImportVorbereiten(imp, dateiname){
     const vergeben=new Set();
     s.zeilen.forEach(z=>{ if(z.basis) return; const v=fmNamensVorschlag(z.name, s.karte||"kuehe", vergeben, s.titel); z.ziel=v; vergeben.add(v.name); });
   });
-  imp.bestaetigt=false;
+  imp.bestaetigt=false; imp.tage=14;
   fmImport=imp;
   fmImportZeigen();
 }
@@ -5793,6 +5822,12 @@ function fmImportZeigen(){
         ${komplett.map(k=>{ const z=imp.seiten[k.seite].zeilen[k.zeile]; return `<div style="display:flex;justify-content:space-between;font-size:14px;padding:2px 0"><span>${fmEsc(z.ziel ? z.ziel.name : z.name)}</span><span>${fmKg(k.kg)} kg</span></div>`; }).join("")}
         <div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #ccc;margin-top:2px"><span>Summe</span><span>${fmKg(komplett.reduce((x,k)=>x+k.kg,0))} kg</span></div></div>` : ""}
     </div>`; }).join("")}
+  ${unbekannt ? "" : `<div class="history-box" style="margin-top:10px">Umstellen:
+    <select id="fm-import-art" onchange="fmImport.tage = this.value==='sofort' ? 0 : (fmImport.tage||14); fmImportZeigen()">
+      <option value="sofort" ${imp.tage===0?"selected":""}>sofort</option>
+      <option value="tage" ${imp.tage!==0?"selected":""}>über mehrere Tage</option></select>
+    ${imp.tage!==0 ? `<input id="fm-import-tage" type="text" inputmode="numeric" value="${imp.tage}" style="width:50px" onchange="fmImport.tage=Math.max(1,Math.min(60,parseInt(this.value,10)||14)); fmImportZeigen()"> Tage` : ""}
+  </div>`}
   ${fehler.length && !unbekannt ? `<label style="display:block;margin:10px 0"><input type="checkbox" ${imp.bestaetigt?"checked":""} onchange="fmImport.bestaetigt=this.checked;fmImportZeigen()"> Ich habe die markierten Stellen geprüft</label>` : ""}
   <div style="display:flex;gap:8px;margin:12px 0 30px">
     ${unbekannt ? "" : `<button class="save-btn" id="fm-import-ok" ${fehler.length && !imp.bestaetigt ? "disabled" : ""} onclick="fmImportUebernehmen()">Übernehmen</button>`}
@@ -5820,8 +5855,11 @@ function fmImportUebernehmen(){
   fmSpeichern();
   fmImportSchliessen();
   // je Mischung: „Sofort umstellen oder über __ Tage?“ (Rationswechsel)
-  neu.forEach(r=>fmRationNeu(r));
-  if(istTestversion) alert("In der Testversion gespeichert (nur auf diesem Gerät). Deine echten Rationen bleiben unverändert – unter „Rationen“ siehst du, wie sie im Rechner stehen würden.");
+  neu.forEach(r=>fmRationNeu(r, imp.tage));
+  // ausgeblendete Mischung? Sonst sieht man die übernommene Ration im Rechner nicht
+  const versteckt=neu.filter(r=>typeof kategorieAn==="function" && !kategorieAn(r.karte)).map(r=>globalCfg[r.karte+"Name"]);
+  if(versteckt.length) alert(versteckt.join(", ")+" ist im Rechner ausgeblendet. Zum Anzeigen: Einstellungen → „Kategorien auf dem Start anzeigen“.");
+  if(fmNurAnsehen()) alert("In der Testversion gespeichert (nur auf diesem Gerät). Deine echten Rationen bleiben unverändert – unter „Rationen“ siehst du, wie sie im Rechner stehen würden.");
   fmBauen();
 }
 // Normale App: Ration in die Mischung schreiben (gleicher Name bzw. AGF/MLF → kg je Tier; freie „Futter n“-Zeilen für neue Komponenten)
@@ -5929,7 +5967,7 @@ function fmVergleichWerte(komplett, g, karte){
     geld: (milch!==null && typeof preis==="number") ? milch*preis/100 - kosten.euro : null };
 }
 function fmVariantenWaehlen(id){
-  const v=(fmCfg.varianten||[]).find(x=>x.id===id); if(!v || istTestversion) return;
+  const v=(fmCfg.varianten||[]).find(x=>x.id===id); if(!v || fmNurAnsehen()) return;
   const r=fmRationVon(v.karte);
   fmRationNeu({ ...r, titel:v.name, datei:null, datum:fmIso(new Date()), komplett:v.komplett.map(z=>({ ...z })), total:(()=>{ const n=fmNaehrstoffe(v.komplett); return { fm:n.fm, tm:n.tm, nel:n.nel, rp:n.rp, nxp:n.nxp, rnb:n.rnb, ca:n.ca, p:n.p }; })() });
 }
@@ -5959,7 +5997,7 @@ function fmVergleichHtml(karte){
         ${bekannte.map(b=>`<option value="${fmEsc(b)}">${fmEsc(b==="agf"?globalCfg.agfName:b==="mlf"?globalCfg.mlfName:b)}</option>`).join("")}</select>
       ${fmRationHinweise({ komplett:x.komplett, kennziffern:{} }, g).map(t=>`<div style="color:#b36b00;font-size:13px">⚠ ${fmEsc(t)}</div>`).join("")}
       <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-        <button class="save-btn" ${istTestversion?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmVariantenWaehlen('${x.id}')">Diese nehmen</button>
+        <button class="save-btn" ${fmNurAnsehen()?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmVariantenWaehlen('${x.id}')">Diese nehmen</button>
         <button onclick="fmVarianteLoeschen('${x.id}')" style="font-size:13px">Löschen</button></div>
     </div>`).join("")}
     <button onclick="fmVarianteNeu('${karte}')" style="margin-top:8px">+ Eigene Variante</button>
@@ -6013,7 +6051,7 @@ function fmWechselAendern(karte, aktion){
 }
 // Normale App: Tagesration in die Mischung schreiben (einmal je Tag). Testversion: nur anzeigen.
 function fmWechselAnwenden(){
-  if(istTestversion || !fmAn()) return;
+  if(fmNurAnsehen() || !fmAn()) return;
   Object.entries(fmCfg.wechsel||{}).forEach(([karte,w])=>{
     const heute=fmIso(new Date());
     const ziel = w.abgebrochen ? w.von : w.fertig ? w.nach : fmWechselRation(w).zeilen;
@@ -6032,7 +6070,7 @@ function fmWechselHtml(){
       <b>Rationswechsel ${fmEsc(globalCfg[karte+"Name"])}: Tag ${tag} von ${w.tage}</b>${w.pause?" · pausiert":""}${w.fertig?" · abgeschlossen":""}
       ${r.zeilen.map(z=>`<div style="display:flex;justify-content:space-between;font-size:14px"><span>${fmEsc(z.name)}</span><span>${fmKg(z.kg)} kg</span></div>`).join("")}
       ${r.ohneTs ? `<div style="font-size:12px;color:#b36b00">Für einige Komponenten fehlt die Trockensubstanz – dort wird nach Frischmasse übergegangen.</div>` : ""}
-      ${istTestversion ? `<div style="font-size:12px;color:#666">Testversion: nur Anzeige – der Rechner wird nicht verändert.</div>` : ""}
+      ${fmNurAnsehen() ? `<div style="font-size:12px;color:#666">Testversion: nur Anzeige – der Rechner wird nicht verändert.</div>` : ""}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
         <button onclick="fmWechselAendern('${karte}','dauer')">Dauer ändern</button>
         <button onclick="fmWechselAendern('${karte}','pause')">${w.pause?"Fortsetzen":"Pausieren"}</button>
@@ -6042,14 +6080,17 @@ function fmWechselHtml(){
   }).join("");
 }
 // Neue Ration übernehmen: „Sofort umstellen oder über __ Tage?“ (Vorschlag 14). Alt = bisherige Ration der Mischung im Rechner.
-function fmRationNeu(r){
+function fmRationNeu(r, tageVorgabe){
   const alt=(data[r.karte]||{items:[]}).items.filter(i=>i.kg>0).map(i=>({ name:futterName(i), typ:i.type||"futter", kg:i.kg }));
-  const antwort=prompt(`${globalCfg[r.karte+"Name"]}: Sofort umstellen (0) oder über wie viele Tage?`, "14");
-  if(antwort===null) return false;
-  const tage=parseInt(antwort,10);
+  let tage=tageVorgabe;
+  if(typeof tage!=="number"){
+    const antwort=prompt(`${globalCfg[r.karte+"Name"]}: Sofort umstellen (0) oder über wie viele Tage?`, "14");
+    if(antwort===null) return false;
+    tage=parseInt(antwort,10);
+  }
   if(isNaN(tage) || tage<0 || tage>60){ alert("Bitte 0 bis 60 Tage eingeben."); return false; }
   (fmCfg.rationen=fmCfg.rationen||[]).push(r);
-  if(tage===0 || !alt.length){ if(!istTestversion) fmRationInRechner(r); delete (fmCfg.wechsel||{})[r.karte]; }
+  if(tage===0 || !alt.length){ if(!fmNurAnsehen()) fmRationInRechner(r); delete (fmCfg.wechsel||{})[r.karte]; }
   else fmWechselStarten(r.karte, alt, r.komplett, tage);
   fmSpeichern();
   fmWechselAnwenden();
@@ -6303,7 +6344,7 @@ function fmKorrekturZeilen(){
     const e=fmLernErgebnis("regen");
     if(e.gelernt && e.wirkung<0){
       const plus=Math.min(25, -e.wirkung*100), kompo=String(fmCfg.draussen||"Grassilage, Maissilage");
-      z.push(`<div class="history-box fm-korrektur" data-art="regen" style="margin-top:8px">💧 Regen ${fmZahl(w.regen.toFixed(1))} mm · ${fmEsc(kompo)} +${fmZahl(plus.toFixed(0))} % <button onclick="fmHeuteAus('regen')" style="font-size:13px">heute aus</button>${istTestversion?`<div style="font-size:12px;color:#666">Testversion: nur Anzeige</div>`:""}</div>`);
+      z.push(`<div class="history-box fm-korrektur" data-art="regen" style="margin-top:8px">💧 Regen ${fmZahl(w.regen.toFixed(1))} mm · ${fmEsc(kompo)} +${fmZahl(plus.toFixed(0))} % <button onclick="fmHeuteAus('regen')" style="font-size:13px">heute aus</button>${fmNurAnsehen()?`<div style="font-size:12px;color:#666">Testversion: nur Anzeige</div>`:""}</div>`);
     }
   }
   const heiss = wm && fmThi(wm.tmax, wm.rh)>=68;
@@ -6311,7 +6352,7 @@ function fmKorrekturZeilen(){
     const e=fmLernErgebnis("hitze");
     if(e.gelernt && e.wirkung<0){
       const minus=Math.min(fmWert("hitzeMax"), -e.wirkung*100);
-      z.push(`<div class="history-box fm-korrektur" data-art="hitze" style="margin-top:8px">🔥 Hitze ${Math.round(wm.tmax)} °C · Mischung −${fmZahl(minus.toFixed(0))} % <button onclick="fmHeuteAus('hitze')" style="font-size:13px">heute aus</button>${istTestversion?`<div style="font-size:12px;color:#666">Testversion: nur Anzeige</div>`:""}</div>`);
+      z.push(`<div class="history-box fm-korrektur" data-art="hitze" style="margin-top:8px">🔥 Hitze ${Math.round(wm.tmax)} °C · Mischung −${fmZahl(minus.toFixed(0))} % <button onclick="fmHeuteAus('hitze')" style="font-size:13px">heute aus</button>${fmNurAnsehen()?`<div style="font-size:12px;color:#666">Testversion: nur Anzeige</div>`:""}</div>`);
     }
   }
   return z.join("");
@@ -6392,7 +6433,11 @@ function fmBauen(){
 }
 // Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
 const _buildCalcVorFressmenge = buildCalc;
-buildCalc = function(){ _buildCalcVorFressmenge(); fmRechnerErgaenzen(); };
+buildCalc = function(){
+  _buildCalcVorFressmenge(); fmRechnerErgaenzen();
+  // Testversion mit eigener Kopie: Reste der Restmischung aus diesem Gerät mitschreiben (sonst kommen sie aus dem Betrieb)
+  if(fmAn() && testEigeneDaten()) fmRestBeobachten({ restbullen:data.restbullen }, new Date());
+};
 const _showTabVorFressmenge = showTab;
 showTab = function(t){
   _showTabVorFressmenge(t);
@@ -6584,6 +6629,12 @@ async function starten(){
   altDatenSichern();
   betriebId=zuordnung;
   localStorage.setItem("betriebId",betriebId);
+  // Testversion mit eigener Kopie: es gelten die Daten in diesem Gerät, kein Abgleich mit dem Betrieb
+  if(testEigeneDaten()){
+    cloud.aktiv=false; zeigeApp();
+    const st=document.getElementById("sync-status"); if(st) st.textContent="📱 nur auf diesem Gerät";
+    return;
+  }
   try{
     await cloudAbonnieren();
   }catch(e){
