@@ -120,7 +120,7 @@ async function main() {
       await g.locator("select.fm-dazu").selectOption("s1");
       await g.locator("select.fm-dazu").selectOption("stroh");
       const t = await g.textContent();
-      assert(t.includes("Zusammen: 44 Tiere (37 laktierend)"), t);
+      assert(t.includes("Zusammen: 44 Tiere (davon 37 laktierend)"), t);
       assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].karte), "kuehe");
       assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].art), "rest");
       assert(!(await T.textContent("#fm-nicht-zugeordnet")).includes("Stall 1 ·"));
@@ -141,9 +141,9 @@ async function main() {
     });
 
     await pruefe("✕ entfernt einen Stall wieder (zurück zu „Nicht zugeordnet“); Name und Mischung änderbar", async () => {
-      await gruppe(T, "Hochleistung").locator(".fm-stall", { hasText: "Strohstall" }).locator("button").click();
+      await gruppe(T, "Hochleistung").locator(".fm-stall", { hasText: "Strohstall" }).locator("button[title=entfernen]").click();
       assert((await T.textContent("#fm-nicht-zugeordnet")).includes("Strohstall · 7 Tiere"));
-      assert((await gruppe(T, "Hochleistung").textContent()).includes("Zusammen: 37 Tiere (35 laktierend)"));
+      assert((await gruppe(T, "Hochleistung").textContent()).includes("Zusammen: 37 Tiere (davon 35 laktierend)"));
       await gruppe(T, "Hochleistung").locator("input.fm-gruppe-name").fill("Kühe Stall 1");
       await T.dispatchEvent('input.fm-gruppe-name >> nth=0', "change");
       assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].name), "Kühe Stall 1");
@@ -163,7 +163,7 @@ async function main() {
       await T.evaluate(() => fmStallzahlenHolen(true));
       await T.waitForFunction(() => document.getElementById("fm-nicht-zugeordnet").textContent.includes("Neuer Stall"));
       assert.strictEqual((await tab(T)).orange, true);
-      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("Zusammen: 38 Tiere (36 laktierend)"));
+      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("Zusammen: 38 Tiere (davon 36 laktierend)"));
     });
 
     await pruefe("Rechner: Karte der Gruppe zeigt Tierzahl aus dem Herdenmanager (antippen = übernehmen) und bei 2 Ställen grüne Abladen-Zeilen", async () => {
@@ -171,12 +171,22 @@ async function main() {
       await T.evaluate(() => { data.kuehe2.anz = 80; data.kuehe2.items.forEach((it, i) => it.kg = i === 0 ? 40 : 0); showTab("calc"); buildCalc(); });
       const karte = T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") });
       const zeile = await karte.locator(".fm-hm-zeile").textContent();
-      assert(zeile.includes("Herdenmanager: 83 Tiere (laktierend)"), zeile);
+      // alle Tiere der Ställe zählen (auch Trockensteher, die dieselbe Mischung fressen): 38 + 47
+      assert(zeile.includes("Herdenmanager: 85 Tiere") && !zeile.includes("laktierend"), zeile);
       await karte.locator(".fm-hm-zeile button", { hasText: "übernehmen" }).click();
-      assert.strictEqual(await T.evaluate(() => data.kuehe2.anz), 83);
+      assert.strictEqual(await T.evaluate(() => data.kuehe2.anz), 85);
       const ab = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
-      // 83 × 40 kg = 3320 kg; Stall 1: 36/83 → 1440 kg, danach bleiben 1880 kg (= Stall 2)
-      assert(ab.includes("▼ Stall 1 abladen bis 1880 kg (1440 kg)") && ab.includes("→ Rest: Stall 2 1880 kg"), ab);
+      // 85 × 40 kg = 3400 kg; Stall 1: 38/85 → 1520 kg, danach bleiben 1880 kg (= Stall 2)
+      assert(ab.includes("▼ Stall 1 abladen bis 1880 kg (1520 kg)") && ab.includes("→ Rest: Stall 2 1880 kg"), ab);
+      // Reihenfolge beim Abladen: ▲ bei Stall 2 → Stall 2 zuerst
+      await T.evaluate(() => showTab("fressmenge"));
+      const g = gruppe(T, "Kühe Stall 1");
+      assert.strictEqual(await g.locator(".fm-stall").first().locator(".fm-stall-hoch").count(), 0, "erster Stall hat ▲");
+      await g.locator(".fm-stall", { hasText: "Stall 2" }).locator(".fm-stall-hoch").click();
+      assert((await g.locator(".fm-stall").first().textContent()).includes("Stall 2"));
+      await T.evaluate(() => { showTab("calc"); buildCalc(); });
+      const ab2 = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
+      assert(ab2.includes("▼ Stall 2 abladen bis 1520 kg (1880 kg)") && ab2.includes("→ Rest: Stall 1 1520 kg"), ab2);
       assert.strictEqual(await T.locator("#calc .category", { has: T.locator(".cat-header.cat-faersen") }).locator(".fm-hm-zeile").count(), 0, "Karte ohne Gruppe hat Ergänzung");
     });
 

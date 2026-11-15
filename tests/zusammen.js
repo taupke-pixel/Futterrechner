@@ -163,6 +163,31 @@ async function main() {
       assert(Math.abs(q - 80 / 1700 * 100) < 1e-9, "Quote " + q);
     });
 
+    await pruefe("Mit Herdenmanager: Tierzahl je Gruppe (alle Tiere, auch Trockensteher) + Abladen je Stall in der eingestellten Reihenfolge", async () => {
+      const r = await page.evaluate(() => {
+        const pl = (id, name, anzahl, lakt) => ({ id, name, typ: "stall", stall: null, anzahl, gruppen: [{ art: "laktierend", anzahl: lakt }, ...(anzahl > lakt ? [{ art: "trocken", anzahl: anzahl - lakt }] : [])] });
+        fmStall = { geholt: new Date().toISOString(), eintraege: { s1: pl("s1", "Stall 1", 37, 37), s2: pl("s2", "Stall 2", 47, 47), stroh: pl("stroh", "Strohstall", 8, 5) } };
+        fmCfg.an = true; fmCfg.tierzahlHM = true;
+        fmCfg.gruppen = [{ id: "ga", name: "Altmelker", karte: "kuehe", art: "rest", staelle: ["stroh", "s1"], auswerten: true },
+                         { id: "gb", name: "Hochleistung", karte: "kuehe2", art: "rest", staelle: ["s2"], auswerten: true }];
+        showTab("calc"); buildCalc();
+        const k = document.querySelector(".zusammen-karte");
+        return { hm: [...k.querySelectorAll(".zusammen-hm")].map(e => e.innerText), ablade: k.querySelector(".zusammen-abladen").innerText, rest: k.querySelector(".zusammen-rest").innerText,
+                 fremd: k.querySelectorAll(".fm-hm-zeile, .fm-abladen").length, G: zusammenPlan().G, geplant: zusammenPlan().geplant };
+      });
+      assert(r.hm[0].includes("Herdenmanager: 45 Tiere") && r.hm[0].includes("übernehmen"), r.hm.join(" | "));
+      assert(r.hm[1].includes("Herdenmanager: 47 Tiere") && !r.hm[1].includes("übernehmen"), r.hm.join(" | "));
+      assert.strictEqual(r.fremd, 0, "allgemeine Ergänzung in der gemeinsamen Karte");
+      const stroh = PLAN1 * 8 / 45;
+      assert(r.ablade.includes(`2. ▼ Strohstall abladen bis ${(G - stroh).toFixed(0)} kg (${stroh.toFixed(0)} kg)`), r.ablade);
+      assert(r.ablade.includes(`▼ Stall 1 abladen bis ${PLAN_REST.toFixed(0)} kg (${(PLAN1 - stroh).toFixed(0)} kg)`), r.ablade);
+      assert(r.rest.includes("→ Kühe Gruppe 2 abladen"), r.rest);
+      await page.locator(".zusammen-hm button", { hasText: "übernehmen" }).click();
+      assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 45);
+      await page.evaluate(s1 => { data.kuehe.anz = s1; fmCfg.an = false; fmCfg.gruppen = []; fmStall = null; save(); buildCalc(); }, S1);
+      assert.strictEqual(await page.locator(".zusammen-hm").count(), 0);
+    });
+
     await pruefe("Zurück auf „eigene Mischung“ → Rechner genau wie vorher; Gruppe 2 behält die übernommenen Werte zum Weiterbearbeiten", async () => {
       await page.evaluate(() => { kuehe2ModusSetzen("normal"); showTab("calc"); buildCalc(); });
       assert.strictEqual(await page.locator(".zusammen-karte").count(), 0);

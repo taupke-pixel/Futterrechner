@@ -4837,6 +4837,22 @@ function zusammenSpeichern(){
   buildCalc();
   buildHistory();
 }
+// Mit Fressmenge + Herdenmanager: Tierzahl je Gruppe und Abladen je Stall (Reihenfolge wie in der Futtergruppe)
+function zusammenHm(){
+  if(typeof fmAn!=="function" || !fmAn() || !fmStall || fmCfg.tierzahlHM===false) return null;
+  return { g1:fmGruppeFuerKarte("kuehe"), g2:fmGruppeFuerKarte("kuehe2") };
+}
+function zusammenStaelle(g, menge){
+  const pl=g ? (g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt) : [];
+  const summe=pl.reduce((s,p)=>s+(p.anzahl||0),0);
+  if(pl.length<2 || !(summe>0) || !(menge>0)) return null;
+  return pl.map(p=>({ p, menge:menge*(p.anzahl||0)/summe }));
+}
+function zusammenHmTiere(g, k){
+  if(!g) return "";
+  const n=fmTierzahlGruppe(g);
+  return ` <span class="zusammen-hm" style="font-size:13px;color:#555">Herdenmanager: <b>${fmTiere(n)}</b>${n!==num(data[k].anz) ? ` <button onclick="event.stopPropagation();fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px">übernehmen</button>` : ""}</span>`;
+}
 function zusammenKarteHtml(){
   const p=zusammenPlan(), n1=globalCfg.kueheName, n2=globalCfg.kuehe2Name;
   let lauf=0;
@@ -4846,21 +4862,30 @@ function zusammenKarteHtml(){
     + p.zuViel.map(({it,kg})=>`<tr><td>${futterName(it)}</td><td class="minus">${kg.toFixed(1)}</td><td class="minus">schon zu viel</td><td>-</td></tr>`).join("");
   const gesamt=lauf+p.zugabe.reduce((s,z)=>s+z.kg,0), gespeichert=alreadySavedToday("kuehe") || alreadySavedToday("kuehe2");
   const gruen="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:8px;margin-top:6px;font-weight:bold";
+  const hm=zusammenHm(), st1=hm && zusammenStaelle(hm.g1, p.G-p.geplant), st2=hm && zusammenStaelle(hm.g2, lauf2);
+  let wagen=p.G;
+  const ablade1 = st1 ? st1.map(({p:pl,menge},i)=>{ wagen-=menge; return `<div class="zusammen-stall">${i===0?"2. ":""}▼ ${fmPlatzName(pl)} abladen bis ${(i===st1.length-1?p.geplant:wagen).toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span></div>`; }).join("")
+    : `2. ▼ ${n1} abladen bis ${p.geplant.toFixed(0)} kg <span style="font-weight:normal">(${(p.G-p.geplant).toFixed(0)} kg)</span>`;
+  let wagen2=lauf2;
+  const ablade2 = st2 ? st2.map(({p:pl,menge},i)=>{ wagen2-=menge; const nr=i===0?(zug?"4. ":"3. "):"";
+      return i===st2.length-1 ? `<div class="zusammen-stall">${nr}→ Rest: ${fmPlatzName(pl)} ${menge.toFixed(0)} kg</div>` : `<div class="zusammen-stall">${nr}▼ ${fmPlatzName(pl)} abladen bis ${wagen2.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span></div>`; }).join("")
+    : `${zug?"4.":"3."} → ${n2} abladen: ${lauf2.toFixed(0)} kg`;
   return `
   <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
     <div class="cat-header cat-kuehe" onclick="data.kuehe.collapsed=!data.kuehe.collapsed;save();buildCalc();">
       ${n1} + ${n2}<span>${data.kuehe.collapsed?'▼':'▲'}</span>
     </div>
     <div class="cat-body">
-      ${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere<br>
-      ${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere
+      ${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g1,"kuehe") : ""}<br>
+      ${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}
+      ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
       <div style="font-weight:bold;margin-top:10px">1. Grundmischung (für beide)</div>
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
-      <div class="zusammen-abladen" style="${gruen};cursor:pointer" onclick="zusammenRestEingeben()">2. ▼ ${n1} abladen bis ${p.geplant.toFixed(0)} kg <span style="font-weight:normal">(${(p.G-p.geplant).toFixed(0)} kg)</span>
+      <div class="zusammen-abladen" style="${gruen};cursor:pointer" onclick="zusammenRestEingeben()">${ablade1}
         ${p.echt!==null ? `<div style="font-weight:normal;margin-top:4px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>${p.echt!==null && data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+1 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr bei ${n1} rechnet die Auswertung beim Rest mit.</div>` : ""}${p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : ""}` : `<div style="font-weight:normal;font-size:12px">anders abgeladen? hier antippen</div>`}</div>
       ${zug ? `<div style="font-weight:bold;margin-top:10px">3. Für ${n2} ${p.echt!==null&&p.echt<p.geplant?"nachladen und dazumischen":"dazumischen"}</div>
       <table>${zug}</table>` : ""}
-      <div class="zusammen-rest" style="${gruen}">${zug?"4.":"3."} → ${n2} abladen: ${lauf2.toFixed(0)} kg</div>
+      <div class="zusammen-rest" style="${gruen}">${ablade2}</div>
       <div class="total">
         <span>Gesamt: ${gesamt.toFixed(1)} kg</span>
         <button class="save-btn ${gespeichert?'saved':''}" ${gespeichert?'disabled':''} onclick="zusammenSpeichern()">${gespeichert?'Gespeichert':'Speichern'}</button>
@@ -5062,6 +5087,13 @@ function fmStallDazu(gid, sel){
   fmCfg.nichtFuettern=(fmCfg.nichtFuettern||[]).filter(x=>x!==id);
   fmSpeichern();
 }
+// Reihenfolge der Ställe = Reihenfolge beim Abladen: einen Platz nach vorne
+function fmStallHoch(gid, id){
+  const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
+  const l=g.staelle||[], i=l.indexOf(id); if(i<1) return;
+  [l[i-1], l[i]]=[l[i], l[i-1]];
+  fmSpeichern();
+}
 function fmStallWeg(gid, id){
   const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
   g.staelle=(g.staelle||[]).filter(s=>s!==id);
@@ -5114,17 +5146,18 @@ function fmGruppenHtml(){
         </select></div>
       <label style="display:block;margin-top:6px"><input type="checkbox" ${g.auswerten!==false?"checked":""} onchange="fmGruppeAendern('${g.id}','auswerten',this.checked)"> auswerten</label>
       <div style="margin-top:8px">
-        ${plaetze.length ? plaetze.map(p=>`
+        ${plaetze.length ? plaetze.map((p,i)=>`
         <div class="fm-stall" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee">
           <span>${fmPlatzName(p)} · ${p.entfernt ? "im Herdenmanager gelöscht" : fmTiere(p.anzahl||0)}</span>
-          <button onclick="fmStallWeg('${g.id}','${p.id}')" title="entfernen" style="border:none;background:#f3c6c6;border-radius:6px;padding:2px 10px">✕</button>
+          <span style="white-space:nowrap">${i>0 ? `<button class="fm-stall-hoch" onclick="fmStallHoch('${g.id}','${p.id}')" title="früher abladen" style="border:none;background:#e8f5e9;border-radius:6px;padding:2px 10px;margin-right:6px">▲</button>` : ""}<button onclick="fmStallWeg('${g.id}','${p.id}')" title="entfernen" style="border:none;background:#f3c6c6;border-radius:6px;padding:2px 10px">✕</button></span>
         </div>`).join("") : `<div style="color:#666;font-size:13px">Noch kein Stall.</div>`}
       </div>
       ${frei.length ? `<select class="fm-dazu" onchange="fmStallDazu('${g.id}',this)" style="margin-top:8px;max-width:100%">
         <option value="">+ hinzufügen …</option>
         ${frei.map(p=>`<option value="${p.id}">${fmPlatzName(p)} (${fmTiere(p.anzahl||0)})</option>`).join("")}
       </select>` : ""}
-      <div style="margin-top:8px;font-weight:bold">Zusammen: ${fmTiere(summe)}${g.art==="rest" ? ` (${lakt} laktierend)` : ""}</div>
+      <div style="margin-top:8px;font-weight:bold">Zusammen: ${fmTiere(summe)}${g.art==="rest" && lakt!==summe ? ` <span style="font-weight:normal">(davon ${lakt} laktierend)</span>` : ""}</div>
+      ${plaetze.length>1 ? `<div style="font-size:12px;color:#666">Reihenfolge = Reihenfolge beim Abladen (▲ = früher abladen)</div>` : ""}
       <button onclick="fmGruppeLoeschen('${g.id}')" style="margin-top:8px;font-size:13px">Gruppe löschen</button>
     </div>`;
   }).join("");
@@ -5245,7 +5278,7 @@ function fmReihe(g){
     if(!r && v<heute) fehlt = [...bullenTage].some(t=>t>v && t<=naechste) ? "bullen" : "keine";
     if(fehlt && antworten[g.id+"|"+v]==="leer") rest=0;
     const hm=fmTage[v] && fmTage[v].tiere && fmTage[v].tiere[g.id];
-    const n = (hm && hm.lakt) || tiere[v] || 0;
+    const n = (hm && (hm.anzahl || hm.lakt)) || tiere[v] || 0;
     const w=(fmTage[v] && fmTage[v].wetter) || {};
     reihe.push({ datum:v, vorlage:vorlage[v], mehr:mehr[v]||0, rest, fehlt, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
@@ -5644,7 +5677,7 @@ function fmUebernehmen(id, art){
 function fmGruppeFuerKarte(k){ return fmGruppen().find(g=>g.karte===k && (g.staelle||[]).length); }
 function fmTierzahlGruppe(g){
   const p=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
-  return p.reduce((s,x)=>s+(g.art==="rest" ? fmLaktierend(x) : (x.anzahl||0)),0);
+  return p.reduce((s,x)=>s+(x.anzahl||0),0);   // alle Tiere der Ställe fressen die Mischung (auch Trockensteher im Strohstall)
 }
 function fmTierzahlUebernehmen(k, n){ data[k].anz=n; save(); buildCalc(); }
 function fmLetzteTiere(k){ const e=historyData.find(x=>x && x.kategorie===k); return e ? num(e.tiere) : null; }
@@ -5685,6 +5718,7 @@ function fmRechnerNeu(){
 function fmRechnerErgaenzen(){
   if(!fmAn() || !fmStall || fmCfg.tierzahlHM===false) return;
   ALLE_KATEGORIEN.forEach(k=>{
+    if(kuehe2Zusammen() && (k==="kuehe" || k==="kuehe2")) return;
     const g=fmGruppeFuerKarte(k); if(!g) return;
     const kopf=document.querySelector(`#calc .cat-header.cat-${k}`);
     const karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
@@ -5711,7 +5745,7 @@ function fmRechnerErgaenzen(){
       const zeile=document.createElement("div");
       zeile.className="fm-hm-zeile";
       zeile.style.cssText="font-size:13px;color:#555;margin:4px 0 6px";
-      zeile.innerHTML=`Herdenmanager: <b>${fmTiere(n)}</b>${g.art==="rest"?" (laktierend)":""}`
+      zeile.innerHTML=`Herdenmanager: <b>${fmTiere(n)}</b>`
         + (diff ? ` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} seit letzter Mischung</span>` : "")
         + (n!==num(data[k].anz) ? ` <button onclick="fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px">übernehmen</button>` : "");
       const feld=body.querySelector("input");
@@ -6478,7 +6512,7 @@ function fmLernAntwort(gid, ja, verh){
 function fmAbladenZeilen(g, gesamtVorgabe){
   const plaetze=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
   if(!plaetze.length) return null;
-  const anteil=p=>g.art==="rest" ? fmLaktierend(p) : fmStallBedarf(p).tm;
+  const anteil=p=>g.art==="rest" ? (p.anzahl||0) : fmStallBedarf(p).tm;
   const summe=plaetze.reduce((s,p)=>s+anteil(p),0);
   let gesamt=gesamtVorgabe;
   if(!(gesamt>0)){ const m=fmGruppeMenge(g); gesamt = m ? m.kg : null; }
