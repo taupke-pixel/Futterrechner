@@ -4891,10 +4891,10 @@ function zusammenKarteHtml(){
       <div style="margin-top:4px">${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}</div>
       ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
-      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenRestEingeben()">${ablade1}${info}</div>
+      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade1}${info}</div>
       ${zug ? `<div style="font-weight:bold;margin-top:8px">${p.echt!==null&&p.echt<p.geplant?"Nachladen und dazumischen":"Dazumischen"} für ${einStall(hm && hm.g2, n2)}</div>
       <table>${zug}</table>` : ""}
-      <div class="zusammen-rest">${ablade2}</div>
+      <div class="zusammen-rest" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade2}</div>
       <div class="total">
         <span>Gesamt: ${gesamt.toFixed(1)} kg</span>
         <button class="save-btn ${gespeichert?'saved':''}" ${gespeichert?'disabled':''} onclick="zusammenSpeichern()">${gespeichert?'Gespeichert':'Speichern'}</button>
@@ -5048,7 +5048,21 @@ function fmPlaetze(){ return fmStall ? Object.values(fmStall.eintraege||{}).filt
 function fmPlatz(id){ return fmStall && fmStall.eintraege ? fmStall.eintraege[id] : null; }
 function fmIstIglu(p){ return p && (p.id==="iglus" || p.stall==="iglus" || String(p.id).indexOf("iglu:")===0); }
 function fmLaktierend(p){ return (p && p.gruppen || []).filter(g=>g.art==="laktierend").reduce((s,g)=>s+(g.anzahl||0),0); }
-function fmGruppen(){ return Array.isArray(fmCfg.gruppen) ? fmCfg.gruppen : (fmCfg.gruppen=[]); }
+// Je Mischung genau eine Futtergruppe. Name = Name der Mischung, Art automatisch: Mischungen, deren Reste in der Restmischung
+// eingetragen werden, haben Restauswertung, alle anderen rechnen ohne Reste (Menge aus den Ställen).
+function fmArtAuto(karte){ return restQuellen().includes(karte) ? "rest" : "ohne"; }
+function fmGruppen(){
+  if(!Array.isArray(fmCfg.gruppen)) fmCfg.gruppen=[];
+  const l=fmCfg.gruppen;
+  // Mischungen mit Resten bekommen ihre Gruppe automatisch (Auswertung geht auch ohne Herdenmanager, Tierzahl dann aus der History)
+  restQuellen().forEach(k=>{ if(!l.some(x=>x.karte===k)) l.push({ id:"g_"+k, name:globalCfg[k+"Name"], karte:k, art:"rest", staelle:[], auswerten:true }); });
+  for(let i=l.length-1;i>=0;i--){
+    const erste=l.find(x=>x.karte===l[i].karte);
+    if(erste!==l[i]){ erste.staelle=[...(erste.staelle||[]), ...(l[i].staelle||[]).filter(x=>!(erste.staelle||[]).includes(x))]; l.splice(i,1); }
+  }
+  l.forEach(g=>{ g.art=fmArtAuto(g.karte); g.name=globalCfg[g.karte+"Name"]||g.name; if(g.auswerten===undefined) g.auswerten=true; });
+  return l;
+}
 function fmGruppeVon(id){ return fmGruppen().find(g=>(g.staelle||[]).includes(id)); }
 // Ein Platz ist „versorgt“, wenn er selbst (oder sein Stall) einer Gruppe gehört oder als „nicht füttern“ markiert ist
 function fmVersorgt(p){
@@ -5068,12 +5082,12 @@ function fmReiterFarbe(){
     || fmGruppen().some(g=>g.art==="rest" && g.auswerten!==false && fmMeldungen(g, fmReihe(g)).length));
   t.classList.toggle("tab-orange", !!etwas);
 }
-function fmGruppeNeu(){
-  const name=(prompt("Name der neuen Futtergruppe (z. B. Hochleistung):")||"").trim().slice(0,40);
-  if(!name) return;
-  fmGruppen().push({ id:"g"+Date.now().toString(36), name, karte:"kuehe", art:"rest", staelle:[], auswerten:true });
-  fmSpeichern();
+function fmGruppeZuKarte(karte){
+  let g=fmGruppen().find(x=>x.karte===karte);
+  if(!g){ g={ id:"g"+Date.now().toString(36), name:globalCfg[karte+"Name"], karte, art:fmArtAuto(karte), staelle:[], auswerten:true }; fmCfg.gruppen.push(g); }
+  return g;
 }
+function fmStallZuMischung(karte, sel){ if(!sel.value) return; const g=fmGruppeZuKarte(karte); fmZu["k:"+karte]=false; fmStallDazu(g.id, sel); }
 function fmGruppeAendern(id, feld, wert){
   const g=fmGruppen().find(x=>x.id===id); if(!g) return;
   if(feld==="name"){ wert=String(wert).trim().slice(0,40); if(!wert){ fmBauen(); return; } }
@@ -5139,42 +5153,29 @@ function fmGruppenHtml(){
   </div>`;
   const ohneHM = !fmStall ? `<div style="color:#666;font-size:13px;margin-top:6px">Ohne Herdenmanager zählt die Tierzahl aus dem Rechner.</div>` : "";
   const frei=fmFreiePlaetze();
-  const karten=ALLE_KATEGORIEN;
-  const gruppen=fmGruppen().map(g=>{
-    const plaetze=(g.staelle||[]).map(fmPlatz).filter(Boolean);
-    const summe=plaetze.reduce((s,p)=>s+(p.entfernt?0:(p.anzahl||0)),0), lakt=plaetze.reduce((s,p)=>s+(p.entfernt?0:fmLaktierend(p)),0);
-    // zugeklappt: nur Name und Tierzahl
-    if(fmZu["g:"+g.id]) return `
-    <div class="history-box fm-gruppe fm-gruppe-zu" data-gruppe="${g.id}" style="margin-top:10px">
-      <div class="history-header" style="margin-bottom:0" onclick="fmZuUmschalten('g:${g.id}')">▶ ${fmEsc(g.name)} <span style="font-weight:normal">· ${fmTiere(summe)}</span></div>
-    </div>`;
+  const gruppen=ALLE_KATEGORIEN.filter(kategorieAn).map(karte=>{
+    const g=fmGruppen().find(x=>x.karte===karte);
+    const plaetze=g ? (g.staelle||[]).map(fmPlatz).filter(Boolean) : [];
+    const summe=plaetze.reduce((s,p)=>s+(p.entfernt?0:(p.anzahl||0)),0);
+    const zu = fmZu["k:"+karte]!==false;
+    const kurz = plaetze.length ? plaetze.map(p=>fmPlatzName(p)).join(", ")+" · "+fmTiere(summe) : "kein Stall";
     return `
-    <div class="history-box fm-gruppe" data-gruppe="${g.id}" style="margin-top:10px">
-      <div style="display:flex;gap:8px;align-items:center"><button class="fm-gruppe-zuklappen" onclick="fmZuUmschalten('g:${g.id}')" title="zuklappen" style="border:none;background:none;font-size:18px;padding:0 4px">▼</button>
-      <input class="fm-gruppe-name" value="${fmEsc(g.name)}" onchange="fmGruppeAendern('${g.id}','name',this.value)" style="font-weight:bold;font-size:17px;width:100%;max-width:340px;box-sizing:border-box"></div>
-      <div style="margin-top:6px">Mischung:
-        <select onchange="fmGruppeAendern('${g.id}','karte',this.value)">
-          ${karten.map(c=>`<option value="${c}" ${g.karte===c?"selected":""}>${globalCfg[c+"Name"]}</option>`).join("")}
-        </select></div>
-      <div style="margin-top:6px">Art:
-        <select onchange="fmGruppeAendern('${g.id}','art',this.value)">
-          <option value="rest" ${g.art==="rest"?"selected":""}>mit Restauswertung</option>
-          <option value="ohne" ${g.art!=="rest"?"selected":""}>ohne Reste</option>
-        </select></div>
-      <label style="display:block;margin-top:6px"><input type="checkbox" ${g.auswerten!==false?"checked":""} onchange="fmGruppeAendern('${g.id}','auswerten',this.checked)"> auswerten</label>
-      <div style="margin-top:8px">
-        ${plaetze.length ? plaetze.map((p,i)=>`
+    <div class="history-box fm-gruppe${zu?" fm-gruppe-zu":""}" data-karte="${karte}" data-gruppe="${g?g.id:""}" style="margin-top:8px;padding-top:10px;padding-bottom:10px">
+      <div class="fm-gruppe-kopf" onclick="fmZuUmschalten('k:${karte}')" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px">
+        <span><b>${fmEsc(globalCfg[karte+"Name"])}</b> <span style="color:${plaetze.length?"#333":"#999"}">· ${kurz}</span></span><span>${zu?"▶":"▼"}</span></div>
+      ${zu ? "" : `<div style="margin-top:6px">
+        ${plaetze.map(p=>`
         <div class="fm-stall" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eee">
           <span>${fmPlatzName(p)} · ${p.entfernt ? "im Herdenmanager gelöscht" : fmTiere(p.anzahl||0)}</span>
-          <span style="white-space:nowrap">${i>0 ? `<button class="fm-stall-hoch" onclick="fmStallHoch('${g.id}','${p.id}')" title="früher abladen" style="border:none;background:#e8f5e9;border-radius:6px;padding:2px 10px;margin-right:6px">▲</button>` : ""}<button onclick="fmStallWeg('${g.id}','${p.id}')" title="entfernen" style="border:none;background:#f3c6c6;border-radius:6px;padding:2px 10px">✕</button></span>
-        </div>`).join("") : `<div style="color:#666;font-size:13px">Noch kein Stall.</div>`}
-      </div>
-      ${frei.length ? `<select class="fm-dazu" onchange="fmStallDazu('${g.id}',this)" style="margin-top:8px;max-width:100%">
-        <option value="">+ hinzufügen …</option>
-        ${frei.map(p=>`<option value="${p.id}">${fmPlatzName(p)} (${fmTiere(p.anzahl||0)})</option>`).join("")}
-      </select>` : ""}
-      <div style="margin-top:8px;font-weight:bold">Zusammen: ${fmTiere(summe)}${g.art==="rest" && lakt!==summe ? ` <span style="font-weight:normal">(davon ${lakt} laktierend)</span>` : ""}</div>
-      <button onclick="fmGruppeLoeschen('${g.id}')" style="margin-top:8px;font-size:13px">Gruppe löschen</button>
+          <button onclick="fmStallWeg('${g.id}','${p.id}')" title="entfernen" style="border:none;background:#f3c6c6;border-radius:6px;padding:2px 10px">✕</button>
+        </div>`).join("")}
+        ${frei.length ? `<select class="fm-dazu" onchange="fmStallZuMischung('${karte}',this)" style="margin-top:8px;max-width:100%">
+          <option value="">+ Stall hinzufügen …</option>
+          ${frei.map(p=>`<option value="${p.id}">${fmPlatzName(p)} (${fmTiere(p.anzahl||0)})</option>`).join("")}
+        </select>` : ""}
+        ${g && plaetze.length ? `<label class="fm-auswerten" style="display:block;margin-top:6px"><input type="checkbox" ${g.auswerten===false?"":"checked"} onchange="fmGruppeAendern('${g.id}','auswerten',this.checked)"> auswerten</label>` : ""}
+        <div style="font-size:12px;color:#666;margin-top:4px">${fmArtAuto(karte)==="rest" ? "mit Restauswertung (Reste stehen in der Restmischung)" : "ohne Reste – ausgewertet über Uhrzeit und Menge"}</div>
+      </div>`}
     </div>`;
   }).join("");
   // Nicht zugeordnet: ganze Ställe (mit ihren Buchten) und Iglus
@@ -5189,9 +5190,9 @@ function fmGruppenHtml(){
   const offen=staelle.map(s=>zeile(s,false)+fmPlaetze().filter(b=>b.stall===s.id && !fmGruppeVon(b.id) && !nf.includes(s.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),"de")).map(b=>zeile(b,true)).join("")).join("");
   return kopplung + `
   <h3 style="margin:16px 0 0">Futtergruppen</h3>
+  <div style="font-size:13px;color:#666">Welche Ställe bekommen welche Mischung?</div>
   ${ohneHM}
-  ${gruppen || `<div style="color:#666;font-size:13px;margin-top:6px">Noch keine Futtergruppe angelegt.</div>`}
-  <button class="save-btn" style="margin-top:10px" onclick="fmGruppeNeu()">+ Neue Futtergruppe</button>
+  ${gruppen}
   ${fmStall ? `
   <div class="history-box" id="fm-nicht-zugeordnet" style="margin-top:10px">
     <h3 style="margin-top:0">Nicht zugeordnet</h3>
@@ -5598,13 +5599,15 @@ function fmChartsZeichnen(g, reihe){
     const labels=r.map(t=>fmKurz(t.datum));
     const maxRegen=Math.max(20, ...r.map(t=>t.regen||0));
     const maxQuote=Math.max(10, ...r.map(t=>t.quote||0));
-    fmCharts.push(new Chart(c1,{ data:{ labels, datasets:[
+    // Regen in mm unter dem Datum (die blauen Balken allein kann man nicht ablesen)
+    fmCharts.push(new Chart(c1,{ plugins:[fmRegenWerte("Regen mm")], data:{ labels, datasets:[
       { type:"bar", label:"Reste %", data:r.map(t=>t.quote), yAxisID:"y", order:2,
         backgroundColor:r.map(t=>t.quote!==null && t.quote>=von && t.quote<=bis ? "#43a047" : "#f29d38") },
       { type:"line", label:"Temperatur (max)", data:r.map(t=>typeof t.tmax==="number"?t.tmax:null), yAxisID:"y2", borderColor:"#d32f2f", backgroundColor:"#d32f2f", pointRadius:2, borderWidth:2, order:1 },
       { type:"bar", label:"Regen mm", data:r.map(t=>t.regen||0), yAxisID:"y3", backgroundColor:"rgba(100,170,240,.55)", order:3 },
       { type:"line", label:"Zielbereich", data:r.map(()=>bis), yAxisID:"y", borderColor:"rgba(67,160,71,.5)", borderDash:[4,4], pointRadius:0, borderWidth:1, fill:false, order:0 }
     ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{ mode:"index", intersect:false },
       plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
       scales:{
         x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } },
@@ -5648,7 +5651,7 @@ function fmAuswertungHtml(){
       </div>
       ${(b.art==="mehr"||b.art==="weniger") ? `<button class="save-btn" style="margin-top:6px" ${fmNurAnsehen()?"disabled title='In der Testversion nur zum Ansehen'":""} onclick="fmUebernehmen('${g.id}','${b.art}')">Übernehmen</button>${fmNurAnsehen()?`<span style="font-size:12px;color:#666;margin-left:6px">Testversion: nur ansehen</span>`:""}` : ""}
       ${(fmDemo ? [] : fmMeldungen(g, reihe)).map(f=>`<div class="fm-meldung" style="margin-top:6px;color:#b36b00;font-size:14px">${f.text} <button onclick="fmErledigt('${f.schluessel}')" style="font-size:13px">erledigt</button></div>`).join("")}
-      ${fmOffen===g.id ? fmVerlaufHtml(g, reihe) : ""}
+      ${fmOffen===g.id ? fmVerlaufHtml(g, reihe)+fmRationZeileHtml(g) : ""}
     </div>`;
   }).join("");
   const offen=fmOffenePlaetze().length;
@@ -5716,7 +5719,7 @@ function fmAbladenHtml(g, gesamt){
   // Zeile antippen = „Anders abgeladen?“ (tatsächliche Menge; die übrigen Ställe werden neu verteilt)
   return `<div class="fm-abladen" style="margin:8px 0">${z.map(({p,menge,fest},i)=>{
     const stil=`background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold;cursor:pointer`;
-    const klick=`onclick="fmAndersOeffnen('${g.id}','${p.id}')"`, merk=fest?" ✎":"";
+    const klick=`onclick="fmAbladenOeffnen(['${g.id}'])"`, merk=fest?" ✎":"";
     if(i===z.length-1) return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>→ Rest: ${fmPlatzName(p)} ${menge.toFixed(0)} kg${merk}</div>`;
     rest-=menge;
     return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>▼ ${fmPlatzName(p)} abladen bis ${rest.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span>${merk}</div>`;
@@ -6140,17 +6143,11 @@ function fmRationenHtml(){
     <div style="display:${fmZu.futtermittel ? "none" : "block"};margin-top:6px">
     ${schl.length ? `<table class="fm-futtermittel" style="font-size:15px">
       <tr><th style="text-align:left">Futter</th><th>€/t</th><th>TS %</th></tr>
-      ${schl.map(k=>{ const x=letzte(k); return `<tr data-futter="${fmEsc(k)}" onclick="fmFutterAendern('${fmEsc(k).replace(/'/g,"\\'")}')" style="cursor:pointer"><td style="text-align:left">${fmEsc(name(k))}</td><td>${typeof x.preis==="number"?fmZahl(x.preis.toFixed(2)):"–"}</td><td>${fmZahl(Math.round(x.ts))}${x.ungenau||x.geschaetzt?' <span style="color:#d97a00">≈</span>':""}</td></tr>`; }).join("")}
+      ${schl.map(k=>{ const x=letzte(k); return `<tr data-futter="${fmEsc(k)}" onclick="fmFutterAendern('${fmEsc(k).replace(/'/g,"\\'")}')" style="cursor:pointer"><td style="text-align:left">${fmEsc(name(k))}</td><td>${typeof x.preis==="number"?fmZahl(x.preis.toFixed(2)):"–"}</td><td>${fmZahl(x.ts.toFixed(1))}${x.ungenau||x.geschaetzt?' <span style="color:#d97a00">≈</span>':""}</td></tr>`; }).join("")}
     </table>
-    <div style="font-size:12px;color:#666;margin-top:6px">Zeile antippen = ändern · ≈ ungenau/geschätzt${pdf?` · aus PDF vom ${fmKurz(pdf)}${pdf.slice(0,4)}`:""}</div>`
+`
     : `<div style="font-size:13px;color:#666">Noch keine Werte. Einmal das Berater-PDF hochladen – dann rechnet die App mit Preis, TS, Energie und Eiweiß.</div>`}
     <button class="save-btn" style="margin-top:8px" onclick="fmPdfFeld().click()">📄 Neues PDF</button>
-    ${fmCfg.rationsvergleich===false ? "" : karten.map(k=>{ const x=fmRationVon(k), h=fmRationHinweise(x, fmGruppen().find(g=>g.karte===k));
-      return `<div class="fm-ration" data-karte="${k}" style="margin-top:10px;border-top:1px solid #eee;padding-top:6px;font-size:14px">
-        <b>${fmEsc(globalCfg[k+"Name"])}</b>: ${h.length ? `<span style="color:#b36b00">⚠ ${h.length===1?"1 Hinweis":h.length+" Hinweise"}</span>` : `<span style="color:#2e7d32">✓ unauffällig</span>`}
-        <button onclick="fmVergleichUmschalten('${k}')" style="font-size:13px;margin-left:6px">${fmVergleichOffen===k?"▲":"▼"}</button>
-        ${fmVergleichOffen===k ? `<div class="fm-hinweise" style="font-size:13px;margin-top:4px">${h.map(t=>`<div style="color:#b36b00">⚠ ${fmEsc(t)}</div>`).join("")}</div>${fmVergleichHtml(k)}` : ""}
-      </div>`; }).join("")}
     </div>
   </div>`;
 }
@@ -6494,6 +6491,7 @@ function fmOhneHtml(){
         <div style="margin-top:6px">Bedarf zusammen ${fmZahl(b.tm.toFixed(1))} kg TM${m?` × Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (gelernt)${Math.abs(m.tsFaktor-1)>0.005?` × ${fmZahl(m.tsFaktor.toFixed(2))} (TS der Ration jetzt ${fmZahl((m.ts*100).toFixed(1))} % statt ${fmZahl((fmLern(g).ts*100).toFixed(1))} %)`:""} = ${Math.round(m.kg)} kg Mischung`:""}</div>
         ${m && !m.ts ? `<div style="color:#666">TS der Ration unbekannt – mit den Futterwerten (PDF) passt sich die Menge bei Rationsänderungen an.</div>` : ""}
         <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
+        ${g.auswerten!==false ? `<div style="position:relative;height:230px;margin-top:10px"><canvas id="fm-chart-ohne"></canvas></div>` : ""}
       </div>` : ""}
       ${g.auswerten!==false ? fmZeitenHtml(g) : ""}
     </div>`;
@@ -6661,7 +6659,7 @@ function fmBauen(){
   </div>`;
   // Reiter „Fressmenge“: Unterschalter und Erweitert
   if(!fp) return;
-  if(fmEinrichtungZu===null) fmEinrichtungZu = fmGruppen().length>0;
+  if(fmEinrichtungZu===null) fmEinrichtungZu = fmGruppen().some(g=>(g.staelle||[]).length>0);
   fp.innerHTML = !fmAn() ? "" : `
   ${fmAuswertungHtml()}
   ${fmRationenHtml()}
@@ -6696,11 +6694,12 @@ function fmBauen(){
     </div>
   </div>`;
   if(fmOffen && fmAnsicht==="diagramm"){ const g=fmGruppen().find(x=>x.id===fmOffen); if(g) fmChartsZeichnen(g, fmReihe(g)); }
+  if(fmOhneOffen){ const g=fmGruppen().find(x=>x.id===fmOhneOffen); if(g && g.auswerten!==false) fmOhneDiagramm(g); }
 }
 // Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt();
   // Testversion mit eigener Kopie: Reste der Restmischung aus diesem Gerät mitschreiben (sonst kommen sie aus dem Betrieb)
   if(fmAn() && testEigeneDaten()) fmRestBeobachten({ restbullen:data.restbullen }, new Date());
 };
@@ -6719,7 +6718,7 @@ showTab = function(t){
 // --- Ergänzungen 16.11.2026 (Wünsche Fritz): Zuklappen, Rest-Zuschlag, Zeitstempel, Uhrzeit, Waage gesamt, Futterzeiten, Tastatur ---
 // Zuklappen (Futtermittel, einzelne Futtergruppen) – reine Anzeige, nur im Gerät gemerkt
 let fmZu=(()=>{ try{ return JSON.parse(localStorage.getItem("fmZu")||"{}")||{}; }catch(e){ return {}; } })();
-function fmZuUmschalten(k){ fmZu[k]=!fmZu[k]; try{ localStorage.setItem("fmZu", JSON.stringify(fmZu)); }catch(e){} fmBauen(); }
+function fmZuUmschalten(k){ const zu = /^[kl]:/.test(k) ? fmZu[k]!==false : !!fmZu[k]; fmZu[k]=!zu; try{ localStorage.setItem("fmZu", JSON.stringify(fmZu)); }catch(e){} fmBauen(); }
 // PDF-Auswahl: Dateifeld liegt außerhalb des Reiters, damit die Tastatur-Taste „Weiter“ nie die Dateiauswahl (Downloads) öffnet
 function fmPdfFeld(){
   let f=document.getElementById("fm-pdf-datei");
@@ -6825,11 +6824,57 @@ function fmFutterzeiten(g){
 }
 function fmZeitenHtml(g){
   const f=fmFutterzeiten(g);
-  if(!f.mittel) return `<div class="fm-zeiten" style="font-size:13px;color:#666;margin-top:4px">🕒 Futterzeiten: sammelt noch (${f.n} von 3 Abständen)</div>`;
+  if(!f.mittel) return "";
   const abw=Math.round((f.verh-1)*100), st=fmZahl(f.mittel.toFixed(1));
-  if(Math.abs(f.mittel-24)<=1.5) return `<div class="fm-zeiten" style="font-size:13px;color:#2e7d32;margin-top:4px">🕒 im Schnitt alle ${st} Std. gefüttert – Menge passt</div>`;
+  if(Math.abs(f.mittel-24)<=1.5) return "";
   return `<div class="fm-zeiten" style="font-size:13px;color:#d97a00;margin-top:4px">🕒 im Schnitt alle ${st} Std. gefüttert – Menge reicht ${abw>0?"nicht":"länger als"} 24 Std. (${abw>0?"+":""}${abw} %)
     ${fmLern(g) ? `<button onclick="fmZeitenUebernehmen('${g.id}')" style="font-size:13px">Menge anpassen</button>` : ""}</div>`;
+}
+// Tagesreihe einer Gruppe ohne Reste: gefüttert (kg je Tier, auf 24 Std. umgerechnet über den Abstand zur nächsten Fütterung)
+function fmOhneReihe(g){
+  const e=historyData.filter(x=>x && x.kategorie===g.karte && x.zeit).map(x=>({ x, t:new Date(x.zeit) })).sort((a,b)=>a.t-b.t);
+  const reihe=[];
+  for(let i=0;i<e.length;i++){
+    const d=fmIso(e[i].t), h = e[i+1] ? (e[i+1].t-e[i].t)/3600000 : null;
+    const hm=fmTage[d] && fmTage[d].tiere && fmTage[d].tiere[g.id], tiere=(hm && hm.anzahl) || num(e[i].x.tiere) || 0;
+    const w=(fmTage[d] && fmTage[d].wetter) || {};
+    const ok = h>=12 && h<=48 && tiere>0;
+    reihe.push({ datum:d, kg:num(e[i].x.gesamt)||0, stunden:ok?h:null, jeTier24: ok ? (num(e[i].x.gesamt)||0)*24/h/tiere : null, tmax:w.tmax, regen:w.regen });
+  }
+  return reihe;
+}
+let fmOhneChart=null;
+// Regenmenge als Zahl an die blauen Balken schreiben (kleines eigenes Chart.js-Plugin, keine Zusatz-Bibliothek)
+function fmRegenWerte(label){
+  return { id:"regenWerte", afterDatasetsDraw(chart){
+    const i=chart.data.datasets.findIndex(d=>d.label===label); if(i<0) return;
+    const meta=chart.getDatasetMeta(i), ctx=chart.ctx;
+    ctx.save(); ctx.fillStyle="#1f6fb5"; ctx.font="11px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="top";
+    meta.data.forEach((bar,j)=>{ const v=chart.data.datasets[i].data[j]; if(v>=0.5) ctx.fillText(fmZahl(v>=10?Math.round(v):v.toFixed(1)), bar.x, bar.y+2); });
+    ctx.restore();
+  } };
+}
+function fmOhneDiagramm(g){
+  const c=document.getElementById("fm-chart-ohne"); if(!c) return;
+  fmChartJs().then(()=>{
+    if(!document.body.contains(c)) return;
+    if(fmOhneChart){ try{ fmOhneChart.destroy(); }catch(e){} }
+    const ab=fmTagPlus(fmIso(new Date()), -fmZeitraum), r=fmOhneReihe(g).filter(t=>t.datum>=ab);
+    const dunkel=window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches, schrift=dunkel?"#ddd":"#333";
+    const maxRegen=Math.max(20, ...r.map(t=>t.regen||0));
+    fmOhneChart=new Chart(c,{ plugins:[fmRegenWerte("Regen mm")], data:{ labels:r.map(t=>fmKurz(t.datum)), datasets:[
+      { type:"bar", label:"Regen mm", data:r.map(t=>t.regen||0), yAxisID:"y4", backgroundColor:"rgba(100,170,240,.55)", order:3 },
+      { type:"bar", label:"gefressen kg je Tier (24 Std.)", data:r.map(t=>t.jeTier24), yAxisID:"y", backgroundColor:"#43a047", order:2 },
+      { type:"line", label:"Stunden bis zur nächsten Fütterung", data:r.map(t=>t.stunden), yAxisID:"y2", borderColor:"#2f3a45", backgroundColor:"#2f3a45", pointRadius:2, spanGaps:true, order:1 },
+      { type:"line", label:"Temperatur (max)", data:r.map(t=>typeof t.tmax==="number"?t.tmax:null), yAxisID:"y3", borderColor:"#d32f2f", backgroundColor:"#d32f2f", pointRadius:2, borderWidth:2, order:0 }
+    ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:"index", intersect:false },
+      plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
+      scales:{ x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } },
+        y:{ position:"left", min:0, title:{ display:true, text:"kg je Tier", color:schrift }, ticks:{ color:schrift } },
+        y2:{ position:"right", min:12, max:36, grid:{ drawOnChartArea:false }, ticks:{ color:schrift, callback:v=>v+" h" } },
+        y3:{ display:false, min:0, max:35 },
+        y4:{ display:false, min:0, max:maxRegen*2.2, reverse:true } } } });
+  }).catch(()=>{ const e=document.getElementById("fm-chart-ohne"); if(e) e.parentNode.innerHTML="<div style='color:#666'>Diagramm braucht einmal Internet.</div>"; });
 }
 function fmZeitenUebernehmen(gid){
   const g=fmGruppen().find(x=>x.id===gid), l=g && fmLern(g), f=g && fmFutterzeiten(g);
@@ -6838,6 +6883,164 @@ function fmZeitenUebernehmen(gid){
   fmLernTsAnpassen(g, l); l.faktor*=f.verh; l.seit=fmIso(new Date()); l.quelle="futterzeiten";
   fmSpeichern();
 }
+
+// --- Ergänzungen 16.11.2026 (2): Abladen-Fenster, Ration in der Auswertung, Lieferungen nach Art, Einstellungen, Restmischung kompakt ---
+// Rationsvergleich jetzt beim Öffnen einer Gruppe in der Auswertung (nicht mehr unter „Neues PDF“)
+function fmRationZeileHtml(g){
+  const k=g.karte, x=fmCfg.rationsvergleich===false ? null : fmRationVon(k);
+  if(!x) return "";
+  const h=fmRationHinweise(x, g);
+  return `<div class="fm-ration" data-karte="${k}" style="margin-top:10px;border-top:1px solid #eee;padding-top:6px;font-size:14px">
+    Ration: ${h.length ? `<span style="color:#b36b00">⚠ ${h.length===1?"1 Hinweis":h.length+" Hinweise"}</span>` : `<span style="color:#2e7d32">✓ unauffällig</span>`}
+    <button onclick="fmVergleichUmschalten('${k}')" style="font-size:13px;margin-left:6px">${fmVergleichOffen===k?"▲":"▼"}</button>
+    ${fmVergleichOffen===k ? `<div class="fm-hinweise" style="font-size:13px;margin-top:4px">${h.map(t=>`<div style="color:#b36b00">⚠ ${fmEsc(t)}</div>`).join("")}</div>${fmVergleichHtml(k)}` : ""}
+  </div>`;
+}
+
+// Abladen-Fenster: grüne Zeilen antippen → Reihenfolge ändern (▲▼) und „anders abgeladen“
+let fmAbladenArgs=null;
+function fmAbladenOeffnen(gids, zusammen){
+  fmAndersZu();
+  fmAbladenArgs=[gids, !!zusammen];
+  const gruppen=gids.map(id=>fmGruppen().find(x=>x.id===id)).filter(Boolean);
+  const teil=g=>{
+    const pl=(g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt);
+    return `${gruppen.length>1 ? `<div style="font-size:13px;color:#666;margin-top:8px">${fmEsc(g.name)}</div>` : ""}
+      ${pl.map((p,i)=>`<div class="fm-abladen-stall" data-platz="${p.id}" style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #eee">
+        <span style="flex:1">${i+1}. ${fmPlatzName(p)}</span>
+        <button class="fm-hoch" ${i===0?"disabled":""} onclick="fmStallVerschieben('${g.id}','${p.id}',-1)" style="padding:2px 10px">▲</button>
+        <button class="fm-runter" ${i===pl.length-1?"disabled":""} onclick="fmStallVerschieben('${g.id}','${p.id}',1)" style="padding:2px 10px">▼</button>
+        ${zusammen ? "" : `<button class="fm-anders-knopf" onclick="fmAndersOeffnen('${g.id}','${p.id}')" style="font-size:13px">anders abgeladen</button>`}
+      </div>`).join("")}`;
+  };
+  const d=document.createElement("div"); d.id="fm-anders";
+  d.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:55;background:#fff;box-shadow:0 -4px 16px rgba(0,0,0,.25);border-radius:14px 14px 0 0;padding:14px 16px 18px;max-height:80vh;overflow:auto";
+  d.innerHTML=`<b>Reihenfolge beim Abladen</b>
+    ${gruppen.map(teil).join("")}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      ${zusammen ? `<button class="save-btn" onclick="fmAndersZu();zusammenRestEingeben()">Anders abgeladen? Waage eintragen</button>` : ""}
+      <button onclick="fmAndersZu()">Schließen</button></div>`;
+  document.body.appendChild(d);
+}
+function fmStallVerschieben(gid, id, dir){
+  const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
+  const l=g.staelle||[], i=l.indexOf(id), j=i+dir;
+  if(i<0 || j<0 || j>=l.length) return;
+  [l[i], l[j]]=[l[j], l[i]];
+  fmSpeichern(); buildCalc();
+  if(fmAbladenArgs) fmAbladenOeffnen(...fmAbladenArgs);
+}
+function zusammenAbladenOeffnen(){
+  const hm=zusammenHm(), ids=hm ? [hm.g1, hm.g2].filter(Boolean).map(g=>g.id) : [];
+  if(!ids.length){ zusammenRestEingeben(); return; }
+  fmAbladenOeffnen(ids, true);
+}
+
+// History: Lieferungen nach Art (AGF, MLF, …) zum Auf- und Zuklappen statt endloser Liste
+function fmLieferungenOrdnen(){
+  const knoepfe=[...document.querySelectorAll('#history button[onclick^="deleteLieferung("]')];
+  if(!knoepfe.length) return;
+  const arten={};
+  knoepfe.forEach(b=>{
+    const id=(b.getAttribute("onclick").match(/deleteLieferung\('([^']+)'\)/)||[])[1], l=lieferungen.find(x=>String(x.id)===id), item=b.closest(".history-item");
+    if(!l || !item) return;
+    (arten[l.produkt]=arten[l.produkt]||[]).push({ l, item });
+  });
+  const erstes=knoepfe[0].closest(".history-item"); if(!erstes) return;
+  const box=document.createElement("div"); box.className="fm-lieferungen";
+  erstes.parentNode.insertBefore(box, erstes);
+  ["agf","mlf","wasser"].filter(a=>arten[a]).forEach(a=>{
+    const name = a==="agf" ? globalCfg.agfName : a==="mlf" ? globalCfg.mlfName : globalCfg.wasserName, liste=arten[a], zu=fmZu["l:"+a]!==false;
+    const kopf=document.createElement("div");
+    kopf.className="fm-lieferungen-kopf";
+    kopf.style.cssText="padding:10px;margin-bottom:8px;background:#eef3f7;border-radius:8px;font-weight:bold;cursor:pointer";
+    kopf.innerHTML=`${zu?"▶":"▼"} ${fmEsc(name)} <span style="font-weight:normal">· ${liste.length} Lieferung${liste.length===1?"":"en"}, zuletzt ${fmEsc(liste[0].l.datum)}</span>`;
+    kopf.onclick=()=>{ fmZu["l:"+a]=!zu; try{ localStorage.setItem("fmZu", JSON.stringify(fmZu)); }catch(e){} buildHistory(); };
+    box.appendChild(kopf);
+    const inhalt=document.createElement("div"); inhalt.style.cssText=`margin-left:12px;display:${zu?"none":"block"}`;
+    liste.forEach(({item})=>inhalt.appendChild(item));
+    box.appendChild(inhalt);
+  });
+}
+const _buildHistoryVorLieferung=buildHistory;
+buildHistory=function(){ _buildHistoryVorLieferung(); if(fmAn()) fmLieferungenOrdnen(); };
+
+// Einstellungen: Restmischung als ein Kasten (Name, woher die Reste kommen, für wen) statt Überschrift + Kasten
+function fmRestEinstellungOrdnen(){
+  const h=document.getElementById("edit-restbullen"), box=document.getElementById("restquellen-wahl");
+  if(!h || !box) return;
+  h.style.display="none";
+  box.style.marginTop="10px";
+  const kopf=box.querySelector(".history-header");
+  if(kopf) kopf.innerHTML=`${einstellungZu('restmischung') ? "▶" : "▼"} ${fmEsc(globalCfg.restbullenName)}`;
+  const inhalt=box.querySelector(".klapp-inhalt");
+  if(!inhalt) return;
+  const erster=[...inhalt.childNodes].find(n=>n.nodeType===3 && n.textContent.includes("Mischung(en) für die Restmischung"));
+  if(erster) erster.textContent="Reste kommen von (eine oder zwei):";
+  const ziel=[...inhalt.childNodes].find(n=>n.nodeType===3 && n.textContent.includes("Restmischung ist für:"));
+  if(ziel) ziel.textContent="Gemischt für: ";
+  inhalt.insertAdjacentHTML("afterbegin", `<div style="margin-bottom:8px">Name <input class="fm-rest-name" value="${fmEsc(globalCfg.restbullenName)}" style="width:60%" onchange="globalCfg.restbullenName=this.value.trim()||globalCfg.restbullenName;saveGlobal();buildSettings();buildCalc();"></div>`);
+}
+const _buildSettingsVorRest=buildSettings;
+buildSettings=function(){ _buildSettingsVorRest(); if(fmAn()) fmRestEinstellungOrdnen(); };
+
+// Rechner › Restmischung: kompakt – je Zeile Beschriftung links, Feld rechts; Reste mit dem Stallnamen der Futtergruppe
+function fmRestKompakt(){
+  if(!fmAn()) return;
+  const kopf=document.querySelector("#calc .cat-header.cat-restbullen"), body=kopf && kopf.closest(".category").querySelector(".cat-body");
+  if(!body || body.querySelector(".fm-rest-kompakt")) return;
+  const tabelle=body.querySelector("table"); if(!tabelle) return;
+  const felder=[...body.querySelectorAll('input[type="number"]')].filter(f=>!f.closest(".fm-waage-gesamt") && (tabelle.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_PRECEDING));
+  const quellen=restQuellen();
+  const stallName=k=>{ const g=fmGruppen().find(x=>x.karte===k), pl=g ? (g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt) : [];
+    return pl.length ? pl.map(p=>fmPlatzName(p)).join(" + ") : fmEsc(globalCfg[k+"Name"]); };
+  const namen=[...quellen.map(k=>"Rest "+stallName(k)), restZiel()==="bullen" ? "Ziel (kg)" : `Ziel ${fmEsc(globalCfg[restZiel()+"Name"])} (kg)`, restZiel()==="bullen" ? "Bullen" : fmEsc(globalCfg[restZiel()+"Name"])];
+  if(felder.length!==namen.length) return;
+  const waage=body.querySelector(".fm-waage-gesamt");
+  const neu=document.createElement("div"); neu.className="fm-rest-kompakt";
+  felder.forEach((f,i)=>{
+    const z=document.createElement("div");
+    z.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0";
+    z.innerHTML=`<span>${namen[i]}</span>`;
+    f.style.width="110px"; f.style.margin="0";
+    z.appendChild(f);
+    neu.appendChild(z);
+    if(i===quellen.length-1 && waage){
+      waage.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-size:13px;color:#555";
+      const w=waage.querySelector("input"); if(w){ w.style.width="110px"; w.style.margin="0"; }
+      waage.firstChild.textContent="Waage zeigt insgesamt (kg)";
+      [...waage.childNodes].filter(n=>n.nodeType===3 && n.textContent.trim()==="kg").forEach(n=>n.remove());
+      neu.appendChild(waage);
+    }
+  });
+  const hmZeile=body.querySelector(".fm-hm-zeile"); if(hmZeile) neu.insertBefore(hmZeile, neu.firstChild);
+  // alte Beschriftungen und Zeilenumbrüche vor der Tabelle entfernen
+  [...body.childNodes].forEach(n=>{ if(n===tabelle || n===neu) return; if(tabelle.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_PRECEDING) n.remove(); });
+  body.insertBefore(neu, tabelle);
+}
+
+// History › Warnstufen ordentlich als Tabelle (Futter | Orange ab | Rot ab, in Tagen); Felder bleiben dieselben
+function fmWarnstufenOrdnen(){
+  const kopf=[...document.querySelectorAll("#history .history-header")].find(h=>h.textContent.trim()==="Warnstufen");
+  const body=kopf && kopf.parentNode.querySelector(".cat-body");
+  if(!body || body.querySelector(".fm-warnstufen")) return;
+  const felder=[...body.querySelectorAll('input[type="number"]')];
+  if(felder.length<4) return;
+  const zeilen=[["agf",globalCfg.agfName],["mlf",globalCfg.mlfName],["wasser",globalCfg.wasserName]].slice(0, felder.length/2);
+  const t=document.createElement("table"); t.className="fm-warnstufen"; t.style.cssText="width:100%;border-collapse:collapse";
+  t.innerHTML=`<tr><th style="text-align:left">Futter</th><th>Orange ab</th><th>Rot ab</th></tr>`;
+  zeilen.forEach(([k,name],i)=>{
+    const tr=document.createElement("tr"); if(k==="wasser") tr.className="drittes-futter";
+    tr.innerHTML=`<td style="text-align:left">${fmEsc(name)}</td><td></td><td></td>`;
+    [felder[i*2], felder[i*2+1]].forEach((f,j)=>{ f.style.width="70px"; f.style.margin="0"; tr.children[j+1].appendChild(f); });
+    t.appendChild(tr);
+  });
+  body.innerHTML="";
+  body.appendChild(t);
+  body.insertAdjacentHTML("beforeend", `<div style="font-size:12px;color:#666;margin-top:4px">Tage, bis das Lager leer ist</div>`);
+}
+const _buildHistoryVorWarn=buildHistory;
+buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()) fmWarnstufenOrdnen(); };
 
 function zumBetrieb(){
   showTab("settings");

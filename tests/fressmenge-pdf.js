@@ -162,7 +162,7 @@ async function main() {
       nah(r.mais.ts, 35, 1e-9, "TS Mais"); nah(r.mais.nel, 70 / 30, 1e-9, "NEL je kg"); assert.strictEqual(r.mais.preis, 45);
       nah(r.agf.preis, 371.5, 0, "Preis AGF"); nah(r.mlf.ts, 90, 1e-9, "TS MLF");
       const t = await page.locator("#fm-rationen .fm-futtermittel").innerText();
-      assert(t.includes("Maissilage neu\t45,00\t35") && t.includes("Stroh\t36,00\t80 ≈"), t);
+      assert(t.includes("Maissilage neu\t45,00\t35,0") && t.includes("Stroh\t36,00\t80,0 ≈"), t);
     });
 
     await pruefe("Futtermittel-Zeile antippen → Preis und TS ändern (Nährstoffe je kg passen sich der TS an)", async () => {

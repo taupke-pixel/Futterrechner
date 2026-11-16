@@ -167,7 +167,7 @@ async function main() {
       const r = await page.evaluate(() => {
         const pl = (id, name, anzahl, lakt) => ({ id, name, typ: "stall", stall: null, anzahl, gruppen: [{ art: "laktierend", anzahl: lakt }, ...(anzahl > lakt ? [{ art: "trocken", anzahl: anzahl - lakt }] : [])] });
         fmStall = { geholt: new Date().toISOString(), eintraege: { s1: pl("s1", "Stall 1", 37, 37), s2: pl("s2", "Stall 2", 47, 47), stroh: pl("stroh", "Strohstall", 8, 5) } };
-        fmCfg.an = true; fmCfg.tierzahlHM = true;
+        fmCfg.an = true; fmCfg.tierzahlHM = true; globalCfg.restQuellen = ["kuehe", "kuehe2"];
         fmCfg.gruppen = [{ id: "ga", name: "Altmelker", karte: "kuehe", art: "rest", staelle: ["stroh", "s1"], auswerten: true },
                          { id: "gb", name: "Hochleistung", karte: "kuehe2", art: "rest", staelle: ["s2"], auswerten: true }];
         showTab("calc"); buildCalc();
@@ -185,7 +185,7 @@ async function main() {
       assert(r.rest.includes(`→ Rest: Stall 2`), r.rest);
       await page.locator("button.zusammen-hm").first().click();
       assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 46.8);
-      await page.evaluate(s1 => { data.kuehe.anz = s1; fmCfg.an = false; fmCfg.gruppen = []; fmStall = null; save(); buildCalc(); }, S1);
+      await page.evaluate(s1 => { data.kuehe.anz = s1; fmCfg.an = false; fmCfg.gruppen = []; fmStall = null; globalCfg.restQuellen = ["kuehe"]; save(); buildCalc(); }, S1);
       assert.strictEqual(await page.locator(".zusammen-hm").count(), 0);
     });
 

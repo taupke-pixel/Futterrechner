@@ -76,6 +76,7 @@ async function main() {
 
     await pruefe("„Anders abgeladen?“ an der Zeile: 150 kg in der Scheune, „Ab jetzt so“ → Faktor neu, Rest heute auf die Diele verteilt", async () => {
       await bullenKarte().locator(".fm-abladen-zeile", { hasText: "Scheune" }).click();
+      await page.click('#fm-anders .fm-abladen-stall[data-platz="scheune"] .fm-anders-knopf');
       assert((await page.textContent("#fm-anders")).includes("Gerechnet: 130 kg"));
       await page.fill("#fm-anders-kg", "150");
       await page.click("#fm-anders >> text=Ab jetzt so");
@@ -90,6 +91,7 @@ async function main() {
       const f0 = await page.evaluate(() => fmLern(fmCfg.gruppen[0]).faktor);
       await page.evaluate(() => { const t = fmTage[fmIso(new Date())]; delete t.abladen; fmTageMerken(); buildCalc(); });
       await bullenKarte().locator(".fm-abladen-zeile", { hasText: "Diele" }).click();
+      await page.click('#fm-anders .fm-abladen-stall[data-platz="diele"] .fm-anders-knopf');
       await page.fill("#fm-anders-kg", "200");
       await page.click("#fm-anders >> text=Nur heute");
       assert.strictEqual(await page.evaluate(() => fmLern(fmCfg.gruppen[0]).faktor), f0);

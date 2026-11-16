@@ -69,7 +69,9 @@ async function main() {
     return page;
   };
   const tab = p => p.evaluate(() => { const t = document.getElementById("fm-tab"); return { sichtbar: t.style.display !== "none", orange: t.classList.contains("tab-orange") }; });
-  const gruppe = (p, name) => p.locator(".fm-gruppe", { has: p.locator(`input.fm-gruppe-name[value="${name}"]`) });
+  const block = (p, k) => p.locator(`.fm-gruppe[data-karte="${k}"]`);
+  const kopf = (p, k) => block(p, k).locator(".fm-gruppe-kopf").innerText();
+  const oeffnen = async (p, k) => { if (await block(p, k).evaluate(e => e.classList.contains("fm-gruppe-zu"))) await block(p, k).locator(".fm-gruppe-kopf").click(); };
 
   try {
     await pruefe("Normale App (Schalter AUS): kein Lesen aus dem Herdenmanager, kein Reiter", async () => {
@@ -113,48 +115,44 @@ async function main() {
       assert.strictEqual((await tab(T)).orange, true);
     });
 
-    await pruefe("Futtergruppe „Hochleistung“ = Stall 1 + Strohstall → 44 Tiere (37 laktierend), Mischung Kühe, mit Restauswertung", async () => {
-      T.antwort = "Hochleistung";
-      await T.click("text=+ Neue Futtergruppe");
-      const g = gruppe(T, "Hochleistung");
-      await g.locator("select.fm-dazu").selectOption("s1");
-      await g.locator("select.fm-dazu").selectOption("stroh");
-      const t = await g.textContent();
-      assert(t.includes("Zusammen: 44 Tiere (davon 37 laktierend)"), t);
-      assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].karte), "kuehe");
-      assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].art), "rest");
+    await pruefe("Futtergruppen = je Mischung eine Zeile; Kühe: Stall 1 + Strohstall → 44 Tiere, mit Restauswertung (automatisch)", async () => {
+      await oeffnen(T, "kuehe");
+      await block(T, "kuehe").locator("select.fm-dazu").selectOption("s1");
+      await block(T, "kuehe").locator("select.fm-dazu").selectOption("stroh");
+      const t = await kopf(T, "kuehe");
+      assert(t.includes("Kühe") && t.includes("Stall 1, Strohstall · 44 Tiere"), t);
+      assert((await block(T, "kuehe").textContent()).includes("mit Restauswertung"));
+      assert.deepStrictEqual(await T.evaluate(() => fmCfg.gruppen.map(g => [g.karte, g.art, g.name])), [["kuehe", "rest", "Kühe"]]);
       assert(!(await T.textContent("#fm-nicht-zugeordnet")).includes("Stall 1 ·"));
+      assert.strictEqual(await T.locator("text=+ Neue Futtergruppe").count(), 0, "kein Anlegen von Hand mehr nötig");
     });
 
-    await pruefe("Jeder Stall höchstens in einer Gruppe; ganzer Stall ersetzt seine Buchten; Art „ohne Reste“ zeigt keine laktierenden", async () => {
-      T.antwort = "Jungvieh";
-      await T.click("text=+ Neue Futtergruppe");
-      const g = gruppe(T, "Jungvieh");
-      const optionen = await g.locator("select.fm-dazu option").allTextContents();
+    await pruefe("Jeder Stall höchstens einmal; ganzer Stall ersetzt seine Buchten; Färsen = ohne Reste (automatisch)", async () => {
+      await oeffnen(T, "faersen");
+      const optionen = await block(T, "faersen").locator("select.fm-dazu option").allTextContents();
       assert(!optionen.some(o => o.startsWith("Stall 1") || o.startsWith("Strohstall")), optionen.join("|"));
-      await g.locator("select.fm-dazu").selectOption("b-links");
-      await g.locator("select.fm-dazu").selectOption("scheune");
-      assert.deepStrictEqual(await T.evaluate(() => fmCfg.gruppen[1].staelle), ["scheune"]);
-      await g.locator("select").nth(1).selectOption("ohne");
-      const t = await gruppe(T, "Jungvieh").textContent();
-      assert(t.includes("Zusammen: 16 Tiere") && !t.includes("laktierend"), t);
+      await block(T, "faersen").locator("select.fm-dazu").selectOption("b-links");
+      await block(T, "faersen").locator("select.fm-dazu").selectOption("scheune");
+      assert.deepStrictEqual(await T.evaluate(() => fmCfg.gruppen.find(g => g.karte === "faersen").staelle), ["scheune"]);
+      assert.strictEqual(await T.evaluate(() => fmCfg.gruppen.find(g => g.karte === "faersen").art), "ohne");
+      assert((await block(T, "faersen").textContent()).includes("ohne Reste"));
+      assert((await kopf(T, "faersen")).includes("Scheune · 16 Tiere"));
     });
 
-    await pruefe("✕ entfernt einen Stall wieder (zurück zu „Nicht zugeordnet“); Name und Mischung änderbar", async () => {
-      await gruppe(T, "Hochleistung").locator(".fm-stall", { hasText: "Strohstall" }).locator("button[title=entfernen]").click();
+    await pruefe("✕ entfernt einen Stall wieder (zurück zu „Nicht zugeordnet“); zuklappen zeigt nur Mischung, Ställe, Tiere", async () => {
+      await block(T, "kuehe").locator(".fm-stall", { hasText: "Strohstall" }).locator("button[title=entfernen]").click();
       assert((await T.textContent("#fm-nicht-zugeordnet")).includes("Strohstall · 7 Tiere"));
-      assert((await gruppe(T, "Hochleistung").textContent()).includes("Zusammen: 37 Tiere (davon 35 laktierend)"));
-      await gruppe(T, "Hochleistung").locator("input.fm-gruppe-name").fill("Kühe Stall 1");
-      await T.dispatchEvent('input.fm-gruppe-name >> nth=0', "change");
-      assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].name), "Kühe Stall 1");
-      await gruppe(T, "Kühe Stall 1").locator("select").first().selectOption("kuehe2");
-      assert.strictEqual(await T.evaluate(() => fmCfg.gruppen[0].karte), "kuehe2");
+      assert((await kopf(T, "kuehe")).includes("Stall 1 · 37 Tiere"));
+      await block(T, "kuehe").locator(".fm-gruppe-kopf").click();
+      assert.strictEqual(await block(T, "kuehe").locator("select").count(), 0);
+      const zu = (await block(T, "kuehe").innerText()).replace(/\s+/g, " ");
+      assert(zu.includes("Kühe · Stall 1 · 37 Tiere") && zu.includes("▶"), zu);
     });
 
     await pruefe("Rest „nicht füttern“ / zugeordnet → Reiter nicht mehr orange", async () => {
       for (const id of ["s2", "stroh", "diele"]) await T.locator(`.fm-frei[data-platz="${id}"] input`).check();
-      // Gruppe „Jungvieh“ (ohne Reste) hat ihre Startwert-Frage schon beantwortet – sonst färbt die offene Frage den Reiter
-      await T.evaluate(() => { (fmCfg.lern = fmCfg.lern || {})[fmCfg.gruppen[1].id] = { faktor: 2.5, seit: fmIso(new Date()) }; fmSpeichern(); });
+      // Färsen (ohne Reste) haben ihre Startwert-Frage schon beantwortet – sonst färbt die offene Frage den Reiter
+      await T.evaluate(() => { (fmCfg.lern = fmCfg.lern || {})[fmCfg.gruppen.find(g => g.karte === "faersen").id] = { faktor: 2.5, seit: fmIso(new Date()) }; fmSpeichern(); });
       assert.strictEqual((await tab(T)).orange, false, await T.textContent("#fm-nicht-zugeordnet"));
     });
 
@@ -163,38 +161,38 @@ async function main() {
       await T.evaluate(() => fmStallzahlenHolen(true));
       await T.waitForFunction(() => document.getElementById("fm-nicht-zugeordnet").textContent.includes("Neuer Stall"));
       assert.strictEqual((await tab(T)).orange, true);
-      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("Zusammen: 38 Tiere (davon 36 laktierend)"));
+      assert((await kopf(T, "kuehe")).includes("Stall 1 · 38 Tiere"));
     });
 
-    await pruefe("Rechner: Karte der Gruppe zeigt Tierzahl aus dem Herdenmanager (antippen = übernehmen) und bei 2 Ställen grüne Abladen-Zeilen", async () => {
-      await gruppe(T, "Kühe Stall 1").locator("select.fm-dazu").selectOption("s2");
-      await T.evaluate(() => { data.kuehe2.anz = 80; data.kuehe2.items.forEach((it, i) => it.kg = i === 0 ? 40 : 0); showTab("calc"); buildCalc(); });
-      const karte = T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") });
+    await pruefe("Rechner: Tierzahl aus dem Herdenmanager (+ Rest-Zuschlag), grüne Abladen-Zeilen; antippen → Reihenfolge ändern", async () => {
+      await oeffnen(T, "kuehe");
+      await block(T, "kuehe").locator("select.fm-dazu").selectOption("s2");
+      await T.evaluate(() => { data.kuehe.anz = 80; data.kuehe.items.forEach((it, i) => it.kg = i === 0 ? 40 : 0); data.kuehe.collapsed = false; showTab("calc"); buildCalc(); });
+      const karte = T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe") });
       const zeile = await karte.locator(".fm-hm-zeile").textContent();
-      // alle Tiere der Ställe zählen (auch Trockensteher, die dieselbe Mischung fressen): 38 + 47
-      // + 4 % Rest-Zuschlag (Erweitert): 85 × 1,04 = 88,4 Tiere zum Mischen
+      // alle Tiere der Ställe zählen (auch Trockensteher): 38 + 47; + 4 % Rest-Zuschlag: 85 × 1,04 = 88,4
       assert(zeile.includes("Herdenmanager: 85 Tiere + 4 % Rest") && !zeile.includes("laktierend"), zeile);
       await karte.locator(".fm-hm-zeile button", { hasText: "übernehmen" }).click();
-      assert.strictEqual(await T.evaluate(() => data.kuehe2.anz), 88.4);
-      const ab = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
+      assert.strictEqual(await T.evaluate(() => data.kuehe.anz), 88.4);
+      const ab = await karte.locator(".fm-abladen").innerText();
       // 88,4 × 40 kg = 3536 kg; Stall 1: 38/85 → 1581 kg, danach bleiben 1955 kg (= Stall 2)
       assert(ab.includes("▼ Stall 1 abladen bis 1955 kg (1581 kg)") && ab.includes("→ Rest: Stall 2 1955 kg"), ab);
-      // Reihenfolge beim Abladen: ▲ bei Stall 2 → Stall 2 zuerst
-      await T.evaluate(() => showTab("fressmenge"));
-      const g = gruppe(T, "Kühe Stall 1");
-      assert.strictEqual(await g.locator(".fm-stall").first().locator(".fm-stall-hoch").count(), 0, "erster Stall hat ▲");
-      await g.locator(".fm-stall", { hasText: "Stall 2" }).locator(".fm-stall-hoch").click();
-      assert((await g.locator(".fm-stall").first().textContent()).includes("Stall 2"));
-      await T.evaluate(() => { showTab("calc"); buildCalc(); });
-      const ab2 = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
+      await karte.locator(".fm-abladen-zeile").first().click();
+      assert((await T.textContent("#fm-anders")).includes("Reihenfolge beim Abladen"));
+      assert(await T.locator('#fm-anders .fm-abladen-stall[data-platz="s1"] .fm-hoch').isDisabled());
+      await T.click('#fm-anders .fm-abladen-stall[data-platz="s2"] .fm-hoch');
+      assert((await T.locator("#fm-anders .fm-abladen-stall").first().textContent()).includes("1. Stall 2"));
+      const ab2 = await karte.locator(".fm-abladen").innerText();
       assert(ab2.includes("▼ Stall 2 abladen bis 1581 kg (1955 kg)") && ab2.includes("→ Rest: Stall 1 1581 kg"), ab2);
-      assert.strictEqual(await T.locator("#calc .category", { has: T.locator(".cat-header.cat-faersen") }).locator(".fm-hm-zeile").count(), 0, "Karte ohne Gruppe hat Ergänzung");
+      await T.click("#fm-anders >> text=Schließen");
+      assert.strictEqual(await T.locator("#fm-anders").count(), 0);
+      assert.strictEqual(await T.locator("#calc .category", { has: T.locator(".cat-header.cat-faersen") }).locator(".fm-hm-zeile").count() <= 1, true);
     });
 
     await pruefe("Rechner: Rechnung der Karte unverändert (Gesamt wie ohne Ergänzung), bei AUS keine Ergänzung", async () => {
-      const mit = await T.evaluate(() => document.getElementById("total-kuehe2").dataset.val);
+      const mit = await T.evaluate(() => document.getElementById("total-kuehe").dataset.val);
       await T.evaluate(() => { fmCfg.an = false; buildCalc(); });
-      assert.strictEqual(await T.evaluate(() => document.getElementById("total-kuehe2").dataset.val), mit);
+      assert.strictEqual(await T.evaluate(() => document.getElementById("total-kuehe").dataset.val), mit);
       assert.strictEqual(await T.locator(".fm-hm-zeile, .fm-abladen").count(), 0);
       await T.evaluate(() => { fmCfg.an = true; buildCalc(); showTab("fressmenge"); });
     });
@@ -203,15 +201,15 @@ async function main() {
       hm.status = 404;
       await T.evaluate(() => fmStallzahlenHolen(true));
       await T.waitForFunction(() => document.getElementById("fm-hm-stand").textContent.includes("passt nicht"));
-      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("85 Tiere"));
+      assert((await kopf(T, "kuehe")).includes("85 Tiere"));
       hm.status = 200;
     });
 
     await pruefe("Nach dem Neuladen ist alles noch da (im Gerät gemerkt)", async () => {
       await T.reload(); await zugang.warteAufApp(T, "emulator", true);
       await T.click("#fm-tab");
-      await T.waitForFunction(() => document.querySelectorAll(".fm-gruppe").length === 2);
-      assert((await gruppe(T, "Kühe Stall 1").textContent()).includes("85 Tiere"));
+      await T.waitForFunction(() => document.querySelector('.fm-gruppe[data-karte="kuehe"]'));
+      assert((await kopf(T, "kuehe")).includes("85 Tiere"));
     });
 
     await pruefe("Hauptschalter AUS: Reiter weg, kein Lesen mehr; Gruppen bleiben gespeichert", async () => {
@@ -226,7 +224,7 @@ async function main() {
 
     await pruefe("Futtergruppen ändern nichts an den Daten des Betriebs (Rationen, Einstellungen)", async () => {
       const roh = await T.evaluate(() => JSON.stringify({ data, globalCfg }));
-      assert(!roh.includes("Hochleistung") && !roh.includes("BETRIEB123") && !roh.includes("Kühe Stall 1"));
+      assert(!roh.includes("BETRIEB123") && !roh.includes("Strohstall"));
     });
 
     await pruefe("Keine Seitenfehler", async () => {

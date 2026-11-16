@@ -89,7 +89,10 @@ async function main() {
       assert(h.some(x => x.startsWith("RNB negativ (-64,0 g)")), h.join(" | "));
       assert(h.some(x => x === "Energie knapp: reicht für 24,3 kg Milch, MLP 30,0 kg"), h.join(" | "));
       assert(!h.some(x => /Calcium|Phosphor|TS der/.test(x)), "unnötiger Hinweis: " + h.join(" | "));
-      assert((await page.textContent('#fm-rationen .fm-ration[data-karte="kuehe"]')).includes("2 Hinweise"));
+      // Rationsvergleich steht jetzt beim Öffnen der Gruppe in der Auswertung (nicht mehr unter „Neues PDF“)
+      await page.evaluate(() => { fmOffen = fmCfg.gruppen[0].id; fmAnsicht = "liste"; fmBauen(); });
+      assert.strictEqual(await page.locator("#fm-rationen .fm-ration").count(), 0);
+      assert((await page.textContent('#fressmenge .fm-ration[data-karte="kuehe"]')).includes("2 Hinweise"));
     });
 
     await pruefe("Unterschalter „Rationsvergleich“ aus → keine Hinweise", async () => {
@@ -99,7 +102,7 @@ async function main() {
     });
 
     await pruefe("Eigene Variante: Mais 40 → 46 kg; Vergleich nebeneinander (Milch aus Energie, Futter je Kuh, Milchgeld − Futter); „Diese nehmen“ in der Testversion gesperrt", async () => {
-      await page.click('#fm-rationen .fm-ration[data-karte="kuehe"] button');
+      await page.click('#fressmenge .fm-ration[data-karte="kuehe"] button');
       await page.click("text=+ Eigene Variante");
       const feld = page.locator(".fm-variante input").first();
       await feld.fill("46"); await feld.dispatchEvent("change");

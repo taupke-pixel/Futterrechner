@@ -99,7 +99,7 @@ async function main() {
       assert(r.html.includes("alle 20,0 Std.") && r.html.includes("+20 %"), r.html);
       await page.evaluate(() => fmZeitenUebernehmen("go"));
       assert(Math.abs(await page.evaluate(() => fmCfg.lern.go.faktor) - 2.4) < 1e-9);
-      assert((await page.evaluate(() => fmZeitenHtml(fmCfg.gruppen[0]))).includes("sammelt noch"), "nach dem Anpassen zählen nur neue Fütterungen");
+      assert.strictEqual(await page.evaluate(() => fmZeitenHtml(fmCfg.gruppen[0])), "", "nach dem Anpassen zählen nur neue Fütterungen (nichts anzeigen, solange nichts zu tun ist)");
     });
 
     await pruefe("Ohne Reste: Menge nach TS der Ration – TS steigt (mehr Stroh) 45 % → 50 % → Menge × 0,9", async () => {
@@ -117,13 +117,13 @@ async function main() {
     await pruefe("Rest-Zuschlag: Rechner bietet Tiere + 4 % an; Auswertung „Übernehmen“ ändert den Zuschlag, nicht die Ration", async () => {
       const r = await page.evaluate(() => {
         fmStall.eintraege.s1 = { id: "s1", name: "Stall 1", typ: "stall", stall: null, anzahl: 50, gruppen: [{ art: "laktierend", anzahl: 48 }, { art: "trocken", anzahl: 2 }] };
-        fmCfg.gruppen.push({ id: "gk", name: "Kühe", karte: "kuehe", art: "rest", staelle: ["s1"], auswerten: true });
+        fmGruppeZuKarte("kuehe").staelle = ["s1"];
         data.kuehe.items.forEach((it, i) => it.kg = i === 0 ? 40 : 0); data.kuehe.anz = 50;
         showTab("calc"); buildCalc();
         const zeile = document.querySelector("#calc .fm-hm-zeile").textContent;
         const ration = data.kuehe.items.map(i => i.kg);
-        fmUebernehmen("gk", "mehr");
-        return { zeile, ration, nachher: data.kuehe.items.map(i => i.kg), zuschlag: fmCfg.gruppen.find(g => g.id === "gk").zuschlag, ziel: fmTierzahlMitZuschlag(fmCfg.gruppen.find(g => g.id === "gk"), 50) };
+        fmUebernehmen(fmGruppeZuKarte("kuehe").id, "mehr");
+        return { zeile, ration, nachher: data.kuehe.items.map(i => i.kg), zuschlag: fmGruppeZuKarte("kuehe").zuschlag, ziel: fmTierzahlMitZuschlag(fmGruppeZuKarte("kuehe"), 50) };
       });
       assert(r.zeile.includes("Herdenmanager: 50 Tiere + 4 % Rest") && r.zeile.includes("übernehmen"), r.zeile);
       assert.deepStrictEqual(r.nachher, r.ration);
@@ -140,12 +140,60 @@ async function main() {
     });
 
     await pruefe("Zuklappen: Futtermittel und einzelne Futtergruppe (nur Name + Tierzahl)", async () => {
-      await page.evaluate(() => { fmZu = {}; fmZuUmschalten("futtermittel"); fmZuUmschalten("g:go"); });
-      const r = await page.evaluate(() => ({ kopf: document.querySelector(".fm-futtermittel-kopf").textContent.trim(), zu: document.querySelector('.fm-gruppe[data-gruppe="go"]').textContent.replace(/\s+/g, " ").trim(), select: document.querySelectorAll('.fm-gruppe[data-gruppe="go"] select').length }));
+      await page.evaluate(() => { fmZu = { "k:faersen": false }; fmZuUmschalten("futtermittel"); fmZuUmschalten("k:faersen"); });
+      const r = await page.evaluate(() => ({ kopf: document.querySelector(".fm-futtermittel-kopf").textContent.trim(), zu: document.querySelector('.fm-gruppe[data-karte="faersen"]').textContent.replace(/\s+/g, " ").trim(), select: document.querySelectorAll('.fm-gruppe[data-karte="faersen"] select').length }));
       assert(r.kopf.startsWith("▶"), r.kopf);
-      assert.strictEqual(r.zu, "▶ Diele · 10 Tiere"); assert.strictEqual(r.select, 0);
-      await page.evaluate(() => { fmZuUmschalten("futtermittel"); fmZuUmschalten("g:go"); });
-      assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.fm-gruppe[data-gruppe="go"] select').length) > 0, true);
+      assert(r.zu.includes("Färsen · Diele · 10 Tiere") && r.zu.includes("▶"), r.zu); assert.strictEqual(r.select, 0);
+      await page.evaluate(() => { fmZuUmschalten("futtermittel"); fmZuUmschalten("k:faersen"); });
+      assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.fm-gruppe[data-karte="faersen"] .fm-stall').length) > 0, true);
+    });
+
+    await pruefe("Rechner › Restmischung kompakt: „Rest Stall 1“ + Feld je Zeile, Waage-Feld bleibt, Eingaben wirken wie vorher", async () => {
+      await page.evaluate(() => { data.restbullen.collapsed = false; showTab("calc"); buildCalc(); });
+      const zeilen = await page.$$eval(".fm-rest-kompakt > div", d => d.map(e => e.textContent.replace(/\s+/g, " ").trim()));
+      assert.deepStrictEqual(zeilen, ["Rest Stall 1", "Rest Kühe Gruppe 2", "Waage zeigt insgesamt (kg)", "Ziel (kg)", "Bullen"], zeilen.join(" | "));
+      const f = page.locator(".fm-rest-kompakt input").first();
+      await f.fill("140"); await f.dispatchEvent("input");
+      assert.strictEqual(await page.evaluate(() => data.restbullen.rest), 140);
+      assert(!(await page.locator("#calc .cat-header.cat-restbullen >> xpath=..").innerText()).includes("vorhanden (kg)"));
+    });
+
+    await pruefe("History: Lieferungen nach Art zum Auf- und Zuklappen (zu = nur „AGF · 2 Lieferungen, zuletzt …“)", async () => {
+      await page.evaluate(() => { fmZu = {}; lieferungen = [{ id: "l1", produkt: "agf", datum: "2026-11-10", menge: 1000 }, { id: "l2", produkt: "mlf", datum: "2026-11-08", menge: 500 }, { id: "l3", produkt: "agf", datum: "2026-10-01", menge: 900 }];
+        historyCollapsed.lieferungen = false; showTab("history"); buildHistory(); });
+      const k = await page.$$eval(".fm-lieferungen-kopf", d => d.map(e => e.textContent.replace(/\s+/g, " ").trim()));
+      assert.strictEqual(k.length, 2, k.join(" | "));
+      assert(k[0].startsWith("▶") && k[0].includes("· 2 Lieferungen, zuletzt 2026-11-10") && k[1].includes("1 Lieferung,"), k.join(" | "));
+      assert.strictEqual(await page.evaluate(() => [...document.querySelectorAll(".fm-lieferungen .history-item")].filter(e => e.offsetParent).length), 0);
+      await page.click(".fm-lieferungen-kopf >> nth=0");
+      assert.strictEqual(await page.evaluate(() => [...document.querySelectorAll(".fm-lieferungen .history-item")].filter(e => e.offsetParent).length), 2);
+    });
+
+    await pruefe("Einstellungen: Restmischung als ein Kasten (Name, „Reste kommen von“, „Gemischt für“)", async () => {
+      await page.evaluate(() => { showTab("settings"); buildSettings(); });
+      const r = await page.evaluate(() => ({ h: document.getElementById("edit-restbullen").style.display, kopf: document.querySelector("#restquellen-wahl .history-header").textContent.trim(), text: document.getElementById("restquellen-wahl").textContent, name: !!document.querySelector(".fm-rest-name") }));
+      assert.strictEqual(r.h, "none");
+      assert(r.kopf.includes("Restmischung Bullen"), r.kopf);
+      assert(r.name && r.text.includes("Reste kommen von") && r.text.includes("Gemischt für"), r.text);
+    });
+
+    await pruefe("Ohne Reste: Reihe fürs Diagramm (kg je Tier auf 24 Std. umgerechnet), Haken „auswerten“ abschaltbar", async () => {
+      const r = await page.evaluate(() => fmOhneReihe(fmCfg.gruppen.find(g => g.id === "go")).map(t => [t.stunden, t.jeTier24]));
+      assert.deepStrictEqual(r.slice(0, 3), [[20, 24], [20, 24], [20, 24]], JSON.stringify(r));
+      assert.deepStrictEqual(r[3], [null, null]);
+      await page.evaluate(() => { fmZu["k:faersen"] = false; showTab("fressmenge"); fmEinrichtungZu = false; fmBauen(); });
+      await page.uncheck('.fm-gruppe[data-karte="faersen"] .fm-auswerten input');
+      assert.strictEqual(await page.evaluate(() => fmCfg.gruppen.find(g => g.id === "go").auswerten), false);
+      await page.check('.fm-gruppe[data-karte="faersen"] .fm-auswerten input');
+    });
+
+    await pruefe("History: Warnstufen ordentlich als Tabelle (Futter | Orange ab | Rot ab), Eingaben wirken wie vorher", async () => {
+      await page.evaluate(() => { historyCollapsed.verlauf = false; showTab("history"); buildHistory(); });
+      const z = await page.$$eval(".fm-warnstufen tr", d => d.map(e => e.children[0].textContent.trim()));
+      assert.deepStrictEqual(z.slice(0, 3), ["Futter", "AGF", "MLF"], z.join(" | "));
+      const f = page.locator(".fm-warnstufen input").first();
+      await f.fill("7"); await f.dispatchEvent("input");
+      assert.strictEqual(await page.evaluate(() => lagerData.agf.orange), 7);
     });
 
     await pruefe("Keine Seitenfehler", async () => {

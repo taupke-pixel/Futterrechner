@@ -56,9 +56,11 @@ async function main() {
       assert((await page.textContent("#fm-wetter")).includes("Heute 8 °C"));
     });
 
-    await pruefe("Ohne Kuhgruppe: Hinweis „unter Einrichtung anlegen“; Einrichtung ist offen", async () => {
-      assert((await page.textContent("#fressmenge")).includes("Noch keine Kuhgruppe"));
-      assert(await page.locator("#fm-einrichtung >> text=+ Neue Futtergruppe").isVisible());
+    await pruefe("Ohne Herdenmanager: Kühe (Mischung mit Resten) bekommt die Futtergruppe automatisch → Auswertung sammelt Werte", async () => {
+      await page.evaluate(() => fmBauen());
+      assert.deepStrictEqual(await page.evaluate(() => fmCfg.gruppen.map(g => [g.karte, g.art])), [["kuehe", "rest"]]);
+      assert((await page.textContent(".fm-auswertung")).includes("sammelt noch"));
+      assert.strictEqual(await page.locator('#fm-einrichtung .fm-gruppe[data-karte="kuehe"]').count(), 1);
     });
 
     // Gruppe anlegen (ohne Herdenmanager: Tierzahl aus der History), 8 Tage History mit Vorlage + Restmischung
@@ -196,7 +198,7 @@ async function main() {
     await pruefe("Gruppe antippen → Verlauf: Diagramm (Chart.js 4.4.1 wird erst jetzt geladen), Liste mit Rest % und Symbolen, Zeitraum", async () => {
       await historyAnlegen([4, 3, 6, 4, 5, 4, 4]);
       await page.evaluate(() => fmBauen());
-      await page.click('.fm-auswertung[data-gruppe="g1"] >> text=Hochleistung');
+      await page.click('.fm-auswertung[data-gruppe="g1"] b');
       await page.waitForFunction(() => window.Chart && fmCharts.length === 2, null, { timeout: 20000 });
       assert.strictEqual(await page.evaluate(() => Chart.version), "4.4.1");
       assert(await page.locator("#fm-chart-reste").isVisible());
@@ -228,7 +230,7 @@ async function main() {
       await Promise.all([page.waitForNavigation(), page.click("text=Testdaten zurücksetzen")]);
       await zugang.warteAufApp(page, "emulator", true);
       assert.strictEqual(await page.evaluate(() => localStorage.getItem("fmTage")), null);
-      assert.strictEqual(await page.evaluate(() => (fmCfg.gruppen || []).length), 0);
+      assert.strictEqual(await page.evaluate(() => (fmCfg.gruppen || []).filter(g => (g.staelle || []).length || g.id !== "g_" + g.karte).length), 0, "nur die automatische Gruppe darf bleiben");
       assert.strictEqual(await page.evaluate(() => localStorage.getItem("futter")) !== null, vorher !== null);
     });
 
