@@ -172,12 +172,13 @@ async function main() {
       const karte = T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") });
       const zeile = await karte.locator(".fm-hm-zeile").textContent();
       // alle Tiere der Ställe zählen (auch Trockensteher, die dieselbe Mischung fressen): 38 + 47
-      assert(zeile.includes("Herdenmanager: 85 Tiere") && !zeile.includes("laktierend"), zeile);
+      // + 4 % Rest-Zuschlag (Erweitert): 85 × 1,04 = 88,4 Tiere zum Mischen
+      assert(zeile.includes("Herdenmanager: 85 Tiere + 4 % Rest") && !zeile.includes("laktierend"), zeile);
       await karte.locator(".fm-hm-zeile button", { hasText: "übernehmen" }).click();
-      assert.strictEqual(await T.evaluate(() => data.kuehe2.anz), 85);
+      assert.strictEqual(await T.evaluate(() => data.kuehe2.anz), 88.4);
       const ab = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
-      // 85 × 40 kg = 3400 kg; Stall 1: 38/85 → 1520 kg, danach bleiben 1880 kg (= Stall 2)
-      assert(ab.includes("▼ Stall 1 abladen bis 1880 kg (1520 kg)") && ab.includes("→ Rest: Stall 2 1880 kg"), ab);
+      // 88,4 × 40 kg = 3536 kg; Stall 1: 38/85 → 1581 kg, danach bleiben 1955 kg (= Stall 2)
+      assert(ab.includes("▼ Stall 1 abladen bis 1955 kg (1581 kg)") && ab.includes("→ Rest: Stall 2 1955 kg"), ab);
       // Reihenfolge beim Abladen: ▲ bei Stall 2 → Stall 2 zuerst
       await T.evaluate(() => showTab("fressmenge"));
       const g = gruppe(T, "Kühe Stall 1");
@@ -186,7 +187,7 @@ async function main() {
       assert((await g.locator(".fm-stall").first().textContent()).includes("Stall 2"));
       await T.evaluate(() => { showTab("calc"); buildCalc(); });
       const ab2 = await T.locator("#calc .category", { has: T.locator(".cat-header.cat-kuehe2") }).locator(".fm-abladen").innerText();
-      assert(ab2.includes("▼ Stall 2 abladen bis 1520 kg (1880 kg)") && ab2.includes("→ Rest: Stall 1 1520 kg"), ab2);
+      assert(ab2.includes("▼ Stall 2 abladen bis 1581 kg (1955 kg)") && ab2.includes("→ Rest: Stall 1 1581 kg"), ab2);
       assert.strictEqual(await T.locator("#calc .category", { has: T.locator(".cat-header.cat-faersen") }).locator(".fm-hm-zeile").count(), 0, "Karte ohne Gruppe hat Ergänzung");
     });
 

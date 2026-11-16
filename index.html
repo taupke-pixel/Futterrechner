@@ -4740,7 +4740,8 @@ function zusammenPlan(){
   const R = echt!==null ? echt : geplant;
   // Stall 1 hat mehr bekommen als geplant → Gruppe 2 bekommt prozentual genauso mehr (damit beide gleich lange reichen).
   // Hat Stall 1 weniger bekommen, liegt der Rest ohnehin auf dem Wagen → keine Verkleinerung.
-  const plan1=G-geplant, faktor2 = (echt!==null && plan1>0 && data.kuehe2.zusAnpassen!==false) ? Math.max(1, (G-R)/plan1) : 1;
+  const tol = typeof fmWert==="function" ? fmWert("waageToleranz") : 0;
+  const plan1=G-geplant, faktor2 = (echt!==null && plan1>0 && data.kuehe2.zusAnpassen!==false && (G-R)-plan1>tol) ? Math.max(1, (G-R)/plan1) : 1;
   // Für Gruppe 2 je Futter: im Wagen (Rest × Anteil in der Grundmischung) gegen Soll (Ration × Tiere) – wie bei der Restmischung.
   // Rundungsreste unter 20 g je Tier zählen nicht. Positiv = dazu bzw. nachladen, negativ = schon zu viel im Wagen.
   const alle=[...k1, ...k2.filter(b=>!k1.some(a=>gleich(a,b)))];
@@ -4772,7 +4773,7 @@ function zusammenRestEingeben(){
   data.kuehe2.zusAnpassen=null;
   // Stall 1 hat mehr bekommen → einmal fragen: Gruppe 2 prozentual mitziehen oder normal füttern (Mehrmenge zählt bei den Resten)
   const q=zusammenPlan();
-  if(q.echt!==null && q.plan1>0 && (q.G-q.echt)>q.plan1*1.005){
+  if(q.echt!==null && q.plan1>0 && (q.G-q.echt)-q.plan1>fmWert("waageToleranz")){
     const proz=Math.round(((q.G-q.echt)/q.plan1-1)*100);
     data.kuehe2.zusAnpassen = confirm(`${globalCfg.kueheName} hat ${(q.G-q.echt-q.plan1).toFixed(0)} kg (+${proz} %) mehr bekommen.
 
@@ -4826,8 +4827,9 @@ function zusammenSpeichern(){
   const e2=eintrag("kuehe2", p.s2, p.zeilen2.map(z=>({ it:z.it, kg:z.ist+Math.max(0,z.diff) })));
   // Mehr als geplant gefüttert (verladen): merken, damit die Reste-Auswertung den höheren Rest nicht als „zu viel übrig“ zählt
   if(p.echt!==null){
-    if(e1.gesamt-p.plan1>1) e1.mehr=e1.gesamt-p.plan1;
-    if(e2.gesamt-p.plan2>1) e2.mehr=e2.gesamt-p.plan2;
+    const tol=fmWert("waageToleranz");
+    if(e1.gesamt-p.plan1>tol) e1.mehr=e1.gesamt-p.plan1;
+    if(e2.gesamt-p.plan2>tol) e2.mehr=e2.gesamt-p.plan2;
   }
   historyData.unshift(e2); historyData.unshift(e1);
   data.kuehe2.zusRest=null; data.kuehe2.zusAnpassen=null;
@@ -4850,9 +4852,9 @@ function zusammenStaelle(g, menge){
 }
 function zusammenHmTiere(g, k){
   if(!g) return "";
-  const n=fmTierzahlGruppe(g);
-  if(n===num(data[k].anz)) return "";
-  return ` <button class="zusammen-hm" onclick="fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px;background:#fff3cd;border:1px solid #e0c060;border-radius:10px;padding:2px 8px">Herdenmanager: ${n} – übernehmen</button>`;
+  const n=fmTierzahlGruppe(g), ziel=fmTierzahlMitZuschlag(g, n);
+  if(ziel===num(data[k].anz)) return "";
+  return ` <button class="zusammen-hm" onclick="fmTierzahlUebernehmen('${k}',${ziel})" style="font-size:13px;background:#fff3cd;border:1px solid #e0c060;border-radius:10px;padding:2px 8px">Herdenmanager: ${n}${fmZuschlagText(g)} – übernehmen</button>`;
 }
 function zusammenKarteHtml(){
   const p=zusammenPlan(), n1=globalCfg.kueheName, n2=globalCfg.kuehe2Name;
@@ -4862,19 +4864,23 @@ function zusammenKarteHtml(){
   const zug=p.zugabe.map(({it,kg})=>{ lauf2+=kg; return `<tr><td>${futterName(it)}</td><td>${kg.toFixed(1)}</td><td>${lauf2.toFixed(1)}</td><td>${zusammenZeit(it,kg)}</td></tr>`; }).join("")
     + p.zuViel.map(({it,kg})=>`<tr><td>${futterName(it)}</td><td class="minus">${kg.toFixed(1)}</td><td class="minus">schon zu viel</td><td>-</td></tr>`).join("");
   const gesamt=lauf+p.zugabe.reduce((s,z)=>s+z.kg,0), gespeichert=alreadySavedToday("kuehe") || alreadySavedToday("kuehe2");
-  const gruen="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:8px;margin-top:6px;font-weight:bold";
+  // grüne Zeilen wie „▼ Stall abladen bis … kg“ in den anderen Karten
+  const gruen="background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold";
   const hm=zusammenHm(), st1=hm && zusammenStaelle(hm.g1, p.G-p.geplant), st2=hm && zusammenStaelle(hm.g2, lauf2);
   // nur ein Stall in der Futtergruppe → dessen Name statt Gruppenname
   const einStall=(g, ersatz)=>{ const pl=g ? (g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt) : []; return pl.length===1 ? fmPlatzName(pl[0]) : ersatz; };
-  let nr=1, wagen=p.G;
-  const box=(inhalt, extra)=>`<div class="zusammen-stall" style="${gruen}">${inhalt}${extra||""}</div>`;
-  const teile1 = st1 ? st1.map(({p:pl,menge},i)=>{ wagen-=menge; return { name:fmPlatzName(pl), bis:i===st1.length-1?p.geplant:wagen }; }) : [{ name:einStall(hm && hm.g1, n1), bis:p.geplant }];
-  const tipp = p.echt!==null ? "" : `<div style="font-weight:normal;font-size:12px">anders abgeladen? antippen</div>`;
-  const ablade1 = teile1.map((t,i)=>box(`${++nr}. ${t.name} abladen bis ${t.bis.toFixed(0)} kg`, i===teile1.length-1 ? tipp : "")).join("");
-  const nrZug = zug ? ++nr : null;
+  const zeile=(inhalt)=>`<div class="zusammen-stall" style="${gruen}">${inhalt}</div>`;
+  let wagen=p.G;
+  const teile1 = st1 ? st1.map(({p:pl,menge},i)=>{ wagen-=menge; return { name:fmPlatzName(pl), bis:i===st1.length-1?p.geplant:wagen, menge }; })
+    : [{ name:einStall(hm && hm.g1, n1), bis:p.geplant, menge:p.G-p.geplant }];
+  const ablade1 = teile1.map(t=>zeile(`▼ ${t.name} abladen bis ${t.bis.toFixed(0)} kg <span style="font-weight:normal">(${t.menge.toFixed(0)} kg)</span>`)).join("");
   let wagen2=lauf2;
-  const teile2 = st2 ? st2.map(({p:pl,menge},i)=>{ wagen2-=menge; return { name:fmPlatzName(pl), bis:wagen2, letzter:i===st2.length-1 }; }) : [{ name:einStall(hm && hm.g2, n2), letzter:true }];
-  const ablade2 = teile2.map(t=>box(t.letzter ? `${++nr}. ${t.name}: Rest abladen (${(st2 ? t.bis+st2[st2.length-1].menge : lauf2).toFixed(0)} kg)` : `${++nr}. ${t.name} abladen bis ${t.bis.toFixed(0)} kg`)).join("");
+  const teile2 = st2 ? st2.map(({p:pl,menge},i)=>{ wagen2-=menge; return { name:fmPlatzName(pl), bis:wagen2, menge, letzter:i===st2.length-1 }; })
+    : [{ name:einStall(hm && hm.g2, n2), menge:lauf2, letzter:true }];
+  const ablade2 = teile2.map(t=>zeile(t.letzter ? `→ Rest: ${t.name} ${t.menge.toFixed(0)} kg` : `▼ ${t.name} abladen bis ${t.bis.toFixed(0)} kg <span style="font-weight:normal">(${t.menge.toFixed(0)} kg)</span>`)).join("");
+  const info = p.echt===null ? "" : `<div style="font-size:13px;color:#1b5e20;margin-top:4px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>`
+    + (data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+fmWert("waageToleranz") ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr rechnet die Auswertung beim Rest mit.</div>` : "")
+    + (p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : "");
   return `
   <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
     <div class="cat-header cat-kuehe" onclick="data.kuehe.collapsed=!data.kuehe.collapsed;save();buildCalc();">
@@ -4884,11 +4890,9 @@ function zusammenKarteHtml(){
       <div>${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g1,"kuehe") : ""}</div>
       <div style="margin-top:4px">${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}</div>
       ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
-      <div style="font-weight:bold;margin-top:10px">1. Grundmischung laden (für beide)</div>
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
-      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenRestEingeben()">${ablade1}
-        ${p.echt!==null ? `<div style="font-weight:normal;margin-top:4px;font-size:13px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>${p.echt!==null && data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+1 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr bei ${n1} rechnet die Auswertung beim Rest mit.</div>` : ""}${p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-weight:normal;margin-top:2px">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : ""}` : ""}</div>
-      ${zug ? `<div style="font-weight:bold;margin-top:10px">${nrZug}. Für ${n2} ${p.echt!==null&&p.echt<p.geplant?"nachladen und dazumischen":"dazumischen"}</div>
+      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenRestEingeben()">${ablade1}${info}</div>
+      ${zug ? `<div style="font-weight:bold;margin-top:8px">${p.echt!==null&&p.echt<p.geplant?"Nachladen und dazumischen":"Dazumischen"} für ${einStall(hm && hm.g2, n2)}</div>
       <table>${zug}</table>` : ""}
       <div class="zusammen-rest">${ablade2}</div>
       <div class="total">
@@ -4918,6 +4922,8 @@ const FM_WERTE=[
   ["restZielVon","Zielbereich Restquote von",3,0,20,"%"],
   ["restZielBis","Zielbereich Restquote bis",5,0,30,"%"],
   ["restSchritt","Vorlage erhöhen/senken um",3,0.5,20,"%"],
+  ["waageToleranz","Waage-Toleranz (Abladen, Fahren)",50,0,300,"kg"],
+  ["wagenRest","Bleibt im Futterwagen hängen",0,0,500,"kg"],
   ["bewertungTage","Bewertungszeitraum",5,2,30,"Tage"],
   ["bewertungMin","Bewertung mindestens",3,1,30,"Tage"],
   ["leerTage","Leergefressen: Empfehlung nach",2,1,14,"Tagen"],
@@ -5137,9 +5143,15 @@ function fmGruppenHtml(){
   const gruppen=fmGruppen().map(g=>{
     const plaetze=(g.staelle||[]).map(fmPlatz).filter(Boolean);
     const summe=plaetze.reduce((s,p)=>s+(p.entfernt?0:(p.anzahl||0)),0), lakt=plaetze.reduce((s,p)=>s+(p.entfernt?0:fmLaktierend(p)),0);
+    // zugeklappt: nur Name und Tierzahl
+    if(fmZu["g:"+g.id]) return `
+    <div class="history-box fm-gruppe fm-gruppe-zu" data-gruppe="${g.id}" style="margin-top:10px">
+      <div class="history-header" style="margin-bottom:0" onclick="fmZuUmschalten('g:${g.id}')">▶ ${fmEsc(g.name)} <span style="font-weight:normal">· ${fmTiere(summe)}</span></div>
+    </div>`;
     return `
     <div class="history-box fm-gruppe" data-gruppe="${g.id}" style="margin-top:10px">
-      <input class="fm-gruppe-name" value="${fmEsc(g.name)}" onchange="fmGruppeAendern('${g.id}','name',this.value)" style="font-weight:bold;font-size:17px;width:100%;max-width:340px;box-sizing:border-box">
+      <div style="display:flex;gap:8px;align-items:center"><button class="fm-gruppe-zuklappen" onclick="fmZuUmschalten('g:${g.id}')" title="zuklappen" style="border:none;background:none;font-size:18px;padding:0 4px">▼</button>
+      <input class="fm-gruppe-name" value="${fmEsc(g.name)}" onchange="fmGruppeAendern('${g.id}','name',this.value)" style="font-weight:bold;font-size:17px;width:100%;max-width:340px;box-sizing:border-box"></div>
       <div style="margin-top:6px">Mischung:
         <select onchange="fmGruppeAendern('${g.id}','karte',this.value)">
           ${karten.map(c=>`<option value="${c}" ${g.karte===c?"selected":""}>${globalCfg[c+"Name"]}</option>`).join("")}
@@ -5261,10 +5273,10 @@ function fmTiereMerken(){
 // Tagesreihe einer Kuhgruppe: je Mischtag Vorlage, Rest (vom nächsten Tag mit gespeicherter Restmischung), Tiere, Wetter
 function fmReihe(g){
   if(fmDemo) return fmDemoReihe(g);
-  const vorlage={}, tiere={}, mehr={}, restTage=new Set(), bullenTage=new Set();
+  const vorlage={}, tiere={}, mehr={}, zeit={}, restTage=new Set(), bullenTage=new Set();
   historyData.forEach(e=>{
     const d=fmAusDatum(e && e.datum); if(!d) return;
-    if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; mehr[d]=(mehr[d]||0)+(num(e.mehr)||0); }
+    if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; mehr[d]=(mehr[d]||0)+(num(e.mehr)||0); if(e.zeit && !zeit[d]) zeit[d]=e.zeit; }
     if(e.kategorie==="restbullen") restTage.add(d);
     else if(e.kategorie===restZiel() && e.kategorie!==g.karte) bullenTage.add(d);
   });
@@ -5284,7 +5296,11 @@ function fmReihe(g){
     const hm=fmTage[v] && fmTage[v].tiere && fmTage[v].tiere[g.id];
     const n = (hm && (hm.anzahl || hm.lakt)) || tiere[v] || 0;
     const w=(fmTage[v] && fmTage[v].wetter) || {};
-    reihe.push({ datum:v, vorlage:vorlage[v], mehr:mehr[v]||0, rest, fehlt, tiere:n, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
+    // Zeit bis zur nächsten Fütterung (dann wird der Rest gewogen); ohne Uhrzeit gelten 24 Std.
+    const h = zeit[v] && vTage[i+1] && zeit[vTage[i+1]] ? (new Date(zeit[vTage[i+1]])-new Date(zeit[v]))/3600000 : null;
+    // Was im Futterwagen hängen bleibt, wurde nicht vorgelegt (bei „zusammen“ nur bei der zweiten Gruppe – dort wird der Wagen leer)
+    const wagen = (kuehe2Zusammen() && g.karte==="kuehe") ? 0 : fmWert("wagenRest");
+    reihe.push({ datum:v, vorlage:Math.max(0, vorlage[v]-wagen), mehr:mehr[v]||0, rest, fehlt, tiere:n, stunden:(h>=12 && h<=48) ? h : null, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
   return fmAntwortenAnwenden(g, fmTmErgaenzen(g, fmReiheBewerten(reihe)));
 }
@@ -5408,6 +5424,12 @@ function fmReiheBewerten(reihe){
     const m=t.mehr||0;
     t.quote = (t.rest!==null && t.vorlage-m>0) ? Math.max(0, t.rest-m)/(t.vorlage-m)*100 : null;
     t.jeTier = (t.rest!==null && t.tiere>0) ? (t.vorlage-t.rest)/t.tiere : null;
+    // Mit Uhrzeit auf 24 Std. umrechnen: früher/später gefüttert ist kein Fehler (mehr gefüttert, um später zu füttern = passt)
+    if(t.stunden && t.rest!==null && t.vorlage-m>0){
+      const gefressen24=(t.vorlage-t.rest)*24/t.stunden;
+      t.quote=Math.max(0, (t.vorlage-m)-gefressen24)/(t.vorlage-m)*100;
+      t.jeTier = t.tiere>0 ? gefressen24/t.tiere : null;
+    }
     t.regenTag = typeof t.regen==="number" && t.regen>=fmWert("regenMm");
     t.hitzeTag = typeof t.thi==="number" && t.thi>=68;
   });
@@ -5617,7 +5639,7 @@ function fmAuswertungHtml(){
     const farbe = b.art==="ok" ? "#2e7d32" : b.art==="warten" ? "#666" : "#d97a00";
     const ts=fmTsVon(g.karte);
     const ziel = (b.art==="mehr"||b.art==="weniger") && b.proKuh>0
-      ? ` → ${fmZahl((b.proKuh*(ts||1)*(1+(b.art==="mehr"?1:-1)*fmWert("restSchritt")/100)).toFixed(1))} ${ts?"kg TM":"kg FM"} je Kuh` : "";
+      ? ` → Rest-Zuschlag ${fmZahl(Math.max(0, fmZuschlag(g)+(b.art==="mehr"?1:-1)*fmWert("restSchritt")))} %` : "";
     return `
     <div class="history-box fm-auswertung" data-gruppe="${g.id}" style="margin-top:8px">
       <div onclick="fmGruppeOeffnen('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -5667,11 +5689,13 @@ function fmAuswertungHtml(){
 // „Übernehmen“: Fressmenge je Kuh der Ration um den Schritt ändern (alle Futter gleichmäßig). Nur in der normalen App.
 function fmUebernehmen(id, art){
   const g=fmGruppen().find(x=>x.id===id); if(!g || fmNurAnsehen() || !data[g.karte]) return;
-  const f=1+(art==="mehr"?1:-1)*fmWert("restSchritt")/100;
-  if(!confirm(`${g.name}: Ration ${globalCfg[g.karte+"Name"]} um ${art==="mehr"?"+":"−"}${fmZahl(fmWert("restSchritt"))} % ändern?`)) return;
-  const vorher=data[g.karte].items.map(i=>i.kg);
-  data[g.karte].items.forEach(i=>{ i.kg=Math.round(num(i.kg)*f*100)/100; });
+  const vorher=fmZuschlag(g), neu=Math.max(0, Math.round((vorher+(art==="mehr"?1:-1)*fmWert("restSchritt"))*10)/10);
+  if(!confirm(`${g.name}: Rest-Zuschlag von ${fmZahl(vorher)} % auf ${fmZahl(neu)} % ändern?\nDie Ration bleibt gleich – es wird für entsprechend mehr bzw. weniger Tiere gemischt.`)) return;
+  g.zuschlag=neu;
   (fmCfg.protokoll=fmCfg.protokoll||[]).push({ zeit:new Date().toISOString(), geraet:geraeteUid, gruppe:g.name, art, vorher });
+  // Tierzahl im Rechner gleich mitziehen, wenn sie aus dem Herdenmanager übernommen war
+  const n=fmTierzahlGruppe(g);
+  if(fmStall && n>0 && Math.abs(num(data[g.karte].anz)-Math.round(n*(1+vorher/100)*10)/10)<0.05) data[g.karte].anz=fmTierzahlMitZuschlag(g, n);
   save(); buildCalc(); fmSpeichern();
 }
 
@@ -5745,13 +5769,13 @@ function fmRechnerErgaenzen(){
       const feld=body.querySelector("input");
       if(feld) feld.insertAdjacentElement("afterend", zeile); else body.prepend(zeile);
     } else if(k!=="restbullen"){
-      const letzte=fmLetzteTiere(k), diff = letzte!==null ? n-letzte : 0;
+      const letzte=fmLetzteHm(g), diff = letzte!==null ? n-letzte : 0, ziel=fmTierzahlMitZuschlag(g, n);
       const zeile=document.createElement("div");
       zeile.className="fm-hm-zeile";
       zeile.style.cssText="font-size:13px;color:#555;margin:4px 0 6px";
-      zeile.innerHTML=`Herdenmanager: <b>${fmTiere(n)}</b>`
-        + (diff ? ` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} seit letzter Mischung</span>` : "")
-        + (n!==num(data[k].anz) ? ` <button onclick="fmTierzahlUebernehmen('${k}',${n})" style="font-size:13px">übernehmen</button>` : "");
+      zeile.innerHTML=`Herdenmanager: <b>${fmTiere(n)}</b>${fmZuschlagText(g)}`
+        + (diff ? ` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} seit gestern</span>` : "")
+        + (ziel!==num(data[k].anz) ? ` <button onclick="fmTierzahlUebernehmen('${k}',${ziel})" style="font-size:13px">übernehmen</button>` : "");
       const feld=body.querySelector("input");
       if(feld) feld.insertAdjacentElement("afterend", zeile); else body.prepend(zeile);
     }
@@ -6112,21 +6136,22 @@ function fmRationenHtml(){
   const karten=FM_RATIONSKARTEN.filter(k=>kategorieAn(k) && fmRationVon(k));
   return `
   <div class="history-box" id="fm-rationen" style="margin-top:10px">
-    <h3 style="margin-top:0">Futtermittel</h3>
+    <div class="history-header fm-futtermittel-kopf" style="margin-bottom:0" onclick="fmZuUmschalten('futtermittel')">${fmZu.futtermittel ? "▶" : "▼"} Futtermittel</div>
+    <div style="display:${fmZu.futtermittel ? "none" : "block"};margin-top:6px">
     ${schl.length ? `<table class="fm-futtermittel" style="font-size:15px">
       <tr><th style="text-align:left">Futter</th><th>€/t</th><th>TS %</th></tr>
       ${schl.map(k=>{ const x=letzte(k); return `<tr data-futter="${fmEsc(k)}" onclick="fmFutterAendern('${fmEsc(k).replace(/'/g,"\\'")}')" style="cursor:pointer"><td style="text-align:left">${fmEsc(name(k))}</td><td>${typeof x.preis==="number"?fmZahl(x.preis.toFixed(2)):"–"}</td><td>${fmZahl(Math.round(x.ts))}${x.ungenau||x.geschaetzt?' <span style="color:#d97a00">≈</span>':""}</td></tr>`; }).join("")}
     </table>
     <div style="font-size:12px;color:#666;margin-top:6px">Zeile antippen = ändern · ≈ ungenau/geschätzt${pdf?` · aus PDF vom ${fmKurz(pdf)}${pdf.slice(0,4)}`:""}</div>`
     : `<div style="font-size:13px;color:#666">Noch keine Werte. Einmal das Berater-PDF hochladen – dann rechnet die App mit Preis, TS, Energie und Eiweiß.</div>`}
-    <label class="save-btn" style="display:inline-block;cursor:pointer;margin-top:8px">📄 Neues PDF
-      <input type="file" accept="application/pdf,.pdf" id="fm-pdf-datei" style="display:none" onchange="fmPdfGewaehlt(this)"></label>
+    <button class="save-btn" style="margin-top:8px" onclick="fmPdfFeld().click()">📄 Neues PDF</button>
     ${fmCfg.rationsvergleich===false ? "" : karten.map(k=>{ const x=fmRationVon(k), h=fmRationHinweise(x, fmGruppen().find(g=>g.karte===k));
       return `<div class="fm-ration" data-karte="${k}" style="margin-top:10px;border-top:1px solid #eee;padding-top:6px;font-size:14px">
         <b>${fmEsc(globalCfg[k+"Name"])}</b>: ${h.length ? `<span style="color:#b36b00">⚠ ${h.length===1?"1 Hinweis":h.length+" Hinweise"}</span>` : `<span style="color:#2e7d32">✓ unauffällig</span>`}
         <button onclick="fmVergleichUmschalten('${k}')" style="font-size:13px;margin-left:6px">${fmVergleichOffen===k?"▲":"▼"}</button>
         ${fmVergleichOffen===k ? `<div class="fm-hinweise" style="font-size:13px;margin-top:4px">${h.map(t=>`<div style="color:#b36b00">⚠ ${fmEsc(t)}</div>`).join("")}</div>${fmVergleichHtml(k)}` : ""}
       </div>`; }).join("")}
+    </div>
   </div>`;
 }
 
@@ -6387,17 +6412,22 @@ function fmGruppeBedarf(g){
 }
 // Lernfaktor (kg FM je kg TM Bedarf): Startwert aus der ersten Frage, „Ab jetzt so“ setzt ihn neu
 function fmLern(g){ return (fmCfg.lern||{})[g.id] || null; }
+function fmTsKarte(g){ return fmTsVon(g.karte==="restbullen" ? restZiel() : g.karte); }
 function fmGruppeMenge(g){
   const l=fmLern(g), b=fmGruppeBedarf(g);
   if(!l || !(b.tm>0)) return null;
-  return { kg:b.tm*l.faktor, bedarf:b };
+  // Lernfaktor gilt für die TS beim Lernen; ändert sich die Ration (z. B. mehr Stroh → höhere TS), passt sich die Menge an
+  const ts=fmTsKarte(g);
+  if(ts && !l.ts) l.ts=ts;
+  const tsFaktor = (ts && l.ts) ? l.ts/ts : 1;
+  return { kg:b.tm*l.faktor*tsFaktor, bedarf:b, ts, tsFaktor };
 }
 function fmStartwertSetzen(gid, feld){
   const g=fmGruppen().find(x=>x.id===gid), kg=parseFloat(String(feld.value).replace(",","."));
   const b=g ? fmGruppeBedarf(g) : null;
   if(!g || !(b && b.tm>0)) return;
   if(isNaN(kg) || kg<=0 || kg>50000){ alert("Bitte die ungefähre Menge in kg eingeben."); return; }
-  (fmCfg.lern=fmCfg.lern||{})[gid]={ faktor:kg/b.tm, seit:fmIso(new Date()), quelle:"start" };
+  (fmCfg.lern=fmCfg.lern||{})[gid]={ faktor:kg/b.tm, seit:fmIso(new Date()), quelle:"start", ts:fmTsKarte(g)||undefined };
   fmSpeichern();
 }
 // Offene Startwert-Frage: Gruppe ohne Reste mit Ställen, aber noch ohne Lernfaktor
@@ -6416,7 +6446,7 @@ function fmAbladenKorrigieren(gid, stallId, art){
   const heute=fmIso(new Date());
   const tag=fmTag(heute); ((tag.abladen=tag.abladen||{})[gid]=tag.abladen[gid]||{})[stallId]=ist; fmTageMerken();
   if(g.art!=="rest"){
-    if(art==="immer"){ const l=fmLern(g); if(l){ l.faktor*=ist/soll; l.seit=heute; l.quelle="korrektur"; } }
+    if(art==="immer"){ const l=fmLern(g); if(l){ fmLernTsAnpassen(g, l); l.faktor*=ist/soll; l.seit=heute; l.quelle="korrektur"; } }
     else (fmCfg.korrekturen=fmCfg.korrekturen||[]).push({ gid, stall:stallId, datum:heute, verh:ist/soll });
   }
   fmAndersZu(); fmSpeichern(); buildCalc();
@@ -6461,9 +6491,11 @@ function fmOhneHtml(){
       ${fmOhneOffen===g.id ? `<div style="font-size:13px;margin-top:6px">
         ${b.staelle.map(({p,b:sb})=>`<div style="margin-top:4px"><b>${fmPlatzName(p)}</b>: ${fmZahl(sb.tm.toFixed(1))} kg TM${m?` → ${Math.round(sb.tm*fmLern(g).faktor)} kg`:""}
           ${sb.teile.map(t=>`<div style="padding-left:12px;color:#555">${t.anzahl} × ${fmEsc((FM_STANDARD.find(x=>x[0]===t.k)||[0,t.k])[1])}${t.fv?" (Fleckvieh)":""} = ${fmZahl(t.tm.toFixed(1))} kg TM</div>`).join("")}</div>`).join("")}
-        <div style="margin-top:6px">Bedarf zusammen ${fmZahl(b.tm.toFixed(1))} kg TM${m?` × Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (gelernt) = ${Math.round(m.kg)} kg Mischung`:""}</div>
+        <div style="margin-top:6px">Bedarf zusammen ${fmZahl(b.tm.toFixed(1))} kg TM${m?` × Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (gelernt)${Math.abs(m.tsFaktor-1)>0.005?` × ${fmZahl(m.tsFaktor.toFixed(2))} (TS der Ration jetzt ${fmZahl((m.ts*100).toFixed(1))} % statt ${fmZahl((fmLern(g).ts*100).toFixed(1))} %)`:""} = ${Math.round(m.kg)} kg Mischung`:""}</div>
+        ${m && !m.ts ? `<div style="color:#666">TS der Ration unbekannt – mit den Futterwerten (PDF) passt sich die Menge bei Rationsänderungen an.</div>` : ""}
         <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
       </div>` : ""}
+      ${g.auswerten!==false ? fmZeitenHtml(g) : ""}
     </div>`;
   }).join("");
 }
@@ -6508,7 +6540,7 @@ function fmLernAntwort(gid, ja, verh){
   const g=fmGruppen().find(x=>x.id===gid); if(!g) return;
   const heute=fmIso(new Date());
   (fmCfg.lernfragen=fmCfg.lernfragen||{})[gid]={ datum:heute, antwort:ja?"ja":"nein" };
-  if(ja){ const l=fmLern(g); if(l){ l.faktor*=verh; l.seit=heute; l.quelle="lernfrage"; } }
+  if(ja){ const l=fmLern(g); if(l){ fmLernTsAnpassen(g, l); l.faktor*=verh; l.seit=heute; l.quelle="lernfrage"; } }
   fmSpeichern();
 }
 // Abladen-Zeilen einer Gruppe: Anteil je Stall nach Tierzahl (Kuhgruppen) bzw. Bedarf (ohne Reste);
@@ -6668,7 +6700,7 @@ function fmBauen(){
 // Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe();
   // Testversion mit eigener Kopie: Reste der Restmischung aus diesem Gerät mitschreiben (sonst kommen sie aus dem Betrieb)
   if(fmAn() && testEigeneDaten()) fmRestBeobachten({ restbullen:data.restbullen }, new Date());
 };
@@ -6683,6 +6715,129 @@ showTab = function(t){
   if(t==="settings" || t==="fressmenge") fmBauen();
   if(t==="fressmenge"){ fmStallzahlenHolen(); fmWetterHolen(); }
 };
+
+// --- Ergänzungen 16.11.2026 (Wünsche Fritz): Zuklappen, Rest-Zuschlag, Zeitstempel, Uhrzeit, Waage gesamt, Futterzeiten, Tastatur ---
+// Zuklappen (Futtermittel, einzelne Futtergruppen) – reine Anzeige, nur im Gerät gemerkt
+let fmZu=(()=>{ try{ return JSON.parse(localStorage.getItem("fmZu")||"{}")||{}; }catch(e){ return {}; } })();
+function fmZuUmschalten(k){ fmZu[k]=!fmZu[k]; try{ localStorage.setItem("fmZu", JSON.stringify(fmZu)); }catch(e){} fmBauen(); }
+// PDF-Auswahl: Dateifeld liegt außerhalb des Reiters, damit die Tastatur-Taste „Weiter“ nie die Dateiauswahl (Downloads) öffnet
+function fmPdfFeld(){
+  let f=document.getElementById("fm-pdf-datei");
+  if(!f){
+    f=document.createElement("input");
+    f.type="file"; f.accept="application/pdf,.pdf"; f.id="fm-pdf-datei"; f.tabIndex=-1; f.style.display="none";
+    f.addEventListener("change", ()=>fmPdfGewaehlt(f));
+    document.body.appendChild(f);
+  }
+  return f;
+}
+fmPdfFeld();
+// Tastatur im Reiter „Fressmenge“: Taste rechts unten = „Fertig“ (schließt nur die Tastatur)
+document.addEventListener("focusin", e=>{ const t=e.target; if(t && t.tagName==="INPUT" && t.closest && t.closest("#fressmenge")) t.setAttribute("enterkeyhint","done"); });
+document.addEventListener("keydown", e=>{ const t=e.target; if(e.key==="Enter" && t && t.tagName==="INPUT" && t.closest && t.closest("#fressmenge")){ e.preventDefault(); t.blur(); } });
+
+// Rest-Zuschlag je Kuhgruppe (Start: Wert aus „Erweitert“, „Übernehmen“ in der Auswertung ändert ihn)
+function fmZuschlag(g){ return (g && typeof g.zuschlag==="number") ? g.zuschlag : fmWert("restZuschlag"); }
+// Tierzahl zum Mischen = Tiere aus dem Herdenmanager + Rest-Zuschlag (die Ration je Tier bleibt, wie sie ist)
+function fmTierzahlMitZuschlag(g, n){ return g && g.art==="rest" ? Math.round(n*(1+fmZuschlag(g)/100)*10)/10 : n; }
+function fmZuschlagText(g){ return g && g.art==="rest" && fmZuschlag(g)>0 ? ` + ${fmZahl(fmZuschlag(g))} % Rest` : ""; }
+// Tierzahl der Gruppe beim letzten Holen vor heute (für „+2 seit gestern“)
+function fmLetzteHm(g){
+  const heute=fmIso(new Date());
+  const tag=Object.keys(fmTage).filter(d=>d<heute && fmTage[d].tiere && fmTage[d].tiere[g.id]).sort().pop();
+  return tag ? fmTage[tag].tiere[g.id].anzahl : null;
+}
+// Vor einer Änderung des Lernfaktors die TS-Anpassung einrechnen (Faktor gilt danach für die aktuelle TS)
+function fmLernTsAnpassen(g, l){
+  const ts=fmTsKarte(g);
+  if(ts && l.ts && l.ts!==ts) l.faktor*=l.ts/ts;
+  if(ts) l.ts=ts;
+}
+
+// Zeitstempel: jedes Speichern merkt sich die Uhrzeit (alle Karten). Die Rechnung des Speicherns bleibt unverändert.
+function fmZeitstempel(vorher){
+  const e=historyData[0];
+  if(!fmAn() || !e || e===vorher || e.zeit) return;
+  e.zeit=new Date().toISOString();
+  saveHistoryStorage();
+  buildHistory();
+}
+const _saveHistoryVorZeit=saveHistory;
+saveHistory=function(cat){ const v=historyData[0]; _saveHistoryVorZeit(cat); fmZeitstempel(v); };
+const _saveRestBullenVorZeit=saveRestBullenHistory;
+saveRestBullenHistory=function(){ const v=historyData[0]; _saveRestBullenVorZeit(); fmZeitstempel(v); };
+function fmUhr(iso){ const d=new Date(iso); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+// History: Uhrzeit beim Eintrag zeigen, antippen = ändern / nachtragen
+function fmZeitAendern(id){
+  const e=historyData.find(x=>x.id===id); if(!e) return;
+  const a=prompt(`Uhrzeit der Fütterung am ${e.datum} (z. B. 10:18):`, e.zeit ? fmUhr(e.zeit) : "");
+  if(a===null) return;
+  const m=String(a).trim().match(/^(\d{1,2})[:.,]?(\d{2})$/);
+  if(!m || +m[1]>23 || +m[2]>59){ alert("Bitte die Uhrzeit so eingeben: 10:18"); return; }
+  const [t,mo,j]=e.datum.split(".");
+  e.zeit=new Date(+j, +mo-1, +t, +m[1], +m[2]).toISOString();
+  saveHistoryStorage();
+  buildHistory();
+}
+const _buildHistoryVorZeit=buildHistory;
+buildHistory=function(){
+  _buildHistoryVorZeit();
+  if(!fmAn()) return;
+  document.querySelectorAll('#history button[onclick^="deleteHistory("]').forEach(b=>{
+    const id=(b.getAttribute("onclick").match(/deleteHistory\('([^']+)'\)/)||[])[1], e=historyData.find(x=>x.id===id);
+    if(!e) return;
+    const z=document.createElement("div");
+    z.className="fm-zeit";
+    z.style.cssText="font-weight:normal;margin:0 0 10px;cursor:pointer;color:#1b5e20";
+    z.innerHTML = e.zeit ? `🕒 gefüttert um ${fmUhr(e.zeit)} Uhr <span style="color:#666;font-size:13px">(antippen = ändern)</span>` : `🕒 <span style="color:#666">Uhrzeit nachtragen</span>`;
+    z.onclick=()=>fmZeitAendern(id);
+    b.insertAdjacentElement("beforebegin", z);
+  });
+};
+
+// Restmischung: „Waage zeigt insgesamt“ – zweiter Rest wird ausgerechnet (kein Kopfrechnen)
+function fmWaageGesamt(feld){
+  const v=parseFloat(String(feld.value).replace(",",".")), r1=num(data.restbullen.rest)||0;
+  if(isNaN(v)) return;
+  if(v<r1){ alert(`Die Waage zeigt weniger als der erste Rest (${r1} kg). Bitte prüfen.`); return; }
+  data.restbullen.rest2=Math.round((v-r1)*10)/10;
+  save(); buildCalc();
+}
+function fmRestHilfe(){
+  if(!fmAn() || restQuellen().length<2) return;
+  const kopf=document.querySelector("#calc .cat-header.cat-restbullen"), body=kopf && kopf.closest(".category").querySelector(".cat-body");
+  const felder=body ? body.querySelectorAll('input[type="number"]') : [];
+  if(felder.length<2) return;
+  felder[1].insertAdjacentHTML("afterend", `<div class="fm-waage-gesamt" style="font-size:13px;color:#555;margin-top:4px">oder Waage zeigt insgesamt
+    <input type="number" inputmode="decimal" style="width:80px" placeholder="${(num(data.restbullen.rest)||0)+(num(data.restbullen.rest2)||0)}" onchange="fmWaageGesamt(this)"> kg</div>`);
+}
+
+// Gruppen ohne Reste: Futterzeiten auswerten. Wer früher wieder füttern muss, hat zu knapp gefüttert – und umgekehrt.
+function fmFutterzeiten(g){
+  const l=fmLern(g), seit=l && l.seit || "";
+  const z=historyData.filter(e=>e && e.kategorie===g.karte && e.zeit && (fmAusDatum(e.datum)||"")>=seit).map(e=>new Date(e.zeit)).sort((a,b)=>a-b);
+  const abst=[];
+  for(let i=1;i<z.length;i++){ const h=(z[i]-z[i-1])/3600000; if(h>=12 && h<=48) abst.push(h); }
+  const letzte=abst.slice(-7);
+  if(letzte.length<3) return { n:letzte.length };
+  const mittel=letzte.reduce((s,h)=>s+h,0)/letzte.length;
+  return { n:letzte.length, mittel, verh:24/mittel };
+}
+function fmZeitenHtml(g){
+  const f=fmFutterzeiten(g);
+  if(!f.mittel) return `<div class="fm-zeiten" style="font-size:13px;color:#666;margin-top:4px">🕒 Futterzeiten: sammelt noch (${f.n} von 3 Abständen)</div>`;
+  const abw=Math.round((f.verh-1)*100), st=fmZahl(f.mittel.toFixed(1));
+  if(Math.abs(f.mittel-24)<=1.5) return `<div class="fm-zeiten" style="font-size:13px;color:#2e7d32;margin-top:4px">🕒 im Schnitt alle ${st} Std. gefüttert – Menge passt</div>`;
+  return `<div class="fm-zeiten" style="font-size:13px;color:#d97a00;margin-top:4px">🕒 im Schnitt alle ${st} Std. gefüttert – Menge reicht ${abw>0?"nicht":"länger als"} 24 Std. (${abw>0?"+":""}${abw} %)
+    ${fmLern(g) ? `<button onclick="fmZeitenUebernehmen('${g.id}')" style="font-size:13px">Menge anpassen</button>` : ""}</div>`;
+}
+function fmZeitenUebernehmen(gid){
+  const g=fmGruppen().find(x=>x.id===gid), l=g && fmLern(g), f=g && fmFutterzeiten(g);
+  if(!l || !f || !f.mittel) return;
+  if(!confirm(`${g.name}: Menge um ${f.verh>1?"+":""}${Math.round((f.verh-1)*100)} % anpassen, damit sie 24 Std. reicht?`)) return;
+  fmLernTsAnpassen(g, l); l.faktor*=f.verh; l.seit=fmIso(new Date()); l.quelle="futterzeiten";
+  fmSpeichern();
+}
 
 function zumBetrieb(){
   showTab("settings");

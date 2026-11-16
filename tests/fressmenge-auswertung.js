@@ -84,7 +84,7 @@ async function main() {
       await historyAnlegen([1, 1, 1, 1, 1, 1]);
       await page.evaluate(() => { data.kuehe.items.forEach((it, i) => it.kg = i === 0 ? 50 : 0); fmBauen(); });
       const t = await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text');
-      assert(t.includes("Rest 1,0 % · fressen alles auf · Fressmenge +3 %") && t.includes("→ 51,5 kg FM je Kuh"), t);
+      assert(t.includes("Rest 1,0 % · fressen alles auf · Fressmenge +3 %") && t.includes("→ Rest-Zuschlag 7 %"), t);
       assert(await page.locator('.fm-auswertung[data-gruppe="g1"] button:has-text("Übernehmen")').isDisabled());
     });
 

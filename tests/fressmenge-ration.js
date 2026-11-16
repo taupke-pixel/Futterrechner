@@ -56,7 +56,7 @@ async function main() {
       await page.evaluate(() => { [1, 2, 3, 4, 5, 6].forEach(n => { const d = new Date(); d.setHours(12); d.setDate(d.getDate() - n + 1); fmTag(fmIso(d)).rest = { kuehe: 20 }; }); showTab("fressmenge"); });
       const t = await page.textContent('.fm-auswertung[data-gruppe="g1"] .fm-text');
       // 44 kg FM × 0,3991 TS × 1,03 = 18,09 kg TM
-      assert(t.includes("Fressmenge +3 %") && t.includes("→ 18,1 kg TM je Kuh"), t);
+      assert(t.includes("Fressmenge +3 %") && t.includes("→ Rest-Zuschlag 7 %"), t);
       await page.evaluate(() => { [1, 2, 3, 4, 5, 6].forEach(n => { const d = new Date(); d.setHours(12); d.setDate(d.getDate() - n + 1); fmTag(fmIso(d)).rest = { kuehe: 80 }; }); fmTageMerken(); });
     });
 

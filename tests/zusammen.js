@@ -79,11 +79,11 @@ async function main() {
     await pruefe(`Schritte: 1. Grundmischung (${S1 + S2} × 49,7 kg), 2. Kühe abladen bis ${PLAN_REST.toFixed(0)} kg, 3. MLF ${S2 * MLF} kg, 4. Rest ${(PLAN_REST + S2 * MLF).toFixed(0)} kg; im Normalfall nichts antippen`, async () => {
       const t = await page.locator(".zusammen-karte").innerText();
       assert(t.includes(`Maissilage\t${(29 * (S1 + S2)).toFixed(1)}`), t);
-      assert(t.includes(`2. Kühe abladen bis ${PLAN_REST.toFixed(0)} kg`), t);
-      assert(t.includes("anders abgeladen? antippen"), t);
-      assert(t.includes("3. Für Kühe Gruppe 2 dazumischen"), t);
+      assert(t.includes(`▼ Kühe abladen bis ${PLAN_REST.toFixed(0)} kg (${PLAN1.toFixed(0)} kg)`), t);
+      assert(!/\b[1-5]\. /.test(t), "keine Schritt-Nummern");
+      assert(t.includes("Dazumischen für Kühe Gruppe 2"), t);
       assert(t.includes(`${(S2 * MLF).toFixed(1)}`), t);
-      assert(t.includes(`4. Kühe Gruppe 2: Rest abladen (${(PLAN_REST + S2 * MLF).toFixed(0)} kg)`), t);
+      assert(t.includes(`→ Rest: Kühe Gruppe 2 ${(PLAN_REST + S2 * MLF).toFixed(0)} kg`), t);
       assert.deepStrictEqual(await page.evaluate(() => zusammenPlan().zugabe.map(z => z.it.type || z.it.name)), ["mlf"]);
     });
 
@@ -107,7 +107,7 @@ async function main() {
       const t = await page.locator(".zusammen-karte").innerText();
       assert(t.includes(`✎ Waage zeigte ${R} kg → Kühe hat ${(G - R).toFixed(0)} kg bekommen`), t);
       assert(t.includes(`auch +${Math.round((fk - 1) * 100)} %`), t);
-      assert(t.includes("3. Für Kühe Gruppe 2 nachladen und dazumischen"), t);
+      assert(t.includes("Nachladen und dazumischen für Kühe Gruppe 2"), t);
       assert(t.includes("Maissilage\t" + (29 * S2 * fk - R * 29 / PRO1).toFixed(1)), t);
       const lager = await page.evaluate(() => ({ agf: lagerData.agf.bestand, mlf: lagerData.mlf.bestand }));
       await page.click(".zusammen-karte .save-btn");
@@ -126,7 +126,7 @@ async function main() {
       await heuteLeeren();
       await page.evaluate(r => { data.kuehe2.zusRest = r; data.kuehe2.zusAnpassen = false; save(); buildCalc(); }, R);
       const t = await page.locator(".zusammen-karte").innerText();
-      assert(t.includes(`Kühe Gruppe 2 wird normal gefüttert – die ${(G - R - PLAN1).toFixed(0)} kg mehr bei Kühe rechnet die Auswertung beim Rest mit.`), t);
+      assert(t.includes(`Kühe Gruppe 2 wird normal gefüttert – die ${(G - R - PLAN1).toFixed(0)} kg mehr rechnet die Auswertung beim Rest mit.`), t);
       await page.click(".zusammen-karte .save-btn");
       const e = await eintraege(), e1 = e.find(x => x.k === "kuehe"), e2 = e.find(x => x.k === "kuehe2");
       assert(Math.abs(e1.mehr - (G - R - PLAN1)) < 1e-6, "mehr " + e1.mehr);
@@ -175,16 +175,16 @@ async function main() {
         return { hm: [...k.querySelectorAll(".zusammen-hm")].map(e => e.innerText), ablade: k.querySelector(".zusammen-abladen").innerText, rest: k.querySelector(".zusammen-rest").innerText,
                  fremd: k.querySelectorAll(".fm-hm-zeile, .fm-abladen").length, G: zusammenPlan().G, geplant: zusammenPlan().geplant };
       });
-      // nur die abweichende Tierzahl wird angeboten (Kühe 37 → 45), Gruppe 2 stimmt (47) → nichts
-      assert.strictEqual(r.hm.length, 1, r.hm.join(" | "));
-      assert(r.hm[0].includes("Herdenmanager: 45 – übernehmen"), r.hm.join(" | "));
+      // Tierzahl + 4 % Rest-Zuschlag: Kühe 45 → 46,8, Gruppe 2 47 → 48,9
+      assert.strictEqual(r.hm.length, 2, r.hm.join(" | "));
+      assert(r.hm[0].includes("Herdenmanager: 45 + 4 % Rest – übernehmen") && r.hm[1].includes("Herdenmanager: 47 + 4 % Rest"), r.hm.join(" | "));
       assert.strictEqual(r.fremd, 0, "allgemeine Ergänzung in der gemeinsamen Karte");
       const stroh = PLAN1 * 8 / 45;
-      assert(r.ablade.includes(`2. Strohstall abladen bis ${(G - stroh).toFixed(0)} kg`), r.ablade);
-      assert(r.ablade.includes(`3. Stall 1 abladen bis ${PLAN_REST.toFixed(0)} kg`), r.ablade);
-      assert(r.rest.includes(`5. Stall 2: Rest abladen`), r.rest);
-      await page.locator("button.zusammen-hm").click();
-      assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 45);
+      assert(r.ablade.includes(`▼ Strohstall abladen bis ${(G - stroh).toFixed(0)} kg (${stroh.toFixed(0)} kg)`), r.ablade);
+      assert(r.ablade.includes(`▼ Stall 1 abladen bis ${PLAN_REST.toFixed(0)} kg`), r.ablade);
+      assert(r.rest.includes(`→ Rest: Stall 2`), r.rest);
+      await page.locator("button.zusammen-hm").first().click();
+      assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 46.8);
       await page.evaluate(s1 => { data.kuehe.anz = s1; fmCfg.an = false; fmCfg.gruppen = []; fmStall = null; save(); buildCalc(); }, S1);
       assert.strictEqual(await page.locator(".zusammen-hm").count(), 0);
     });
