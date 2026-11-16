@@ -6865,6 +6865,8 @@ function fmOhneDiagramm(g){
     const ab=fmTagPlus(fmIso(new Date()), -fmZeitraum), r=fmOhneReihe(g).filter(t=>t.datum>=ab);
     const dunkel=window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches, schrift=dunkel?"#ddd":"#333";
     const maxRegen=Math.max(20, ...r.map(t=>t.regen||0));
+    // kg-Balken nur in der unteren Hälfte, Regen hängt von oben – so überschneiden sie sich nicht
+    const maxKg=Math.ceil(Math.max(1, ...r.map(t=>t.jeTier24||0))*1.9/5)*5;
     fmOhneChart=new Chart(c,{ plugins:[fmRegenWerte("Regen mm")], data:{ labels:r.map(t=>fmKurz(t.datum)), datasets:[
       { type:"bar", label:"Regen mm", data:r.map(t=>t.regen||0), yAxisID:"y4", backgroundColor:"rgba(100,170,240,.55)", order:3 },
       { type:"bar", label:"gefressen kg je Tier (24 Std.)", data:r.map(t=>t.jeTier24), yAxisID:"y", backgroundColor:"#43a047", order:2 },
@@ -6873,7 +6875,7 @@ function fmOhneDiagramm(g){
     ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:"index", intersect:false },
       plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
       scales:{ x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } },
-        y:{ position:"left", min:0, title:{ display:true, text:"kg je Tier", color:schrift }, ticks:{ color:schrift } },
+        y:{ position:"left", min:0, max:maxKg, title:{ display:true, text:"kg je Tier", color:schrift }, ticks:{ color:schrift } },
         y2:{ position:"right", min:12, max:36, grid:{ drawOnChartArea:false }, ticks:{ color:schrift, callback:v=>v+" h" } },
         y3:{ display:false, min:0, max:35 },
         y4:{ display:false, min:0, max:maxRegen*2.2, reverse:true } } } });
