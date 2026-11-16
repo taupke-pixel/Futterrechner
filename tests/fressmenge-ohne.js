@@ -56,11 +56,16 @@ async function main() {
       assert((await page.textContent('.fm-ohne[data-gruppe="gb"] .fm-menge')).includes("heute 300 kg"));
     });
 
-    await pruefe("„Wie gerechnet?“ nur beim Antippen: Tierklassen je Stall, Bedarf × gelernter Faktor", async () => {
-      await page.click('.fm-ohne[data-gruppe="gb"] >> text=Wie gerechnet?');
+    await pruefe("Antippen mit „auswerten“: nur Diagramm, keine Rechnung; ohne „auswerten“: Tierklassen je Stall, Bedarf × gelernter Faktor", async () => {
+      await page.click('.fm-ohne[data-gruppe="gb"] >> text=Diagramm');
+      const d = await page.textContent('.fm-ohne[data-gruppe="gb"]');
+      assert(await page.locator("#fm-chart-ohne").count() === 1 && !d.includes("Faktor") && !d.includes("kg TM"), d);
+      await page.evaluate(() => { fmCfg.gruppen[0].auswerten = false; fmBauen(); });
       const t = await page.textContent('.fm-ohne[data-gruppe="gb"]');
+      assert(await page.locator("#fm-chart-ohne").count() === 0 && t.includes("Wie gerechnet?"), t);
       assert(t.includes("4 × Mastbulle 12–18 Monate = 34,0 kg TM") && t.includes("3 × Trockensteher, unter 21 Tage bis Kalbung = 33,0 kg TM"), t);
       assert(t.includes("Bedarf zusammen 122,0 kg TM × Faktor 2,46 (gelernt) = 300 kg Mischung"), t);
+      await page.evaluate(() => { fmCfg.gruppen[0].auswerten = true; fmOhneOffen = null; fmBauen(); });
     });
 
     await pruefe("Rechner: Restmischung zeigt „Aus den Ställen: 300 kg“ → übernehmen setzt das Zielgewicht; Abladen nach Bedarf (53 : 69)", async () => {

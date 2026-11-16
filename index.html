@@ -6484,14 +6484,17 @@ function fmOhneHtml(){
     return `<div class="history-box fm-ohne" data-gruppe="${g.id}" style="margin-top:8px">
       <div onclick="fmOhneUmschalten('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px">
         <div><b>${fmEsc(g.name)}</b> · ${fmTiere(n)}<br><span class="fm-menge">${m ? `heute <b>${Math.round(m.kg)} kg</b>${diff?` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} kg</span>`:""}` : `<span style="color:#666">wartet auf deine Schätzung</span>`}</span></div>
-        <span style="font-size:13px;color:#555">Wie gerechnet? ${fmOhneOffen===g.id?"▲":"▼"}</span></div>
-      ${fmOhneOffen===g.id ? `<div style="font-size:13px;margin-top:6px">
+        <span style="font-size:13px;color:#555">${g.auswerten!==false?"Diagramm":"Wie gerechnet?"} ${fmOhneOffen===g.id?"▲":"▼"}</span></div>
+      ${fmOhneOffen===g.id && g.auswerten!==false ? `<div style="font-size:13px;margin-top:6px">
+        <div style="position:relative;height:230px"><canvas id="fm-chart-ohne"></canvas></div>
+        <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
+      </div>` : ""}
+      ${fmOhneOffen===g.id && g.auswerten===false ? `<div style="font-size:13px;margin-top:6px">
         ${b.staelle.map(({p,b:sb})=>`<div style="margin-top:4px"><b>${fmPlatzName(p)}</b>: ${fmZahl(sb.tm.toFixed(1))} kg TM${m?` → ${Math.round(sb.tm*fmLern(g).faktor)} kg`:""}
           ${sb.teile.map(t=>`<div style="padding-left:12px;color:#555">${t.anzahl} × ${fmEsc((FM_STANDARD.find(x=>x[0]===t.k)||[0,t.k])[1])}${t.fv?" (Fleckvieh)":""} = ${fmZahl(t.tm.toFixed(1))} kg TM</div>`).join("")}</div>`).join("")}
         <div style="margin-top:6px">Bedarf zusammen ${fmZahl(b.tm.toFixed(1))} kg TM${m?` × Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (gelernt)${Math.abs(m.tsFaktor-1)>0.005?` × ${fmZahl(m.tsFaktor.toFixed(2))} (TS der Ration jetzt ${fmZahl((m.ts*100).toFixed(1))} % statt ${fmZahl((fmLern(g).ts*100).toFixed(1))} %)`:""} = ${Math.round(m.kg)} kg Mischung`:""}</div>
         ${m && !m.ts ? `<div style="color:#666">TS der Ration unbekannt – mit den Futterwerten (PDF) passt sich die Menge bei Rationsänderungen an.</div>` : ""}
         <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
-        ${g.auswerten!==false ? `<div style="position:relative;height:230px;margin-top:10px"><canvas id="fm-chart-ohne"></canvas></div>` : ""}
       </div>` : ""}
       ${g.auswerten!==false ? fmZeitenHtml(g) : ""}
     </div>`;
