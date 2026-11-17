@@ -5838,15 +5838,14 @@ function fmRechnerErgaenzen(){
         const gestern=((fmTage[fmTagPlus(fmIso(new Date()),-1)]||{}).menge||{})[g.id], diff = typeof gestern==="number" ? Math.round(m.kg-gestern) : 0;
         const ist = k==="restbullen" ? num(data.restbullen.ziel) : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
         const f=fmVorschlagOhne(g);
-        if(f){
-          const pr=Math.round(Math.abs(f.verh-1)*100);
-          zeile.classList.add("fm-vorschlag");
-          zeile.style.cssText=FM_VORSCHLAG_STIL;
-          zeile.innerHTML=`Aus den Ställen (${fmTiere(n)}): <s style="color:#888">${Math.round(m.kg)} kg</s> <b>${Math.round(m.kg*f.verh)} kg</b><br>💡 Futter reichte im Schnitt ${f.mittel<24?"nur ":""}${fmZahl(Math.round(f.mittel))} Std. → ${pr} % ${f.verh>1?"mehr":"weniger"} <button onclick="fmVorschlagOhneUebernehmen('${g.id}','${k}')" style="font-size:13px">übernehmen</button>`;
-        } else
         zeile.innerHTML=`Aus den Ställen (${fmTiere(n)}): <b>${Math.round(m.kg)} kg</b>`
           + (diff ? ` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} kg heute</span>` : "")
           + (Math.abs(m.kg-(ist||0))>=1 ? ` <button onclick="fmMengeUebernehmen('${k}',${m.kg.toFixed(1)})" style="font-size:13px">übernehmen</button>` : "");
+        // Vorschlag wie bei den Kühen: eigener gelber Kasten darunter (im selben Element, damit er bei der Restmischung mitwandert)
+        if(f){
+          const pr=Math.round(Math.abs(f.verh-1)*100);
+          zeile.insertAdjacentHTML("beforeend", `<div class="fm-vorschlag" style="${FM_VORSCHLAG_STIL};color:#000">💡 Futter reichte im Schnitt ${f.mittel<24?"nur ":""}${fmZahl(Math.round(f.mittel))} Std. → ${pr} % ${f.verh>1?"mehr":"weniger"}: <b>${Math.round(m.kg*f.verh)} kg</b> <button onclick="fmVorschlagOhneUebernehmen('${g.id}','${k}')" style="font-size:13px">übernehmen</button></div>`);
+        }
       }
       const feld=body.querySelector("input");
       if(feld) feld.insertAdjacentElement("afterend", zeile); else body.prepend(zeile);
