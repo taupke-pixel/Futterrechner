@@ -97,7 +97,13 @@ async function main() {
       });
       assert(Math.abs(r.f.mittel - 20) < 1e-9 && r.f.n === 3, JSON.stringify(r.f));
       assert(r.html.includes("alle 20,0 Std.") && r.html.includes("+20 %"), r.html);
-      await page.evaluate(() => fmZeitenUebernehmen("go"));
+      // Rechner: Kasten mit neuer Menge und einem Knopf (kein Umweg über den Reiter „Fressmenge“)
+      await page.evaluate(() => { showTab("calc"); buildCalc(); });
+      const kasten = page.locator("#calc .cat-faersen").locator("xpath=ancestor::div[contains(@class,'category')]").locator(".fm-vorschlag");
+      const kt = await kasten.textContent();
+      assert(kt.includes("Futter reichte im Schnitt nur 20 Std.") && kt.includes("20 % mehr") && kt.includes("übernehmen"), kt);
+      await kasten.locator("button").click();
+      assert.strictEqual(await page.locator("#calc .fm-vorschlag").count(), 0, "Kasten weg nach übernehmen");
       assert(Math.abs(await page.evaluate(() => fmCfg.lern.go.faktor) - 2.4) < 1e-9);
       assert.strictEqual(await page.evaluate(() => fmZeitenHtml(fmCfg.gruppen[0])), "", "nach dem Anpassen zählen nur neue Fütterungen (nichts anzeigen, solange nichts zu tun ist)");
     });
@@ -239,8 +245,18 @@ async function main() {
       assert(!r.knopf, "Übernehmen-Knopf noch da");
     });
 
+    await pruefe("Rechner: Kasten „Reste … → Rest-Zuschlag 4 % → 7 %: … Tiere“, ein Tippen übernimmt Zuschlag und Tierzahl, danach ist er weg", async () => {
+      await page.evaluate(() => { const g = fmGruppeZuKarte("kuehe"); delete g.zuschlagSeit; g.zuschlag = 4; data.kuehe.anz = 52; showTab("calc"); buildCalc(); });
+      const kasten = page.locator("#calc .fm-vorschlag").first();
+      const kt = await kasten.textContent();
+      assert(kt.includes("Leergefressen (2 Tage) → Rest-Zuschlag 4 % → 7 %: 53,5 Tiere"), kt);
+      await kasten.locator("button").click();
+      const r = await page.evaluate(() => ({ z: fmGruppeZuKarte("kuehe").zuschlag, anz: data.kuehe.anz, n: document.querySelectorAll("#calc .fm-vorschlag").length }));
+      assert.deepStrictEqual(r, { z: 7, anz: 53.5, n: 0 });
+    });
+
     await pruefe("Rest-Zuschlag von Hand in der Futtergruppe; einmalige Bereinigung: falsche Reste „0“ weg, Zuschlag zurück auf den Wert vor dem ersten „Übernehmen“", async () => {
-      await page.evaluate(() => { fmEinrichtungZu = false; fmZu["k:kuehe"] = false; fmBauen(); });
+      await page.evaluate(() => { showTab("fressmenge"); fmEinrichtungZu = false; fmZu["k:kuehe"] = false; fmBauen(); });
       const f = page.locator('.fm-gruppe[data-karte="kuehe"] input.fm-zuschlag');
       await f.fill("5"); await f.dispatchEvent("change");
       assert.strictEqual(await page.evaluate(() => fmGruppeZuKarte("kuehe").zuschlag), 5);

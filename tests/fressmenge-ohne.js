@@ -59,7 +59,7 @@ async function main() {
     await pruefe("Antippen: Diagramm (auch ohne „auswerten“), keine Rechnung mit Faktor; Erklärung der Stunden-Zahlen", async () => {
       await page.click('.fm-ohne[data-gruppe="gb"] >> text=Diagramm');
       const d = await page.textContent('.fm-ohne[data-gruppe="gb"]');
-      assert(await page.locator("#fm-chart-ohne").count() === 1 && !d.includes("Faktor") && !d.includes("kg TM") && d.includes("Stunden bis zur nächsten Fütterung"), d);
+      assert(await page.locator("#fm-chart-ohne").count() === 1 && !d.includes("Faktor") && !d.includes("kg TM") && d.includes("Stunden (Strich = 24)") && await page.locator("#fm-chart-stunden").count() === 1, d);
       await page.evaluate(() => { fmCfg.gruppen[0].auswerten = false; fmBauen(); });
       assert.strictEqual(await page.locator("#fm-chart-ohne").count(), 1);
       await page.evaluate(() => { fmCfg.gruppen[0].auswerten = true; fmOhneOffen = null; fmBauen(); });
