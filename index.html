@@ -6514,21 +6514,15 @@ function fmOhneHtml(){
   const ohne=fmGruppen().filter(g=>g.art!=="rest" && (g.staelle||[]).length);
   if(!ohne.length || !fmStall) return "";
   return ohne.map(g=>{
-    const m=fmGruppeMenge(g), b=fmGruppeBedarf(g), n=fmTierzahlGruppe(g);
+    const m=fmGruppeMenge(g), n=fmTierzahlGruppe(g);
     const gestern=((fmTage[fmTagPlus(fmIso(new Date()),-1)]||{}).menge||{})[g.id], diff = m && typeof gestern==="number" ? Math.round(m.kg-gestern) : 0;
     return `<div class="history-box fm-ohne" data-gruppe="${g.id}" style="margin-top:8px">
       <div onclick="fmOhneUmschalten('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px">
         <div><b>${fmEsc(g.name)}</b> · ${fmTiere(n)}<br><span class="fm-menge">${m ? `heute <b>${Math.round(m.kg)} kg</b>${diff?` <span style="background:#fff3cd;border-radius:10px;padding:1px 7px">${diff>0?"+":""}${diff} kg</span>`:""}` : `<span style="color:#666">wartet auf deine Schätzung</span>`}</span></div>
-        <span style="font-size:13px;color:#555">${g.auswerten!==false?"Diagramm":"Wie gerechnet?"} ${fmOhneOffen===g.id?"▲":"▼"}</span></div>
-      ${fmOhneOffen===g.id && g.auswerten!==false ? `<div style="font-size:13px;margin-top:6px">
-        <div style="position:relative;height:230px"><canvas id="fm-chart-ohne"></canvas></div>
-        <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
-      </div>` : ""}
-      ${fmOhneOffen===g.id && g.auswerten===false ? `<div style="font-size:13px;margin-top:6px">
-        ${b.staelle.map(({p,b:sb})=>`<div style="margin-top:4px"><b>${fmPlatzName(p)}</b>: ${fmZahl(sb.tm.toFixed(1))} kg TM${m?` → ${Math.round(sb.tm*fmLern(g).faktor)} kg`:""}
-          ${sb.teile.map(t=>`<div style="padding-left:12px;color:#555">${t.anzahl} × ${fmEsc((FM_STANDARD.find(x=>x[0]===t.k)||[0,t.k])[1])}${t.fv?" (Fleckvieh)":""} = ${fmZahl(t.tm.toFixed(1))} kg TM</div>`).join("")}</div>`).join("")}
-        <div style="margin-top:6px">Bedarf zusammen ${fmZahl(b.tm.toFixed(1))} kg TM${m?` × Faktor ${fmZahl(fmLern(g).faktor.toFixed(2))} (gelernt)${Math.abs(m.tsFaktor-1)>0.005?` × ${fmZahl(m.tsFaktor.toFixed(2))} (TS der Ration jetzt ${fmZahl((m.ts*100).toFixed(1))} % statt ${fmZahl((fmLern(g).ts*100).toFixed(1))} %)`:""} = ${Math.round(m.kg)} kg Mischung`:""}</div>
-        ${m && !m.ts ? `<div style="color:#666">TS der Ration unbekannt – mit den Futterwerten (PDF) passt sich die Menge bei Rationsänderungen an.</div>` : ""}
+        <span style="font-size:13px;color:#555">Diagramm ${fmOhneOffen===g.id?"▲":"▼"}</span></div>
+      ${fmOhneOffen===g.id ? `<div style="font-size:13px;margin-top:6px">
+        <div style="font-size:12px;color:#666;margin-bottom:4px">Zahlen oben = Stunden bis zur nächsten Fütterung (orange = nicht 24)</div>
+        <div style="position:relative;height:240px"><canvas id="fm-chart-ohne"></canvas></div>
         <button onclick="fmMengeNeuFestlegen('${g.id}')" style="margin-top:6px;font-size:13px">Menge neu festlegen</button>
       </div>` : ""}
       ${g.auswerten!==false ? fmZeitenHtml(g) : ""}
@@ -6732,9 +6726,10 @@ function fmBauen(){
     </div>
   </div>`;
   if(fmOffen && fmAnsicht==="diagramm"){ const g=fmGruppen().find(x=>x.id===fmOffen); if(g) fmChartsZeichnen(g, fmReihe(g)); }
-  if(fmOhneOffen){ const g=fmGruppen().find(x=>x.id===fmOhneOffen); if(g && g.auswerten!==false) fmOhneDiagramm(g); }
+  if(fmOhneOffen){ const g=fmGruppen().find(x=>x.id===fmOhneOffen); if(g) fmOhneDiagramm(g); }
 }
 // Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
+if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign({ rest:0, ziel:0, anz:0, collapsed:false }, saved.restbullen);
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt();
@@ -6929,6 +6924,22 @@ function fmRegenWerte(label){
     ctx.restore();
   } };
 }
+// Stunden bis zur nächsten Fütterung als Zahlenreihe oben über dem Diagramm (orange, wenn deutlich anders als 24 Std.)
+function fmStundenReihe(werte, farbe){
+  return { id:"stundenReihe", afterDraw(chart){
+    const x=chart.scales.x, ctx=chart.ctx, y=chart.chartArea.top-6;
+    ctx.save(); ctx.font="bold 11px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="bottom";
+    let letztes=-1e9;
+    werte.forEach((v,j)=>{
+      if(typeof v!=="number") return;
+      const t=String(Math.round(v)), px=x.getPixelForValue(j), w=ctx.measureText(t).width;
+      if(px-w/2 < letztes+3) return;
+      ctx.fillStyle = Math.abs(v-24)>=2 ? "#d97a00" : farbe;
+      ctx.fillText(t, px, y); letztes=px+w/2;
+    });
+    ctx.restore();
+  } };
+}
 function fmPunktWerte(label, farbe, text){
   return { id:"punktWerte", afterDatasetsDraw(chart){
     const i=chart.data.datasets.findIndex(d=>d.label===label); if(i<0) return;
@@ -6949,17 +6960,15 @@ function fmOhneDiagramm(g){
     const maxRegen=Math.max(20, ...r.map(t=>t.regen||0));
     // kg-Balken nur in der unteren Hälfte, Regen hängt von oben – so überschneiden sie sich nicht
     const maxKg=Math.ceil(Math.max(1, ...r.map(t=>t.jeTier24||0))*1.9/5)*5;
-    fmOhneChart=new Chart(c,{ plugins:[fmRegenWerte("Regen mm"), fmPunktWerte("Stunden bis zur nächsten Fütterung", schrift, v=>String(Math.round(v)))], data:{ labels:r.map(t=>fmKurz(t.datum)), datasets:[
+    fmOhneChart=new Chart(c,{ plugins:[fmRegenWerte("Regen mm"), fmStundenReihe(r.map(t=>t.stunden), schrift)], data:{ labels:r.map(t=>fmKurz(t.datum)), datasets:[
       { type:"bar", label:"Regen mm", data:r.map(t=>t.regen||0), yAxisID:"y4", backgroundColor:"rgba(100,170,240,.55)", order:3 },
       { type:"bar", label:"gefressen kg je Tier (24 Std.)", data:r.map(t=>t.jeTier24), yAxisID:"y", backgroundColor:"#43a047", order:2 },
-      { type:"line", label:"Stunden bis zur nächsten Fütterung", data:r.map(t=>t.stunden), yAxisID:"y2", borderColor:dunkel?"#bbb":"#2f3a45", backgroundColor:dunkel?"#bbb":"#2f3a45", pointRadius:3, borderWidth:2, spanGaps:true, order:1 },
-      { type:"line", label:"24 Std.", data:r.map(()=>24), yAxisID:"y2", borderColor:"rgba(120,120,120,.6)", borderDash:[4,4], pointRadius:0, borderWidth:1, fill:false, order:4 },
       { type:"line", label:"Temperatur (max)", data:r.map(t=>typeof t.tmax==="number"?t.tmax:null), yAxisID:"y3", borderColor:"#d32f2f", backgroundColor:"#d32f2f", pointRadius:2, borderWidth:2, order:0 }
-    ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:"index", intersect:false },
-      plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
+    ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:"index", intersect:false }, layout:{ padding:{ top:16 } },
+      plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } },
+        tooltip:{ callbacks:{ footer:it=>{ const h=it.length ? r[it[0].dataIndex].stunden : null; return typeof h==="number" ? "nächste Fütterung nach "+fmZahl(h.toFixed(1))+" Std." : ""; } } } },
       scales:{ x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } },
         y:{ position:"left", min:0, max:maxKg, title:{ display:true, text:"kg je Tier", color:schrift }, ticks:{ color:schrift } },
-        y2:{ display:false, min:0, max:34 },   // 24 Std. liegt über den Balken
         y3:{ position:"right", min:0, max:35, grid:{ drawOnChartArea:false }, ticks:{ color:"#d32f2f", callback:v=>[0,5,15,25,35].includes(v)?v+" °C":"", stepSize:5 } },
         y4:{ display:false, min:0, max:maxRegen*2.2, reverse:true } } } });
   }).catch(()=>{ const e=document.getElementById("fm-chart-ohne"); if(e) e.parentNode.innerHTML="<div style='color:#666'>Diagramm braucht einmal Internet.</div>"; });
