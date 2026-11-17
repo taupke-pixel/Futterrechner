@@ -5173,6 +5173,7 @@ function fmGruppenHtml(){
           <option value="">+ Stall hinzufügen …</option>
           ${frei.map(p=>`<option value="${p.id}">${fmPlatzName(p)} (${fmTiere(p.anzahl||0)})</option>`).join("")}
         </select>` : ""}
+        ${g && plaetze.length && fmArtAuto(karte)==="rest" ? `<div class="fm-zuschlag-zeile" style="margin-top:6px">Rest-Zuschlag beim Mischen <input class="fm-zuschlag" type="text" inputmode="decimal" value="${fmZahl(fmZuschlag(g))}" style="width:60px" onchange="fmZuschlagFeld('${g.id}',this)"> %</div>` : ""}
         ${g && plaetze.length ? `<label class="fm-auswerten" style="display:block;margin-top:6px"><input type="checkbox" ${g.auswerten===false?"":"checked"} onchange="fmGruppeAendern('${g.id}','auswerten',this.checked)"> auswerten</label>` : ""}
         <div style="font-size:12px;color:#666;margin-top:4px">${fmArtAuto(karte)==="rest" ? "mit Restauswertung (Reste stehen in der Restmischung)" : "ohne Reste – ausgewertet über Uhrzeit und Menge"}</div>
       </div>`}
@@ -5239,6 +5240,7 @@ function fmRestBeobachten(inhalt, zeit){
   const quellen=restQuellen();
   const wert={ [quellen[0]]:num(r.rest)||0 };
   if(quellen[1]) wert[quellen[1]]=num(r.rest2)||0;
+  if(Object.values(wert).every(v=>v===0)) return;   // leere Felder (z. B. nach dem Öffnen) sind keine Eingabe
   const schluessel=JSON.stringify(wert);
   const merken=()=>{ fmRestZuletzt=schluessel; try{ localStorage.setItem("fmRestZuletzt", schluessel); }catch(e){} };
   if(fmRestZuletzt===null){ merken(); return; }   // allererster Start: Stand nicht als neue Eingabe zählen
@@ -5274,11 +5276,12 @@ function fmTiereMerken(){
 // Tagesreihe einer Kuhgruppe: je Mischtag Vorlage, Rest (vom nächsten Tag mit gespeicherter Restmischung), Tiere, Wetter
 function fmReihe(g){
   if(fmDemo) return fmDemoReihe(g);
-  const vorlage={}, tiere={}, mehr={}, zeit={}, restTage=new Set(), bullenTage=new Set();
+  fmRestBereinigen();
+  const vorlage={}, tiere={}, mehr={}, zeit={}, restTage=new Set(), bullenTage=new Set(), resteEintrag={};
   historyData.forEach(e=>{
     const d=fmAusDatum(e && e.datum); if(!d) return;
     if(e.kategorie===g.karte){ vorlage[d]=(vorlage[d]||0)+(num(e.gesamt)||0); tiere[d]=num(e.tiere)||0; mehr[d]=(mehr[d]||0)+(num(e.mehr)||0); if(e.zeit && !zeit[d]) zeit[d]=e.zeit; }
-    if(e.kategorie==="restbullen") restTage.add(d);
+    if(e.kategorie==="restbullen"){ restTage.add(d); if(e.reste && !resteEintrag[d]) resteEintrag[d]=e.reste; }
     else if(e.kategorie===restZiel() && e.kategorie!==g.karte) bullenTage.add(d);
   });
   const heute=fmIso(new Date()), antworten=fmCfg.antworten||{};
@@ -5289,7 +5292,8 @@ function fmReihe(g){
     // Rest gehört zur letzten Vorlage davor: erster Restmischungs-Tag nach v (bis einschließlich zur nächsten Vorlage)
     const r=[...restTage].sort().find(t=>t>v && t<=naechste);
     let rest=null;
-    if(r){ const rt=fmTage[r] && fmTage[r].rest; rest = rt && typeof rt[g.karte]==="number" ? rt[g.karte] : null; }
+    if(r){ const re=resteEintrag[r], rt=fmTage[r] && fmTage[r].rest;
+      rest = re && typeof re[g.karte]==="number" ? re[g.karte] : rt && typeof rt[g.karte]==="number" ? rt[g.karte] : null; }
     // Keine Restmischung gespeichert (erst ab dem Folgetag): normale Bullenration statt Restmischung oder gar nichts
     let fehlt=null;
     if(!r && v<heute) fehlt = [...bullenTage].some(t=>t>v && t<=naechste) ? "bullen" : "keine";
@@ -5301,7 +5305,7 @@ function fmReihe(g){
     const h = zeit[v] && vTage[i+1] && zeit[vTage[i+1]] ? (new Date(zeit[vTage[i+1]])-new Date(zeit[v]))/3600000 : null;
     // Was im Futterwagen hängen bleibt, wurde nicht vorgelegt (bei „zusammen“ nur bei der zweiten Gruppe – dort wird der Wagen leer)
     const wagen = (kuehe2Zusammen() && g.karte==="kuehe") ? 0 : fmWert("wagenRest");
-    reihe.push({ datum:v, vorlage:Math.max(0, vorlage[v]-wagen), mehr:mehr[v]||0, rest, fehlt, tiere:n, stunden:(h>=12 && h<=48) ? h : null, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
+    reihe.push({ datum:v, zeit:zeit[v]||null, vorlage:Math.max(0, vorlage[v]-wagen), mehr:mehr[v]||0, rest, fehlt, tiere:n, stunden:(h>=12 && h<=48) ? h : null, tmax:w.tmax, regen:w.regen, thi:fmThi(w.tmax,w.rh) });
   });
   return fmAntwortenAnwenden(g, fmTmErgaenzen(g, fmReiheBewerten(reihe)));
 }
@@ -5451,9 +5455,10 @@ function fmReiheBewerten(reihe){
 function fmBewertung(g, reihe){
   // auffällige Montage (Wochenend-Effekt) zählen nicht
   const montag=fmMontag(g, reihe), istMo=t=>montag && new Date(t.datum+"T12:00:00").getDay()===1;
-  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.ausgelassen && !t.regenTag && !t.hitzeTag && !istMo(t));
+  const seit=g.zuschlagSeit, danach=t=>!seit || (t.zeit ? t.zeit>seit : t.datum>seit.slice(0,10));
+  const ok=reihe.filter(t=>t.quote!==null && !t.ausreisser && !t.ausgelassen && !t.regenTag && !t.hitzeTag && !istMo(t) && danach(t));
   const letzte=ok.slice(-fmWert("bewertungTage"));
-  const leer=reihe.filter(t=>t.quote!==null).slice(-fmWert("leerTage"));
+  const leer=reihe.filter(t=>t.quote!==null && danach(t)).slice(-fmWert("leerTage"));
   const proKuh=(data[g.karte] ? data[g.karte].items : []).reduce((s,i)=>s+(num(i.kg)||0),0);
   const morgen=fmTage[fmTagPlus(fmIso(new Date()),1)], wm=morgen && morgen.wetter;
   const hitzeKommt = wm && fmThi(wm.tmax, wm.rh)>=68;
@@ -5461,7 +5466,9 @@ function fmBewertung(g, reihe){
   if(leer.length>=fmWert("leerTage") && leer.every(t=>t.rest===0) && !hitzeKommt){
     b.art="mehr"; b.text=`Leergefressen (${leer.length} Tage) · Fressmenge +${fmZahl(fmWert("restSchritt"))} %`; return b;
   }
-  if(letzte.length<fmWert("bewertungMin")){ b.art="warten"; b.text=`sammelt noch Werte (${letzte.length} von ${fmWert("bewertungMin")} Tagen)`; return b; }
+  if(letzte.length<fmWert("bewertungMin")){ b.art="warten"; b.text = seit
+    ? `Rest-Zuschlag jetzt ${fmZahl(fmZuschlag(g))} % · sammelt neue Werte (${letzte.length} von ${fmWert("bewertungMin")} Tagen)`
+    : `sammelt noch Werte (${letzte.length} von ${fmWert("bewertungMin")} Tagen)`; return b; }
   b.mittel=letzte.reduce((s,t)=>s+t.quote,0)/letzte.length;
   const q=fmZahl(b.mittel.toFixed(1));
   if(b.mittel<fmWert("restZielVon")){
@@ -5694,12 +5701,40 @@ function fmUebernehmen(id, art){
   const g=fmGruppen().find(x=>x.id===id); if(!g || fmNurAnsehen() || !data[g.karte]) return;
   const vorher=fmZuschlag(g), neu=Math.max(0, Math.round((vorher+(art==="mehr"?1:-1)*fmWert("restSchritt"))*10)/10);
   if(!confirm(`${g.name}: Rest-Zuschlag von ${fmZahl(vorher)} % auf ${fmZahl(neu)} % ändern?\nDie Ration bleibt gleich – es wird für entsprechend mehr bzw. weniger Tiere gemischt.`)) return;
-  g.zuschlag=neu;
-  (fmCfg.protokoll=fmCfg.protokoll||[]).push({ zeit:new Date().toISOString(), geraet:geraeteUid, gruppe:g.name, art, vorher });
+  fmZuschlagSetzen(g, neu, art);
+}
+function fmZuschlagSetzen(g, neu, art){
+  const vorher=fmZuschlag(g);
+  g.zuschlag=neu; g.zuschlagSeit=new Date().toISOString();
+  (fmCfg.protokoll=fmCfg.protokoll||[]).push({ zeit:g.zuschlagSeit, geraet:geraeteUid, gruppe:g.name, art, vorher });
   // Tierzahl im Rechner gleich mitziehen, wenn sie aus dem Herdenmanager übernommen war
   const n=fmTierzahlGruppe(g);
-  if(fmStall && n>0 && Math.abs(num(data[g.karte].anz)-Math.round(n*(1+vorher/100)*10)/10)<0.05) data[g.karte].anz=fmTierzahlMitZuschlag(g, n);
+  if(data[g.karte] && fmStall && n>0 && Math.abs(num(data[g.karte].anz)-Math.round(n*(1+vorher/100)*10)/10)<0.05) data[g.karte].anz=fmTierzahlMitZuschlag(g, n);
   save(); buildCalc(); fmSpeichern();
+}
+// Rest-Zuschlag von Hand (Futtergruppe aufgeklappt)
+function fmZuschlagFeld(id, feld){
+  const g=fmGruppen().find(x=>x.id===id); if(!g) return;
+  const v=parseFloat(String(feld.value).replace(",","."));
+  if(isNaN(v) || v<0 || v>50){ alert("Bitte den Rest-Zuschlag in % eingeben (z. B. 4)."); feld.value=fmZahl(fmZuschlag(g)); return; }
+  if(Math.abs(v-fmZuschlag(g))<0.05) return;
+  fmZuschlagSetzen(g, Math.round(v*10)/10, "hand");
+}
+// Einmalig: Rest „0“, die nur durch das Öffnen der App (leere Felder) gemerkt wurden, wieder löschen – und den dadurch
+// erhöhten Rest-Zuschlag auf den Wert vor dem ersten „Übernehmen“ zurücksetzen
+function fmRestBereinigen(){
+  if(fmCfg.restNullBereinigt) return;
+  fmCfg.restNullBereinigt=new Date().toISOString();
+  let geloescht=0;
+  Object.keys(fmTage).forEach(d=>{ const r=fmTage[d].rest; if(r && typeof r==="object" && Object.values(r).every(v=>v===0)){ delete fmTage[d].rest; geloescht++; } });
+  if(geloescht){
+    fmTageMerken();
+    (fmCfg.gruppen||[]).forEach(g=>{
+      const p=(fmCfg.protokoll||[]).filter(x=>x.gruppe===g.name && x.art==="mehr");
+      if(p.length && typeof p[0].vorher==="number"){ g.zuschlag=p[0].vorher; delete g.zuschlagSeit; }
+    });
+  }
+  try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
 }
 
 // --- Ergänzungen in den bestehenden Rechner-Karten (Paket Punkte 9/10), nur bei AN ---
@@ -6703,8 +6738,6 @@ function fmBauen(){
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt();
-  // Testversion mit eigener Kopie: Reste der Restmischung aus diesem Gerät mitschreiben (sonst kommen sie aus dem Betrieb)
-  if(fmAn() && testEigeneDaten()) fmRestBeobachten({ restbullen:data.restbullen }, new Date());
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -6767,7 +6800,38 @@ function fmZeitstempel(vorher){
 const _saveHistoryVorZeit=saveHistory;
 saveHistory=function(cat){ const v=historyData[0]; _saveHistoryVorZeit(cat); fmZeitstempel(v); };
 const _saveRestBullenVorZeit=saveRestBullenHistory;
-saveRestBullenHistory=function(){ const v=historyData[0]; _saveRestBullenVorZeit(); fmZeitstempel(v); };
+saveRestBullenHistory=function(){
+  const v=historyData[0], reste=fmResteJetzt();
+  _saveRestBullenVorZeit(); fmZeitstempel(v);
+  const e=historyData[0];
+  if(fmAn() && e && e!==v && e.kategorie==="restbullen"){ e.reste=reste; saveHistoryStorage(); fmTag(fmIso(new Date())).rest=reste; fmTageMerken(); buildHistory(); }
+};
+// Reste, die gerade in der Restmischung eingetragen sind (je Reste-Quelle)
+function fmResteJetzt(){
+  const q=restQuellen(), r=data.restbullen||{}, w={ [q[0]]:num(r.rest)||0 };
+  if(q[1]) w[q[1]]=num(r.rest2)||0;
+  return w;
+}
+// Name der Reste-Quelle wie in der Restmischung („Stall 1“, „Strohstall + Stall 2“)
+function fmRestQuelleName(k){
+  const g=fmGruppen().find(x=>x.karte===k), pl=g ? (g.staelle||[]).map(fmPlatz).filter(x=>x && !x.entfernt) : [];
+  return pl.length ? pl.map(p=>fmPlatzName(p)).join(" + ") : (globalCfg[k+"Name"]||k);
+}
+// History: Reste beim Eintrag der Restmischung zeigen, antippen = ändern / nachtragen
+function fmResteAendern(id){
+  const e=historyData.find(x=>x.id===id); if(!e) return;
+  const neu=Object.assign({}, e.reste||{});
+  for(const k of restQuellen()){
+    const a=prompt(`Rest ${fmRestQuelleName(k)} am ${e.datum} (kg):`, typeof neu[k]==="number" ? fmZahl(neu[k]) : "");
+    if(a===null) return;
+    const v=parseFloat(String(a).replace(",","."));
+    if(isNaN(v) || v<0){ alert("Bitte die Restmenge in kg eingeben (z. B. 130)."); return; }
+    neu[k]=v;
+  }
+  e.reste=neu; saveHistoryStorage();
+  const d=fmAusDatum(e.datum); if(d){ fmTag(d).rest=neu; fmTageMerken(); }
+  buildHistory();
+}
 function fmUhr(iso){ const d=new Date(iso); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
 // History: Uhrzeit beim Eintrag zeigen, antippen = ändern / nachtragen
 function fmZeitAendern(id){
@@ -6794,6 +6858,14 @@ buildHistory=function(){
     z.innerHTML = e.zeit ? `🕒 gefüttert um ${fmUhr(e.zeit)} Uhr <span style="color:#666;font-size:13px">(antippen = ändern)</span>` : `🕒 <span style="color:#666">Uhrzeit nachtragen</span>`;
     z.onclick=()=>fmZeitAendern(id);
     b.insertAdjacentElement("beforebegin", z);
+    if(e.kategorie==="restbullen"){
+      const r=document.createElement("div");
+      r.className="fm-reste";
+      r.style.cssText="font-weight:normal;margin:-6px 0 10px;cursor:pointer;color:#1b5e20";
+      r.innerHTML = e.reste ? `🧺 Reste: ${restQuellen().map(k=>fmEsc(fmRestQuelleName(k))+" "+(typeof e.reste[k]==="number"?fmZahl(e.reste[k]):"–")+" kg").join(" · ")} <span style="color:#666;font-size:13px">(antippen = ändern)</span>` : `🧺 <span style="color:#666">Reste nachtragen</span>`;
+      r.onclick=()=>fmResteAendern(id);
+      b.insertAdjacentElement("beforebegin", r);
+    }
   });
 };
 
@@ -6857,6 +6929,16 @@ function fmRegenWerte(label){
     ctx.restore();
   } };
 }
+function fmPunktWerte(label, farbe, text){
+  return { id:"punktWerte", afterDatasetsDraw(chart){
+    const i=chart.data.datasets.findIndex(d=>d.label===label); if(i<0) return;
+    const meta=chart.getDatasetMeta(i), ctx=chart.ctx;
+    ctx.save(); ctx.fillStyle=farbe; ctx.font="bold 11px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="bottom";
+    let letztes=-1e9;   // Zahlen, die sich überlappen würden, auslassen (beim Antippen stehen alle Werte)
+    meta.data.forEach((p,j)=>{ const v=chart.data.datasets[i].data[j], t=typeof v==="number" ? text(v) : ""; if(!t) return; const w=ctx.measureText(t).width; if(p.x-w/2 < letztes+4) return; ctx.fillText(t, p.x, p.y-5); letztes=p.x+w/2; });
+    ctx.restore();
+  } };
+}
 function fmOhneDiagramm(g){
   const c=document.getElementById("fm-chart-ohne"); if(!c) return;
   fmChartJs().then(()=>{
@@ -6867,17 +6949,18 @@ function fmOhneDiagramm(g){
     const maxRegen=Math.max(20, ...r.map(t=>t.regen||0));
     // kg-Balken nur in der unteren Hälfte, Regen hängt von oben – so überschneiden sie sich nicht
     const maxKg=Math.ceil(Math.max(1, ...r.map(t=>t.jeTier24||0))*1.9/5)*5;
-    fmOhneChart=new Chart(c,{ plugins:[fmRegenWerte("Regen mm")], data:{ labels:r.map(t=>fmKurz(t.datum)), datasets:[
+    fmOhneChart=new Chart(c,{ plugins:[fmRegenWerte("Regen mm"), fmPunktWerte("Stunden bis zur nächsten Fütterung", schrift, v=>String(Math.round(v)))], data:{ labels:r.map(t=>fmKurz(t.datum)), datasets:[
       { type:"bar", label:"Regen mm", data:r.map(t=>t.regen||0), yAxisID:"y4", backgroundColor:"rgba(100,170,240,.55)", order:3 },
       { type:"bar", label:"gefressen kg je Tier (24 Std.)", data:r.map(t=>t.jeTier24), yAxisID:"y", backgroundColor:"#43a047", order:2 },
-      { type:"line", label:"Stunden bis zur nächsten Fütterung", data:r.map(t=>t.stunden), yAxisID:"y2", borderColor:"#2f3a45", backgroundColor:"#2f3a45", pointRadius:2, spanGaps:true, order:1 },
+      { type:"line", label:"Stunden bis zur nächsten Fütterung", data:r.map(t=>t.stunden), yAxisID:"y2", borderColor:dunkel?"#bbb":"#2f3a45", backgroundColor:dunkel?"#bbb":"#2f3a45", pointRadius:3, borderWidth:2, spanGaps:true, order:1 },
+      { type:"line", label:"24 Std.", data:r.map(()=>24), yAxisID:"y2", borderColor:"rgba(120,120,120,.6)", borderDash:[4,4], pointRadius:0, borderWidth:1, fill:false, order:4 },
       { type:"line", label:"Temperatur (max)", data:r.map(t=>typeof t.tmax==="number"?t.tmax:null), yAxisID:"y3", borderColor:"#d32f2f", backgroundColor:"#d32f2f", pointRadius:2, borderWidth:2, order:0 }
     ]}, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:"index", intersect:false },
       plugins:{ legend:{ position:"bottom", labels:{ color:schrift, boxWidth:12 } } },
       scales:{ x:{ ticks:{ color:schrift, maxRotation:0, autoSkip:true } },
         y:{ position:"left", min:0, max:maxKg, title:{ display:true, text:"kg je Tier", color:schrift }, ticks:{ color:schrift } },
-        y2:{ position:"right", min:12, max:36, grid:{ drawOnChartArea:false }, ticks:{ color:schrift, callback:v=>v+" h" } },
-        y3:{ display:false, min:0, max:35 },
+        y2:{ display:false, min:0, max:34 },   // 24 Std. liegt über den Balken
+        y3:{ position:"right", min:0, max:35, grid:{ drawOnChartArea:false }, ticks:{ color:"#d32f2f", callback:v=>[0,5,15,25,35].includes(v)?v+" °C":"", stepSize:5 } },
         y4:{ display:false, min:0, max:maxRegen*2.2, reverse:true } } } });
   }).catch(()=>{ const e=document.getElementById("fm-chart-ohne"); if(e) e.parentNode.innerHTML="<div style='color:#666'>Diagramm braucht einmal Internet.</div>"; });
 }

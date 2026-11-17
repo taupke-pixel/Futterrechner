@@ -196,6 +196,64 @@ async function main() {
       assert.strictEqual(await page.evaluate(() => lagerData.agf.orange), 7);
     });
 
+    await pruefe("Restmischung speichern merkt die Reste im Eintrag; History zeigt sie, antippen = ändern; leere Felder beim Öffnen zählen nicht", async () => {
+      const r = await page.evaluate(() => {
+        globalCfg.restQuellen = ["kuehe"];
+        historyData = historyData.filter(e => e.kategorie !== "restbullen");
+        data.restbullen.rest = 130; data.restbullen.anz = 10;
+        saveRestBullenHistory();
+        const e = historyData[0], heute = fmIso(new Date());
+        const vorher = JSON.stringify(fmTage[heute].rest);
+        fmRestBeobachten({ restbullen: { rest: 0 } }, new Date());
+        return { k: e.kategorie, reste: e.reste, tag: fmTage[heute].rest, gleich: JSON.stringify(fmTage[heute].rest) === vorher };
+      });
+      assert.strictEqual(r.k, "restbullen"); assert.deepStrictEqual(r.reste, { kuehe: 130 }); assert.deepStrictEqual(r.tag, { kuehe: 130 }); assert(r.gleich);
+      await page.evaluate(() => { showTab("history"); buildHistory(); });
+      const z = await page.evaluate(() => [...document.querySelectorAll("#history .fm-reste")].map(e => e.textContent));
+      assert(z.some(t => t.includes("130 kg") && t.includes("antippen = ändern")), JSON.stringify(z));
+      antwort = "140";
+      await page.locator("#history .fm-reste").first().evaluate(e => e.click());
+      antwort = null;
+      assert.deepStrictEqual(await page.evaluate(() => historyData.find(e => e.kategorie === "restbullen").reste), { kuehe: 140 });
+    });
+
+    await pruefe("Nach „Übernehmen“ verschwindet der Vorschlag: es zählen nur Fütterungen danach („Rest-Zuschlag jetzt … · sammelt neue Werte“)", async () => {
+      const r = await page.evaluate(() => {
+        const g = fmGruppeZuKarte("kuehe"); delete g.zuschlagSeit; g.zuschlag = 4;
+        historyData = historyData.filter(e => e.kategorie !== "restbullen" && e.kategorie !== "kuehe");
+        const de = d => d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+        for (let i = 5; i >= 1; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i); const d2 = new Date(); d2.setDate(d2.getDate() - i + 1);
+          historyData.unshift({ id: "k" + i, datum: de(d), kategorie: "kuehe", tiere: 50, gesamt: 2000, futter: [] });
+          historyData.unshift({ id: "r" + i, datum: de(d2), kategorie: "restbullen", tiere: 0, gesamt: 0, futter: [], reste: { kuehe: 0 } });
+        }
+        const vor = fmBewertung(g, fmReihe(g));
+        fmUebernehmen(g.id, "mehr");
+        const nach = fmBewertung(g, fmReihe(g));
+        showTab("fressmenge"); fmBauen();
+        const box = document.querySelector('.fm-auswertung[data-gruppe="' + g.id + '"]');
+        return { vor: vor.art, nach: nach.art, text: nach.text, knopf: !!box.querySelector("button.save-btn"), zuschlag: g.zuschlag };
+      });
+      assert.strictEqual(r.vor, "mehr"); assert.strictEqual(r.nach, "warten"); assert.strictEqual(r.zuschlag, 7);
+      assert(r.text.startsWith("Rest-Zuschlag jetzt 7 % · sammelt neue Werte"), r.text);
+      assert(!r.knopf, "Übernehmen-Knopf noch da");
+    });
+
+    await pruefe("Rest-Zuschlag von Hand in der Futtergruppe; einmalige Bereinigung: falsche Reste „0“ weg, Zuschlag zurück auf den Wert vor dem ersten „Übernehmen“", async () => {
+      await page.evaluate(() => { fmEinrichtungZu = false; fmZu["k:kuehe"] = false; fmBauen(); });
+      const f = page.locator('.fm-gruppe[data-karte="kuehe"] input.fm-zuschlag');
+      await f.fill("5"); await f.dispatchEvent("change");
+      assert.strictEqual(await page.evaluate(() => fmGruppeZuKarte("kuehe").zuschlag), 5);
+      const r = await page.evaluate(() => {
+        const g = fmGruppeZuKarte("kuehe");
+        delete fmCfg.restNullBereinigt; fmTage["2026-01-05"] = { rest: { kuehe: 0 } }; fmTage["2026-01-06"] = { rest: { kuehe: 120 } };
+        g.zuschlag = 19; fmCfg.protokoll = [{ gruppe: g.name, art: "mehr", vorher: 4 }, { gruppe: g.name, art: "mehr", vorher: 7 }];
+        fmRestBereinigen();
+        return { a: fmTage["2026-01-05"].rest, b: fmTage["2026-01-06"].rest, z: g.zuschlag, einmal: !!fmCfg.restNullBereinigt };
+      });
+      assert.deepStrictEqual(r, { a: undefined, b: { kuehe: 120 }, z: 4, einmal: true });
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       assert.deepStrictEqual(meldungen.filter(m => m.startsWith("SEITENFEHLER")), []);
     });
