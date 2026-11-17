@@ -70,18 +70,29 @@ async function main() {
       assert.strictEqual(await A.inputValue("#fm-restZuschlag"), "4");
       assert.strictEqual(await A.inputValue("#fm-wetterLat"), "52,6");
       assert.strictEqual(await A.inputValue("#fm-erhaltungNel"), "37,3");
+      // Gruppen: alle zu, Antippen öffnet eine (nur eine offen), geänderte Werte werden am Kopf gezählt
+      assert.strictEqual(await A.locator(".fm-erw-kopf").count(), 9);
+      assert(!(await A.locator("#fm-restZuschlag").isVisible()));
+      await A.click(".fm-erw-kopf >> text=Reste und Mischen");
+      assert(await A.locator("#fm-restZuschlag").isVisible());
+      await A.click(".fm-erw-kopf >> text=Waage und Futterwagen");
+      assert(!(await A.locator("#fm-restZuschlag").isVisible()) && await A.locator("#fm-waageToleranz").isVisible());
     });
 
     await pruefe("Erweitert: gültiger Wert wird gemerkt (auch mit Komma), ungültige Werte werden erklärt und zurückgesetzt", async () => {
+      await A.evaluate(k => { fmErwOffen = fmErwGruppeVon(k); fmBauen(); }, "restZuschlag");
       await A.fill("#fm-restZuschlag", "5,5"); await A.dispatchEvent("#fm-restZuschlag", "change");
       assert.strictEqual(await A.evaluate(() => fmWert("restZuschlag")), 5.5);
       A.meldungen.length = 0;
+      await A.evaluate(k => { fmErwOffen = fmErwGruppeVon(k); fmBauen(); }, "hitzeMax");
       await A.fill("#fm-hitzeMax", "abc"); await A.dispatchEvent("#fm-hitzeMax", "change");
       assert(A.meldungen.some(m => m.includes("Hitzeabzug höchstens") && m.includes("0 bis 30")), A.meldungen.join("|"));
       assert.strictEqual(await A.inputValue("#fm-hitzeMax"), "10");
+      await A.evaluate(k => { fmErwOffen = fmErwGruppeVon(k); fmBauen(); }, "restZielVon");
       await A.fill("#fm-restZielVon", "6"); await A.dispatchEvent("#fm-restZielVon", "change");
       assert(A.meldungen.some(m => m.includes("Zielbereich")), A.meldungen.join("|"));
       assert.strictEqual(await A.evaluate(() => fmWert("restZielVon")), 3);
+      await A.evaluate(k => { fmErwOffen = fmErwGruppeVon(k); fmBauen(); }, "bewertungMin");
       await A.fill("#fm-bewertungMin", "9"); await A.dispatchEvent("#fm-bewertungMin", "change");
       assert.strictEqual(await A.evaluate(() => fmWert("bewertungMin")), 3);
     });
@@ -95,6 +106,7 @@ async function main() {
     });
 
     await pruefe("Einstellungen bleiben nach dem Neuladen erhalten (im Gerät), Daten beim Ausschalten bleiben", async () => {
+      await A.evaluate(k => { fmErwOffen = fmErwGruppeVon(k); fmBauen(); }, "regenMm");
       await A.fill("#fm-regenMm", "4"); await A.dispatchEvent("#fm-regenMm", "change");
       await A.reload(); await zugang.warteAufApp(A, "emulator", true);
       assert.strictEqual(await A.evaluate(() => fmAn()), true);

@@ -4988,6 +4988,34 @@ function fmStandard(){
   fmCfg.werte={}; fmSpeichern();
 }
 function fmErweitertUmklappen(){ fmErweitertZu=!fmErweitertZu; fmBauen(); }
+// „Erweitert“ in Gruppen zum Auf- und Zuklappen (Wunsch Fritz 17.11.2026); immer nur eine Gruppe offen
+const FM_ERW_GRUPPEN=[
+  ["Reste und Mischen", ["restZuschlag","restZielVon","restZielBis","restSchritt","leerTage"]],
+  ["Waage und Futterwagen", ["waageToleranz","wagenRest"]],
+  ["Bewertung und Ausreißer", ["bewertungTage","bewertungMin","ausreisserQuote","ausreisserTm","wochenendTm","fruehTm","fruehTage"]],
+  ["Wetter (Regen, Hitze, Standort)", ["regenMm","regenPhaseTage","hitzeMax","lernTage","lernZeitraum","wetterLat","wetterLon"]],
+  ["Ration und Milch", ["neuRechnenTage","ansatzAbw","ohneAnstiegTage","mlpAbstand","erhaltungNel","erhaltungKg","fett1","eiweiss1","fett2","eiweiss2"]],
+  ["MLP-Check", ["mlpFrischAnteil","harnstoffMin","harnstoffMax"]],
+  ["Gruppen ohne Reste (Lernfragen)", ["lernfrageTage","lernfrageNeinTage","lernfrageMinAbw"]]
+];
+let fmErwOffen=null;
+function fmErwGruppeVon(k){ const g=FM_ERW_GRUPPEN.find(([,ks])=>ks.includes(k)); return g ? g[0] : (FM_WERTE.some(w=>w[0]===k) ? "Weitere" : null); }
+function fmErwUmschalten(name){ fmErwOffen = fmErwOffen===name ? null : name; fmBauen(); }
+function fmErweitertGruppenHtml(){
+  const zugeordnet=FM_ERW_GRUPPEN.flatMap(([,ks])=>ks), weitere=FM_WERTE.map(w=>w[0]).filter(k=>!zugeordnet.includes(k));
+  const gruppen=[...FM_ERW_GRUPPEN, ...(weitere.length ? [["Weitere", weitere]] : [])];
+  const anders=k=>{ const w=FM_WERTE.find(x=>x[0]===k); return w && Math.abs(fmWert(k)-w[2])>1e-9; };
+  const kopf=(name, rechts, farbig)=>`<div class="fm-erw-kopf" data-gruppe="${fmEsc(name)}" onclick="fmErwUmschalten(${JSON.stringify(name).replace(/"/g,"&quot;")})" style="font-weight:bold;padding:10px 0;border-bottom:1px solid #ddd;cursor:pointer;display:flex;justify-content:space-between;gap:8px">
+      <span>${fmErwOffen===name?"▼":"▶"} ${fmEsc(name)}</span><span style="font-weight:normal;font-size:13px;color:${farbig?"#b36b00":"#888"};white-space:nowrap">${rechts}</span></div>`;
+  const zeile=k=>{ const [,t,std,,,e]=FM_WERTE.find(w=>w[0]===k), a=anders(k);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #eee">
+        <div style="flex:1">${t}<div style="font-size:12px;color:${a?"#b36b00":"#888"}">Standard ${fmZahl(std)} ${e}${a?" · geändert":""}</div></div>
+        <div style="white-space:nowrap"><input type="text" inputmode="decimal" id="fm-${k}" value="${fmZahl(fmWert(k))}" style="width:60px" onchange="fmWertSetzen('${k}',this)"> <span style="font-size:13px">${e.length>8?"":e}</span></div></div>`; };
+  const teil=(name, inhalt)=>`<div class="fm-erw-inhalt" style="display:${fmErwOffen===name?"block":"none"};padding:0 0 6px 14px">${inhalt}</div>`;
+  return gruppen.map(([name, ks])=>{ const n=ks.filter(anders).length; return kopf(name, n ? n+" geändert" : ks.length+" Werte", n>0) + teil(name, ks.map(zeile).join("")); }).join("")
+    + kopf("Standard-Fressmengen (Gruppen ohne Reste)", "", false) + teil("Standard-Fressmengen (Gruppen ohne Reste)", fmStandardTabelleHtml())
+    + kopf("Was die App gelernt hat", "", false) + teil("Was die App gelernt hat", fmLernstandHtml());
+}
 // --- Futtergruppen + Stallzahlen aus dem Herdenmanager (Paket Punkt 3) ---
 // Der Herdenmanager legt anonyme Zahlen je Stall/Bucht in SEINEM Projekt ab (test/{bid}/{schluessel}/stallzahlen).
 // Der Futterrechner liest sie nur (ohne Anmeldung, mit dem Kopplungscode = bid.schluessel) und schreibt nie in den Herdenmanager.
@@ -6757,15 +6785,8 @@ function fmBauen(){
   <div class="history-box" style="margin-top:10px">
     <div class="history-header" style="margin-bottom:0" onclick="fmErweitertUmklappen()">${fmErweitertZu ? "▶" : "▼"} Erweitert</div>
     <div id="fm-erweitert" style="display:${fmErweitertZu ? 'none' : 'block'};margin-top:6px">
-    ${FM_WERTE.map(([k,t,std,,,e])=>`
-    <div style="margin:8px 0;padding-bottom:6px;border-bottom:1px solid #eee">
-      <div>${t}</div>
-      <input type="text" inputmode="decimal" id="fm-${k}" value="${fmZahl(fmWert(k))}" style="width:70px" onchange="fmWertSetzen('${k}',this)"> ${e}
-      <span style="color:#666;font-size:13px;margin-left:6px">Standard ${fmZahl(std)}</span>
-    </div>`).join("")}
-    <button class="save-btn" style="margin-top:8px" onclick="fmStandard()">Standard wiederherstellen</button>
-    ${fmStandardTabelleHtml()}
-    ${fmLernstandHtml()}
+    ${fmErweitertGruppenHtml()}
+    <button class="save-btn" style="margin-top:10px" onclick="fmStandard()">Standard wiederherstellen</button>
     </div>
   </div>
     ${istTestversion ? `<button onclick="fmTestdatenZuruecksetzen()" style="margin-top:12px;font-size:13px">Testdaten zurücksetzen</button>` : ""}
