@@ -7218,6 +7218,48 @@ function fmWarnstufenOrdnen(){
   body.appendChild(t);
   body.insertAdjacentHTML("beforeend", `<div style="font-size:12px;color:#666;margin-top:4px">Tage, bis das Lager leer ist</div>`);
 }
+// Backup: wirklich alles (Wunsch Fritz 17.11.2026). Mit Fressmenge AN kommt zum bisherigen Backup ein Teil „zusatz“ dazu:
+// Fressmenge-Einrichtung (Futtergruppen, Rest-Zuschlag, Futterwerte aus dem PDF, Gelerntes), gemerkte Tage, MLP, Stallzahlen,
+// Zuklapp-Einstellungen, Taschenrechner-Verlauf, Timer-Dauer. Nicht dabei: Geräte-Anmeldung und Betriebs-Zuordnung (gehören zum Gerät).
+// AUS = Backup genau wie bisher. Die beiden Original-Funktionen bleiben unverändert.
+const FM_BACKUP_SPEICHER=["fressmenge","fmTage","fmMlp","fmStallzahlen","fmZu","einstellungenZu","calcHist"];
+const _exportBackupOriginal=exportBackup;
+exportBackup=function(){
+  if(!fmAn()) return _exportBackupOriginal();
+  const zusatz={};
+  FM_BACKUP_SPEICHER.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null) zusatz[k]=JSON.parse(v); }catch(e){} });
+  zusatz.fressmenge=fmCfg; zusatz.fmTage=fmTage;
+  if(timer && typeof timer.dauer==="number") zusatz.timerDauer=timer.dauer;
+  const backup={ data, globalCfg, historyData, lagerData, lieferungen, hiddenWarnings, historyCollapsed, zusatz };
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:"application/json"}));
+  a.download="futterrechner-backup.json";
+  a.click();
+};
+const _importBackupOriginal=importBackup;
+importBackup=function(event){
+  const datei=event && event.target && event.target.files && event.target.files[0];
+  const ok=_importBackupOriginal(event);
+  if(!ok || !datei) return ok;
+  const r=new FileReader();
+  r.onload=e=>{
+    let z=null; try{ z=JSON.parse(e.target.result).zusatz; }catch(x){}
+    if(!z || typeof z!=="object") return;
+    FM_BACKUP_SPEICHER.forEach(k=>{ if(z[k]!==undefined) try{ localStorage.setItem(k, JSON.stringify(z[k])); }catch(x){} });
+    if(z.fressmenge && typeof z.fressmenge==="object") fmCfg=z.fressmenge;
+    if(z.fmTage && typeof z.fmTage==="object") fmTage=z.fmTage;
+    if(z.fmMlp) fmMlp=z.fmMlp;
+    if(z.fmStallzahlen) fmStall=z.fmStallzahlen;
+    if(z.fmZu && typeof z.fmZu==="object") fmZu=z.fmZu;
+    if(z.einstellungenZu && typeof z.einstellungenZu==="object") einstellungenZu=z.einstellungenZu;
+    if(Array.isArray(z.calcHist)) history=z.calcHist;
+    if(typeof z.timerDauer==="number" && timer && !timer.laeuft){ timer.dauer=z.timerDauer; timer.rest=z.timerDauer; timerMerken(); }
+    try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(x){}
+    buildCalc(); buildHistory(); fmBauen();
+  };
+  r.readAsText(datei);
+  return ok;
+};
 const _buildHistoryVorWarn=buildHistory;
 buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()) fmWarnstufenOrdnen(); };
 

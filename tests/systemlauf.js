@@ -50,7 +50,7 @@ async function main() {
     return page;
   };
   const A = await neueSeite(), T = await neueSeite();
-  let bid, betriebVorher;
+  let bid, betriebVorher, backupDatei;
   const lager = () => T.evaluate(() => ({ agf: lagerData.agf.bestand, mlf: lagerData.mlf.bestand, wasser: lagerData.wasser ? lagerData.wasser.bestand : 0 }));
   const gesamtStand = () => T.evaluate(() => JSON.stringify({ data: { ...data }, globalCfg, lagerData, historyData, lieferungen, fm: fmCfg, tage: fmTage }));
 
@@ -208,6 +208,33 @@ async function main() {
       assert(h && h.length > 10, "History im Backup");
       assert(rb && rb.zeit && rb.reste, "Restmischung mit Uhrzeit und Resten im Backup");
       assert(b.lagerData || b.lager, "Lager im Backup");
+      assert(b.zusatz && b.zusatz.fressmenge && b.zusatz.fressmenge.gruppen.length === 2, "Fressmenge-Einrichtung im Backup");
+      assert(b.zusatz.fmTage && Object.keys(b.zusatz.fmTage).length > 0, "gemerkte Tage im Backup");
+      backupDatei = await dl.path();
+    });
+
+    await pruefe("Backup zurückspielen nach „Browserverlauf gelöscht“: History, Lager, Lieferungen, Rationen UND Fressmenge-Einrichtung (Futtergruppen, Rest-Zuschlag), gemerkte Tage sind wieder da", async () => {
+      const vorher = JSON.parse(await gesamtStand());
+      await T.evaluate(() => { const g = fmCfg.gruppen.find(x => x.karte === "kuehe"); g.zuschlag = 10; localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); });
+      const mitZuschlag = JSON.parse(await gesamtStand());
+      const [dl] = await Promise.all([T.waitForEvent("download"), T.evaluate(() => exportBackup())]);
+      const datei = await dl.path();
+      // Gerät „leer“: Fressmenge-Einrichtung und gemerkte Tage weg, History/Lager verändert
+      await T.evaluate(() => { fmCfg.gruppen = []; fmTage = {}; localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); localStorage.setItem("fmTage", "{}"); historyData = historyData.slice(5); saveHistoryStorage(); lagerData.agf.bestand = 1; saveLagerStorage(); });
+      await T.setInputFiles("#backupFile", datei);
+      await T.waitForFunction(() => fmCfg.gruppen.length === 2, null, { timeout: 15000 });
+      const neu = JSON.parse(await gesamtStand());
+      assert.deepStrictEqual(neu.historyData, mitZuschlag.historyData, "History");
+      assert.deepStrictEqual(neu.lagerData, mitZuschlag.lagerData, "Lager");
+      assert.deepStrictEqual(neu.lieferungen, mitZuschlag.lieferungen, "Lieferungen");
+      assert.deepStrictEqual(neu.fm.gruppen, mitZuschlag.fm.gruppen, "Futtergruppen");
+      assert.strictEqual(neu.fm.gruppen.find(x => x.karte === "kuehe").zuschlag, 10, "Rest-Zuschlag");
+      assert.deepStrictEqual(neu.tage, mitZuschlag.tage, "gemerkte Tage");
+      await T.reload(); await zugang.warteAufApp(T, "emulator", true);
+      const nachLaden = JSON.parse(await gesamtStand());
+      assert.deepStrictEqual(nachLaden.fm.gruppen, mitZuschlag.fm.gruppen, "Futtergruppen nach Neuladen");
+      assert.deepStrictEqual(nachLaden.historyData, mitZuschlag.historyData, "History nach Neuladen");
+      void vorher;
     });
 
     await pruefe("Der echte Betrieb ist nach dem ganzen Tag unverändert (nichts an die echten Daten geschickt)", async () => {
