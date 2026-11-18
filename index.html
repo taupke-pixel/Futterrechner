@@ -5377,7 +5377,6 @@ function fmMilchpreisSetzen(feld){
   fmSpeichern();
 }
 function fmOffeneFrage(){
-  const mp=fmMilchpreisFrage(); if(mp) return mp;
   const sw=fmStartwertFrage(); if(sw) return sw;
   const lf=fmLernFrage(); if(lf) return lf;
   const grenze=fmTagPlus(fmIso(new Date()),-3);
@@ -6808,7 +6807,7 @@ function fmBauen(){
 if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign({ rest:0, ziel:0, anz:0, collapsed:false }, saved.restbullen);
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -7269,8 +7268,48 @@ importBackup=function(event){
   r.readAsText(datei);
   return ok;
 };
+// --- Preise nicht vergessen (Wunsch Fritz 18.11.2026) ---
+// Lieferung (Variante A): Preisfeld im Formular „Lieferungen“, mit dem letzten Preis gefüllt. Anderer Preis → ab heute gilt er
+// (Futtermittel-Tabelle, Futterkosten, Milchgeld − Futter). Nur Ergänzer/Kraftfutter, nur wenn es schon Werte gibt (Berater-PDF).
+function fmLetzterPreis(schl){ const l=(fmCfg.komponenten||{})[schl]; return l && l.length ? l[l.length-1] : null; }
+function fmLieferPreisFeld(){
+  const m=document.getElementById("liefer-menge"), sel=document.getElementById("liefer-produkt");
+  if(!fmAn() || !m || !sel) return;
+  let z=document.getElementById("fm-liefer-preis-zeile");
+  if(!z){ z=document.createElement("div"); z.id="fm-liefer-preis-zeile"; z.style.cssText="margin:6px 0"; m.insertAdjacentElement("afterend", z); sel.addEventListener("change", fmLieferPreisFeld); }
+  const p=sel.value, alt=fmLetzterPreis(p);
+  if(p==="wasser"){ z.innerHTML=""; return; }
+  if(!alt || typeof alt.preis!=="number"){ z.innerHTML=`<span style="font-size:13px;color:#666">Preis: kommt mit dem Berater-PDF (Reiter „Fressmenge“)</span>`; return; }
+  z.innerHTML=`Preis <input id="fm-liefer-preis" type="text" inputmode="decimal" value="${fmZahl(alt.preis.toFixed(2))}" style="width:90px"> € je t <span style="font-size:12px;color:#666">zuletzt ${fmZahl(alt.preis.toFixed(2))} €${alt.ab ? " ("+fmKurz(alt.ab)+")" : ""}</span>`;
+}
+const _addLieferungVorPreis=addLieferung;
+addLieferung=function(){
+  const f=document.getElementById("fm-liefer-preis"), produkt=(document.getElementById("liefer-produkt")||{}).value;
+  const preis = f ? parseFloat(String(f.value).replace(",",".")) : NaN, vorher=lieferungen[0];
+  if(f && (isNaN(preis) || preis<0 || preis>5000)){ alert("Bitte den Preis in € je t eingeben (z. B. 412,50)."); return; }
+  _addLieferungVorPreis();
+  if(!f || lieferungen[0]===vorher) return;                 // nichts gespeichert (z. B. Menge fehlt)
+  lieferungen[0].preis=preis; saveLieferungen();
+  const alt=fmLetzterPreis(produkt);
+  if(alt && Math.abs(alt.preis-preis)>=0.005){
+    (fmCfg.komponenten[produkt]=fmCfg.komponenten[produkt]||[]).push({ ...alt, ab:fmIso(new Date()), preis, quelle:"Lieferung" });
+    fmSpeichern();
+  }
+  buildHistory();
+};
+// Milchpreis nach neuer MLP (D1): weiße Karte oben im Rechner, Feld mit dem letzten Preis, „passt“ = Preis bleibt
+function fmMilchpreisKarte(){
+  const calc=document.getElementById("calc");
+  if(!fmAn() || !calc || calc.querySelector(".fm-milchpreis-karte")) return;
+  const f=fmMilchpreisFrage(); if(!f) return;
+  calc.insertAdjacentHTML("afterbegin", `<div class="fm-milchpreis-karte" style="background:#fff;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);border-left:6px solid #2f80ed;padding:10px 12px;margin:8px 0">
+    <div style="font-size:13px;color:#666">🥛 Neue Milchkontrolle vom ${fmKurz(fmMlp.mlpDatum)}</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap"><b style="font-size:16px">Milchpreis</b>
+      <input id="fm-milchpreis-karte" type="text" inputmode="decimal" value="${typeof fmCfg.milchpreis==="number"?fmZahl(fmCfg.milchpreis):""}" style="width:80px;font-size:16px;padding:4px 6px" onchange="fmMilchpreisSetzen(this);buildCalc()"> <span>ct/kg</span>
+      <button class="save-btn" style="margin:0 0 0 auto;padding:6px 16px" onclick="fmMilchpreisSetzen(document.getElementById('fm-milchpreis-karte'));buildCalc()">passt</button></div></div>`);
+}
 const _buildHistoryVorWarn=buildHistory;
-buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()) fmWarnstufenOrdnen(); };
+buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()){ fmWarnstufenOrdnen(); fmLieferPreisFeld(); } };
 
 function zumBetrieb(){
   showTab("settings");

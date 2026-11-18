@@ -149,6 +149,27 @@ async function main() {
       assert.strictEqual(await T.evaluate(() => lieferungen[0].menge), 5000);
     });
 
+    await pruefe("Lieferung mit Preisfeld (Variante A): Feld mit letztem Preis gefüllt; neuer Preis gilt ab heute, gleicher Preis legt nichts neu an; Wasser ohne Preis", async () => {
+      await T.evaluate(() => { fmCfg.komponenten = { mlf: [{ ab: "2026-11-03", ts: 88, nel: 7.2, rp: 160, nxp: 160, rnb: 0, ca: 8, p: 5, preis: 412.5, quelle: "pdf" }] }; fmSpeichern(); showTab("history"); buildHistory(); });
+      await T.selectOption("#liefer-produkt", "mlf");
+      assert.strictEqual(await T.inputValue("#fm-liefer-preis"), "412,50");
+      assert((await T.textContent("#fm-liefer-preis-zeile")).includes("zuletzt 412,50 € (03.11.)"));
+      const vor = await lager();
+      await T.fill("#liefer-menge", "5000"); await T.fill("#fm-liefer-preis", "430");
+      await T.click('button[onclick="addLieferung()"]');
+      const r = await T.evaluate(() => ({ l: lieferungen[0], k: fmCfg.komponenten.mlf.map(x => [x.preis, x.quelle]) }));
+      assert.strictEqual(r.l.menge, 5000); assert.strictEqual(r.l.preis, 430);
+      assert.deepStrictEqual(r.k, [[412.5, "pdf"], [430, "Lieferung"]]);
+      nah((await lager()).mlf, vor.mlf + 5000, 1e-6, "MLF-Lager");
+      await T.selectOption("#liefer-produkt", "mlf");
+      assert.strictEqual(await T.inputValue("#fm-liefer-preis"), "430,00");
+      await T.fill("#liefer-menge", "1000"); await T.click('button[onclick="addLieferung()"]');
+      assert.strictEqual(await T.evaluate(() => fmCfg.komponenten.mlf.length), 2, "gleicher Preis: kein neuer Eintrag");
+      await T.selectOption("#liefer-produkt", "wasser");
+      assert.strictEqual(await T.locator("#fm-liefer-preis").count(), 0);
+      await T.evaluate(() => { [1000, 5000].forEach(m => deleteLieferung(lieferungen.find(l => l.menge === m && l.produkt === "mlf").id)); });
+    });
+
     await pruefe("Uhrzeit ändern (10:18) und Reste nachtragen (140) in der History", async () => {
       T.antwort = "10:18";
       await T.evaluate(() => fmZeitAendern(historyData.find(e => e.kategorie === "restbullen").id));

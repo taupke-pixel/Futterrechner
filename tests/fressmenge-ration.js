@@ -73,15 +73,22 @@ async function main() {
       assert((await page.textContent(".fm-drei")).includes("10,22 €/Tag"), await page.textContent(".fm-drei"));
     });
 
-    await pruefe("Neue MLP → einmal Frage nach dem Milchpreis (letzter vorausgefüllt), danach nicht mehr", async () => {
+    await pruefe("Neue MLP → Karte „Milchpreis“ oben im Rechner (letzter vorausgefüllt), kein Fenster im Reiter Fressmenge; „passt“/neuer Preis → Karte weg", async () => {
       await page.evaluate(() => { fmMlp.mlpDatum = "2026-11-18"; fmOffen = null; fmBauen(); });
-      assert((await page.textContent("#fm-frage")).includes("Neue MLP vom 18.11.2026"));
-      assert.strictEqual(await page.inputValue("#fm-milchpreis-frage"), "45");
-      await page.fill("#fm-milchpreis-frage", "47,5");
-      await page.click("#fm-frage >> text=Speichern");
+      assert.strictEqual(await page.locator("#fm-frage").count(), 0, "kein Fenster mehr");
+      await page.evaluate(() => { showTab("calc"); buildCalc(); });
+      assert((await page.textContent(".fm-milchpreis-karte")).includes("Neue Milchkontrolle vom 18.11."));
+      assert.strictEqual(await page.inputValue("#fm-milchpreis-karte"), "45");
+      await page.fill("#fm-milchpreis-karte", "47,5"); await page.dispatchEvent("#fm-milchpreis-karte", "change");
       assert.strictEqual(await page.evaluate(() => fmCfg.milchpreis), 47.5);
-      assert.strictEqual(await page.locator("#fm-frage").count(), 0);
-      await page.evaluate(() => { fmCfg.milchpreis = 45; fmSpeichern(); });
+      assert.strictEqual(await page.locator(".fm-milchpreis-karte").count(), 0);
+      // nächste MLP: „passt“ lässt den Preis stehen
+      await page.evaluate(() => { fmMlp.mlpDatum = "2026-12-16"; buildCalc(); });
+      await page.click(".fm-milchpreis-karte >> text=passt");
+      assert.strictEqual(await page.evaluate(() => fmCfg.milchpreis), 47.5);
+      assert.strictEqual(await page.evaluate(() => fmCfg.milchpreisMlp), "2026-12-16");
+      assert.strictEqual(await page.locator(".fm-milchpreis-karte").count(), 0);
+      await page.evaluate(() => { fmMlp.mlpDatum = "2026-11-18"; fmCfg.milchpreisMlp = "2026-11-18"; fmCfg.milchpreis = 45; fmSpeichern(); showTab("fressmenge"); });
     });
 
     await pruefe("Hinweise zur Ration: nur Auffälligkeiten (RNB negativ, Energie knapp für MLP-Leistung)", async () => {
