@@ -227,6 +227,29 @@ async function main() {
       assert(!roh.includes("BETRIEB123") && !roh.includes("Strohstall"));
     });
 
+    await pruefe("Fall Fritz 18.11.: Scheune Kälber (Links 0, Rechts 7 → Restmischung) und leerer Stall Kälber sind nicht mehr „offen“; Stall zeigt „alle in Buchten zugeordnet“", async () => {
+      const r = await T.evaluate(() => {
+        fmCfg.an = true;
+        fmStall.eintraege.sk = { id: "sk", name: "Scheune kälber", typ: "stall", stall: null, anzahl: 7, gruppen: [] };
+        fmStall.eintraege["sk:l"] = { id: "sk:l", name: "Links", typ: "bucht", stall: "sk", anzahl: 0, gruppen: [] };
+        fmStall.eintraege["sk:r"] = { id: "sk:r", name: "Rechts", typ: "bucht", stall: "sk", anzahl: 7, gruppen: [] };
+        fmStall.eintraege.kl = { id: "kl", name: "Kälber", typ: "stall", stall: null, anzahl: 0, gruppen: [] };
+        fmStall.eintraege.vs = { id: "vs", name: "Voll", typ: "stall", stall: null, anzahl: 5, gruppen: [] };
+        fmStall.eintraege["vs:a"] = { id: "vs:a", name: "A", typ: "bucht", stall: "vs", anzahl: 3, gruppen: [] };
+        const g = fmGruppeZuKarte("restbullen") || (fmCfg.gruppen.push({ id: "g_rb", karte: "restbullen", staelle: [] }), fmCfg.gruppen[fmCfg.gruppen.length - 1]);
+        g.staelle = [...(g.staelle || []), "sk:r", "vs:a"];
+        fmEinrichtungZu = false; showTab("fressmenge"); fmBauen();
+        const offen = fmOffenePlaetze().map(p => p.id);
+        const txt = id => document.querySelector('.fm-frei[data-platz="' + id + '"]').textContent.replace(/s+/g, " ");
+        return { offen, sk: txt("sk"), vs: txt("vs"), skOrange: document.querySelector('.fm-frei[data-platz="sk"]').style.color, klOrange: document.querySelector('.fm-frei[data-platz="kl"]').style.color };
+      });
+      assert(!r.offen.includes("sk") && !r.offen.includes("kl"), JSON.stringify(r.offen));
+      assert(r.offen.includes("vs"), "Stall mit 2 Tieren außerhalb der Bucht bleibt offen");
+      assert(r.sk.includes("Scheune kälber · 7 Tiere (alle in Buchten zugeordnet)"), r.sk);
+      assert(r.vs.includes("(davon 2 noch offen)"), r.vs);
+      assert.strictEqual(r.skOrange, ""); assert.strictEqual(r.klOrange, "");
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       const sf = T.meldungen.filter(m => m.startsWith("SEITENFEHLER")); if (sf.length) throw new Error(sf.slice(0, 3).join(" || "));
     });

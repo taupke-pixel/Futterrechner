@@ -5099,8 +5099,17 @@ function fmVersorgt(p){
   if(fmIstIglu(p) || p.id==="ohne") return true;
   if(fmGruppeVon(p.id) || nf.includes(p.id)) return true;
   if(p.stall && (fmGruppeVon(p.stall) || nf.includes(p.stall))) return true;
+  // Stall mit Buchten: versorgt, wenn keine Tiere mehr offen sind (leere Buchten brauchen nichts);
+  // ohne Buchten: ein leerer Stall braucht auch nichts (Wunsch Fritz 18.11.2026)
+  return fmOffeneTiere(p)<=0;
+}
+// Tiere eines Platzes, die noch keiner Futtergruppe gehören (Stall: alle Tiere minus die in zugeordneten Buchten)
+function fmOffeneTiere(p){
+  const nf=fmCfg.nichtFuettern||[];
+  if(fmGruppeVon(p.id) || nf.includes(p.id)) return 0;
   const buchten=fmPlaetze().filter(b=>b.stall===p.id);
-  return buchten.length>0 && buchten.every(fmVersorgt);
+  const zugeordnet=buchten.filter(b=>fmGruppeVon(b.id) || nf.includes(b.id)).reduce((s,b)=>s+(b.anzahl||0),0);
+  return Math.max(0, (p.anzahl||0)-zugeordnet);
 }
 function fmOffenePlaetze(){ return fmPlaetze().filter(p=>p.typ==="stall" && !fmVersorgt(p)); }
 // Reiter „Fressmenge“ färbt sich, solange ein Stall weder zugeordnet noch „nicht füttern“ ist (wie bei „Futter bestellen“)
@@ -5213,7 +5222,7 @@ function fmGruppenHtml(){
   const staelle=fmPlaetze().filter(p=>p.typ==="stall" && !fmIstIglu(p) && p.id!=="ohne" && !fmGruppeVon(p.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),"de"));
   const zeile=(p,einzug)=>`
     <div class="fm-frei" data-platz="${p.id}" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px ${einzug?18:0}px;border-bottom:1px solid #eee${!fmVersorgt(p)?";color:#b36b00;font-weight:bold":""}">
-      <span>${fmEsc(p.name)} · ${fmTiere(p.anzahl||0)}</span>
+      <span>${fmEsc(p.name)} · ${fmTiere(p.anzahl||0)}${!einzug && fmOffeneTiere(p)<(p.anzahl||0) ? ` <span style="font-weight:normal;color:#666;font-size:13px">(${fmOffeneTiere(p) ? "davon "+fmOffeneTiere(p)+" noch offen" : "alle in Buchten zugeordnet"})</span>` : ""}</span>
       <label style="font-size:13px;font-weight:normal;color:#333"><input type="checkbox" ${nf.includes(p.id)?"checked":""} onchange="fmNichtFuettern('${p.id}',this.checked)"> nicht füttern</label>
     </div>`;
   const iglus=fmPlatz("iglus");
