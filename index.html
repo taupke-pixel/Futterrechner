@@ -6807,7 +6807,8 @@ function fmBauen(){
 if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign({ rest:0, ziel:0, anz:0, collapsed:false }, saved.restbullen);
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte();
+  if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -7307,6 +7308,72 @@ function fmMilchpreisKarte(){
     <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap"><b style="font-size:16px">Milchpreis</b>
       <input id="fm-milchpreis-karte" type="text" inputmode="decimal" value="${typeof fmCfg.milchpreis==="number"?fmZahl(fmCfg.milchpreis):""}" style="width:80px;font-size:16px;padding:4px 6px" onchange="fmMilchpreisSetzen(this);buildCalc()"> <span>ct/kg</span>
       <button class="save-btn" style="margin:0 0 0 auto;padding:6px 16px" onclick="fmMilchpreisSetzen(document.getElementById('fm-milchpreis-karte'));buildCalc()">passt</button></div></div>`);
+}
+// --- Regen/Hitze im Rechner (Wunsch Fritz 19.11.2026) ---
+// Erst wenn Regen bzw. Hitze GELERNT ist (Erweitert › Was die App gelernt hat). Dann gelber Kasten in jeder Karte, deren Mischung
+// draußen vorgelagerte Futter enthält (Regen) bzw. in jeder Karte (Hitze, Vorhersage für morgen). „übernehmen“ ändert die Mengen
+// NUR FÜR HEUTE (in der History steht dann die wirklich gefütterte Menge); am nächsten Tag kommt die normale Ration automatisch zurück.
+function fmWetterVorschlag(){
+  if(!fmAn() || fmNurAnsehen()) return null;
+  const heute=fmIso(new Date()), w=(fmTage[heute]||{}).wetter, wm=(fmTage[fmTagPlus(heute,1)]||{}).wetter, aus=fmCfg.heuteAus||{};
+  if(w && fmCfg.regen!==false && w.regen>=fmWert("regenMm") && aus.regen!==heute){
+    const e=fmLernErgebnis("regen");
+    if(e.gelernt && e.wirkung<0){
+      const namen=String(fmCfg.draussen||"Grassilage, Maissilage").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
+      return { art:"regen", prozent:Math.min(25, -e.wirkung*100), passt:it=>it.kg>0 && namen.some(n=>String(futterName(it)).toLowerCase().includes(n)),
+        text:`💧 Regen heute ${fmZahl(w.regen.toFixed(1))} mm` };
+    }
+  }
+  if(wm && fmCfg.hitze!==false && fmThi(wm.tmax, wm.rh)>=68 && aus.hitze!==heute){
+    const e=fmLernErgebnis("hitze");
+    if(e.gelernt && e.wirkung<0) return { art:"hitze", prozent:-Math.min(fmWert("hitzeMax"), -e.wirkung*100), passt:it=>it.kg>0, text:`🔥 Morgen ${Math.round(wm.tmax)} °C` };
+  }
+  return null;
+}
+// Gestern übernommene Regen-/Hitze-Mengen zurück auf die normale Ration (nur wenn sie seitdem niemand geändert hat)
+function fmTagesZuschlagAufraeumen(){
+  const t=fmCfg.tagesZuschlag; if(!t || t.datum===fmIso(new Date())) return;
+  Object.entries(t.karten||{}).forEach(([k,l])=>{ const items=data[k] && data[k].items; if(items) l.forEach(x=>{ const it=items[x.i]; if(it && Math.abs(it.kg-x.nachher)<1e-9) it.kg=x.vorher; }); });
+  delete fmCfg.tagesZuschlag;
+  try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
+  save();
+}
+function fmWetterKarten(){ return ALLE_KATEGORIEN.filter(k=>k!=="restbullen" && data[k] && kategorieAn(k) && !(kuehe2Zusammen() && k==="kuehe2")); }
+function fmWetterUebernehmen(k){
+  const v=fmWetterVorschlag(); if(!v || !data[k]) return;
+  const heute=fmIso(new Date());
+  if(!fmCfg.tagesZuschlag || fmCfg.tagesZuschlag.datum!==heute) fmCfg.tagesZuschlag={ datum:heute, art:v.art, karten:{} };
+  if(fmCfg.tagesZuschlag.karten[k]) return;
+  const l=[];
+  data[k].items.forEach((it,i)=>{ if(v.passt(it)){ const vorher=it.kg; it.kg=Math.round(vorher*(1+v.prozent/100)*100)/100; l.push({ i, vorher, nachher:it.kg }); } });
+  fmCfg.tagesZuschlag.karten[k]=l;
+  fmSpeichern(); save(); buildCalc();
+}
+function fmWetterZurueck(k){
+  const t=fmCfg.tagesZuschlag, l=t && t.karten[k]; if(!l) return;
+  l.forEach(x=>{ const it=data[k].items[x.i]; if(it && Math.abs(it.kg-x.nachher)<1e-9) it.kg=x.vorher; });
+  delete t.karten[k];
+  fmSpeichern(); save(); buildCalc();
+}
+function fmWetterKaesten(){
+  if(!fmAn() || fmNurAnsehen()) return;
+  const v=fmWetterVorschlag(), t=fmCfg.tagesZuschlag, heute=fmIso(new Date());
+  fmWetterKarten().forEach(k=>{
+    const kopf=document.querySelector(`#calc .cat-header.cat-${k}`), karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
+    if(!body || body.querySelector(".fm-wetter-vorschlag")) return;
+    let html="";
+    if(t && t.datum===heute && t.karten[k]){
+      html=`${t.art==="regen"?"💧 Regen":"🔥 Hitze"}-Anpassung für heute übernommen – morgen wieder normale Ration <button onclick="fmWetterZurueck('${k}')" style="font-size:13px">rückgängig</button>`;
+    } else if(v){
+      const anz=num(data[k].anz)||0, teile=data[k].items.filter(v.passt).map(it=>`${fmEsc(futterName(it))} ${v.prozent>0?"+":"−"}${fmZahl(Math.abs(v.prozent).toFixed(0))} % (${v.prozent>0?"+":"−"}${Math.round(Math.abs(it.kg*anz*v.prozent/100))} kg)`);
+      if(!teile.length) return;
+      html=`${v.text} · ${v.art==="hitze" ? "Mischung "+(v.prozent>0?"+":"−")+fmZahl(Math.abs(v.prozent).toFixed(0))+" %" : teile.join(", ")} <button onclick="fmWetterUebernehmen('${k}')" style="font-size:13px">übernehmen</button>`;
+    }
+    if(!html) return;
+    const d=document.createElement("div"); d.className="fm-wetter-vorschlag fm-vorschlag"; d.style.cssText=FM_VORSCHLAG_STIL; d.innerHTML=html;
+    const tab=body.querySelector("table");
+    if(tab) tab.insertAdjacentElement("beforebegin", d); else body.prepend(d);
+  });
 }
 const _buildHistoryVorWarn=buildHistory;
 buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()){ fmWarnstufenOrdnen(); fmLieferPreisFeld(); } };

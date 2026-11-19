@@ -270,6 +270,36 @@ async function main() {
       assert.deepStrictEqual(r, { a: undefined, b: { kuehe: 120 }, z: 4, einmal: true });
     });
 
+    await pruefe("Regen gelernt + heute 8,5 mm → gelber Kasten in der Karte (nur Gras-/Maissilage +6 %); übernehmen gilt nur heute, am nächsten Tag normale Ration; Lernphase → kein Kasten", async () => {
+      const r = await page.evaluate(() => {
+        showTab("calc"); globalCfg.kuehe2Modus = "normal";
+        const heute = fmIso(new Date());
+        fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 8.5 }; fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag;
+        data.kuehe.items = [{ name: "Grassilage", kg: 20 }, { name: "Maissilage", kg: 15 }, { name: "Heu", kg: 1 }, { type: "mlf", kg: 3 }]; data.kuehe.anz = 40;
+        const echt = fmLernErgebnis;
+        fmLernErgebnis = art => ({ art, gelernt: false, betroffen: 4, normal: 12, noetig: 15 });
+        buildCalc(); const lernphase = document.querySelectorAll("#calc .fm-wetter-vorschlag").length;
+        fmLernErgebnis = art => art === "regen" ? { art, gelernt: true, wirkung: -0.06, betroffen: 15, normal: 15, noetig: 15 } : { art, gelernt: false };
+        buildCalc();
+        const k = [...document.querySelectorAll("#calc .fm-wetter-vorschlag")].find(e => e.closest(".category").querySelector(".cat-kuehe"));
+        const text = k.textContent;
+        k.querySelector("button").click();
+        const nach = data.kuehe.items.slice(0, 4).map(i => i.kg);
+        const text2 = [...document.querySelectorAll("#calc .fm-wetter-vorschlag")].find(e => e.closest(".category").querySelector(".cat-kuehe")).textContent;
+        // nächster Tag: normale Ration zurück
+        fmCfg.tagesZuschlag.datum = "2000-01-01"; buildCalc();
+        const morgen = data.kuehe.items.slice(0, 4).map(i => i.kg);
+        fmLernErgebnis = echt;
+        return { lernphase, text, nach, text2, morgen, rest: fmCfg.tagesZuschlag };
+      });
+      assert.strictEqual(r.lernphase, 0, "Lernphase: kein Kasten");
+      assert(r.text.includes("Regen heute 8,5 mm") && r.text.includes("Grassilage +6 % (+48 kg)") && r.text.includes("Maissilage +6 % (+36 kg)") && !r.text.includes("Heu"), r.text);
+      assert.deepStrictEqual(r.nach, [21.2, 15.9, 1, 3], JSON.stringify(r));
+      assert(r.text2.includes("für heute übernommen") && r.text2.includes("rückgängig"), r.text2);
+      assert.deepStrictEqual(r.morgen, [20, 15, 1, 3]);
+      assert.strictEqual(r.rest, undefined);
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       assert.deepStrictEqual(meldungen.filter(m => m.startsWith("SEITENFEHLER")), []);
     });
