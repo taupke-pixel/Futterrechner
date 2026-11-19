@@ -258,6 +258,22 @@ async function main() {
       void vorher;
     });
 
+    await pruefe("Testkopie: ALLES aus dem Gerätespeicher der Testversion liegt im Testbereich test/{Betrieb}/kopie und lässt sich 1:1 zusammensetzen; Fehlerprotokoll dabei", async () => {
+      await T.evaluate(() => { fmFehlerMerken("Probe-Fehler"); localStorage.setItem("history", JSON.stringify(historyData)); localStorage.setItem("grossTest", "x".repeat(1600000) + "ENDE"); });
+      await T.evaluate(() => fmKopieHochladen());
+      const geraet = await T.evaluate(() => { const roh = Storage.prototype.key, e = {}; for (let i = 0; i < localStorage.length; i++) { const n = roh.call(localStorage, i); if (n && n.indexOf("fmtest:") === 0) e[n.slice(7)] = localStorage.getItem(n.slice(7)); } return e; });
+      const r = await fetch(`${FS_URL}/test/${bid}/kopie?pageSize=300`, { headers: { Authorization: "Bearer owner" } });
+      const docs = (await r.json()).documents || [];
+      const teile = {};
+      docs.forEach(d => { const f = d.fields; if (!f.teil) return; const k = f.schluessel.stringValue; (teile[k] = teile[k] || [])[+(f.teil.integerValue || 0)] = f.wert.stringValue || ""; });
+      const kopie = Object.fromEntries(Object.entries(teile).map(([k, l]) => [k, l.join("")]));
+      const fehlt = Object.keys(geraet).filter(k => kopie[k] !== geraet[k]);
+      assert.deepStrictEqual(fehlt, [], "fehlt oder anders: " + fehlt.join(", "));
+      for (const k of ["futter", "gCfg", "history", "lager", "lieferungen", "fressmenge", "fmTage", "fmFehler"]) assert(k in kopie, k + " fehlt in der Kopie");
+      assert(JSON.parse(kopie.fmFehler).some(x => x.text === "Probe-Fehler"));
+      assert(docs.some(d => d.name.endsWith("/_stand")), "_stand fehlt");
+    });
+
     await pruefe("Der echte Betrieb ist nach dem ganzen Tag unverändert (nichts an die echten Daten geschickt)", async () => {
       await T.waitForTimeout(1500);
       assert.strictEqual(await betriebRoh(bid), betriebVorher, "Betrieb wurde verändert!");

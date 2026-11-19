@@ -7500,6 +7500,58 @@ function fmRestNassZurueck(){
   data.restbullen.rest=n.vorher.rest; data.restbullen.rest2=n.vorher.rest2; delete fmCfg.restNass;
   fmSpeichern(); save(); buildCalc();
 }
+// --- Testkopie im Testbereich (Wunsch Fritz 19.11.2026): damit Claude während der Testphase alles mitprüfen kann ---
+// Nur Testversion mit eigener Kopie. Nach jeder Änderung (10 s Ruhe, beim Wegschalten sofort) wird ALLES aus dem
+// Gerätespeicher der Testversion nach test/{betriebId}/kopie/… geschrieben – je Eintrag ein Dokument (große in Teilen),
+// nur geänderte Einträge. Dazu ein Fehlerprotokoll (fmFehler). Lesen/schreiben dürfen dort nur Geräte des Betriebs (Regel).
+let fmKopieTimer=null, fmKopieLaeuft=false; const fmKopieStand={};
+function fmKopieAktiv(){ return istTestversion && testEigeneDaten() && !!betriebId && !!(auth && auth.currentUser); }
+function fmKopieAnstossen(sofort){
+  if(!istTestversion || !testEigeneDaten()) return;
+  clearTimeout(fmKopieTimer);
+  fmKopieTimer=setTimeout(fmKopieHochladen, sofort ? 0 : 10000);
+}
+async function fmKopieHochladen(){
+  if(!fmKopieAktiv()) return;
+  if(fmKopieLaeuft){ fmKopieAnstossen(); return; }
+  fmKopieLaeuft=true;
+  try{
+    const roh=Storage.prototype.key, eintraege={};
+    for(let i=0;i<localStorage.length;i++){ const n=roh.call(localStorage,i); if(n && n.indexOf("fmtest:")===0){ const k=n.slice(7); eintraege[k]=localStorage.getItem(k); } }
+    const ref=db.collection("test").doc(betriebId).collection("kopie"), TEIL=700000, jetzt=firebase.firestore.FieldValue.serverTimestamp();
+    for(const [k,v] of Object.entries(eintraege)){
+      if(fmKopieStand[k]===v) continue;
+      const wert=v===null ? "" : String(v), teile=[];
+      for(let i=0;i<wert.length;i+=TEIL) teile.push(wert.slice(i,i+TEIL));
+      if(!teile.length) teile.push("");
+      const id="k_"+encodeURIComponent(k).replace(/\./g,"%2E");
+      for(let t=0;t<teile.length;t++) await ref.doc(id+(t ? "__"+t : "")).set({ schluessel:k, teil:t, teile:teile.length, wert:teile[t], zeit:jetzt });
+      fmKopieStand[k]=v;
+    }
+    await ref.doc("_stand").set({ zeit:jetzt, geraet:geraeteUid||null, schluessel:Object.keys(eintraege), geraetZeit:new Date().toISOString(), browser:String(navigator.userAgent).slice(0,160) });
+  }catch(e){ fmFehlerMerken("Testkopie: "+(e && (e.code||e.message))); }
+  finally{ fmKopieLaeuft=false; }
+}
+// Fehlerprotokoll der Testversion (letzte 50): Seitenfehler, nicht abgefangene Fehler, console.error
+function fmFehlerMerken(text){
+  if(!istTestversion) return;
+  try{
+    const l=JSON.parse(localStorage.getItem("fmFehler")||"[]");
+    l.push({ zeit:new Date().toISOString(), text:String(text).slice(0,500), reiter:(document.querySelector(".tab.active")||{}).textContent||"" });
+    localStorage.setItem("fmFehler", JSON.stringify(l.slice(-50)));
+  }catch(e){}
+}
+if(istTestversion){
+  window.addEventListener("error", e=>fmFehlerMerken("Fehler: "+(e.message||"")+" @"+(e.filename||"").split("/").pop()+":"+(e.lineno||"")));
+  window.addEventListener("unhandledrejection", e=>fmFehlerMerken("Unbehandelt: "+(e.reason && (e.reason.code||e.reason.message) || e.reason)));
+  const _consoleError=console.error;
+  console.error=function(){ try{ fmFehlerMerken("console.error: "+[...arguments].map(x=>x && x.message ? x.message : String(x)).join(" ")); }catch(e){} return _consoleError.apply(console, arguments); };
+  // jede Speicherung im Gerät stößt das Hochladen an
+  const _setItemKopie=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(n, v){ const r=_setItemKopie.call(this, n, v); if(this===localStorage && n!=="fmFehler") fmKopieAnstossen(); return r; };
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") fmKopieAnstossen(true); });
+  setTimeout(()=>fmKopieAnstossen(true), 5000);
+}
 const _buildHistoryVorWarn=buildHistory;
 buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()){ fmWarnstufenOrdnen(); fmLieferPreisFeld(); } };
 
