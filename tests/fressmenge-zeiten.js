@@ -310,6 +310,27 @@ async function main() {
       assert(r.lern.startsWith("Regen: gelernt – bei 5 mm Regen etwa +4 %"), r.lern);
     });
 
+    await pruefe("Nasse Reste: gestern +20 % nass geladen → Restmischung „Rest 300 → 254 kg“, übernehmen setzt den echten Rest, rückgängig; Regen-Kasten auch in der Restmischung", async () => {
+      const r = await page.evaluate(() => {
+        showTab("calc"); globalCfg.restQuellen = ["kuehe"]; globalCfg.kuehe2Modus = "normal";
+        const heute = fmIso(new Date()), gestern = fmTagPlus(heute, -1);
+        data.kuehe.items = [{ name: "Grassilage", kg: 20 }, { name: "Maissilage", kg: 15 }, { name: "Heu", kg: 1 }, { type: "mlf", kg: 3 }];
+        fmCfg.regenLernen = { proben: [{ d: gestern, p: 20, mm: 9 }] }; delete fmCfg.restNass; delete fmCfg.tagesZuschlag;
+        data.restbullen.rest = 300; fmTag(heute).wetter = { tmax: 9, rh: 80, regen: 0 };
+        buildCalc();
+        const kasten = () => document.querySelector("#calc .fm-rest-nass");
+        const text = kasten().textContent;
+        kasten().querySelector("button").click();
+        const rest = data.restbullen.rest, text2 = kasten().textContent;
+        kasten().querySelector("button").click();
+        return { text, rest, text2, zurueck: data.restbullen.rest };
+      });
+      assert(r.text.includes("Reste nass (Regen gestern)") && r.text.includes("300 → 254 kg"), r.text);
+      assert.strictEqual(r.rest, 254);
+      assert(r.text2.includes("ohne Regenwasser übernommen"), r.text2);
+      assert.strictEqual(r.zurueck, 300);
+    });
+
     await pruefe("Keine Seitenfehler", async () => {
       assert.deepStrictEqual(meldungen.filter(m => m.startsWith("SEITENFEHLER")), []);
     });

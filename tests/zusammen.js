@@ -196,6 +196,20 @@ async function main() {
       assert.strictEqual(await page.locator(".zusammen-wie-kuehe").count(), 0, "graue Zeilen bei eigener Mischung");
     });
 
+    await pruefe("Gemeinsame Karte: „kilo“ + Gesamt antippen → Zielgewicht, beide Tierzahlen im gleichen Verhältnis", async () => {
+      const alt = await page.evaluate(() => [data.kuehe.anz, data.kuehe2.anz, globalCfg.kuehe2Modus]);
+      await page.evaluate(() => { kuehe2ModusSetzen("zusammen"); data.kuehe.anz = 40; data.kuehe2.anz = 60; kiloMode.zusammen = false; showTab("calc"); buildCalc(); });
+      const vor = await page.evaluate(() => parseFloat(document.getElementById("total-zusammen").dataset.val));
+      await page.click(".zusammen-karte .kilo-btn");
+      await page.click("#total-zusammen");
+      await page.fill("#edit-zusammen", String(Math.round(vor * 1.1)));
+      await page.press("#edit-zusammen", "Enter");
+      const r = await page.evaluate(() => ({ a: data.kuehe.anz, b: data.kuehe2.anz, g: parseFloat(document.getElementById("total-zusammen").dataset.val) }));
+      assert(Math.abs(r.a / r.b - 40 / 60) < 0.01, JSON.stringify(r));
+      assert(Math.abs(r.g - vor * 1.1) < vor * 0.01, JSON.stringify(r) + " vor " + vor);
+      await page.evaluate(a => { kiloMode.zusammen = false; data.kuehe.anz = a[0]; data.kuehe2.anz = a[1]; kuehe2ModusSetzen(a[2]); save(); }, alt);
+    });
+
     await pruefe("„Rest der Kühe-Mischung + Zugabe“ unverändert (eigene Karte mit Restmischung)", async () => {
       await page.evaluate(() => { kuehe2ModusSetzen("aufwerten"); showTab("calc"); buildCalc(); });
       assert.strictEqual(await page.locator(".zusammen-karte").count(), 0);

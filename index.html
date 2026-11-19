@@ -4897,13 +4897,33 @@ function zusammenKarteHtml(){
       <table>${zug}</table>` : ""}
       <div class="zusammen-rest" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade2}</div>
       <div class="total">
-        <span>Gesamt: ${gesamt.toFixed(1)} kg</span>
+        <span id="total-zusammen" data-val="${gesamt.toFixed(1)}" onclick="zusammenGesamtBearbeiten()">Gesamt: ${gesamt.toFixed(1)} kg</span>
+        <button class="kilo-btn ${kiloMode.zusammen?'active':''}" onclick="toggleKilo('zusammen')">kilo</button>
         <button class="save-btn ${gespeichert?'saved':''}" ${gespeichert?'disabled':''} onclick="zusammenSpeichern()">${gespeichert?'Gespeichert':'Speichern'}</button>
       </div>
     </div>
   </div>`;
 }
 // Im Rechner: statt der beiden Karten die gemeinsame Karte (an der Stelle der Kühe-Karte)
+// Zielgewicht auch in der gemeinsamen Karte (wie „kilo“ in den anderen Karten): beide Tierzahlen im gleichen Verhältnis
+function zusammenGesamtBearbeiten(){
+  if(!kiloMode.zusammen) return;
+  const s=document.getElementById("total-zusammen"); if(!s || s.querySelector("input")) return;
+  const v=parseFloat(s.dataset.val)||0;
+  s.innerHTML=`<input class="inline-total-input" id="edit-zusammen" type="number" value="${v}" step="0.1"> kg`;
+  const input=document.getElementById("edit-zusammen");
+  input.focus();
+  input.onblur=()=>zusammenZielgewicht(num(input.value));
+  input.onkeydown=e=>{ if(e.key==="Enter") input.blur(); };
+}
+function zusammenZielgewicht(kg){
+  const alt=zusammenPlan(), gesamt=alt.grund.reduce((s,g)=>s+g.kg,0)+alt.zugabe.reduce((s,z)=>s+z.kg,0);
+  if(!(kg>0) || !(gesamt>0)){ buildCalc(); return; }
+  const f=kg/gesamt;
+  data.kuehe.anz=Math.round(num(data.kuehe.anz)*f*10)/10;
+  data.kuehe2.anz=Math.round(num(data.kuehe2.anz)*f*10)/10;
+  save(); buildCalc();
+}
 function zusammenKarteEinbauen(){
   if(!kuehe2Zusammen()) return;
   const karte=h=>{ const e=document.querySelector(`#calc .cat-header.cat-${h}`); return e && e.closest(".category"); };
@@ -6809,7 +6829,7 @@ if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -6876,7 +6896,7 @@ zusammenSpeichern=function(){ const v=historyData[0]; _zusammenSpeichernVorRegen
 const _saveRestBullenVorZeit=saveRestBullenHistory;
 saveRestBullenHistory=function(){
   const v=historyData[0], reste=fmResteJetzt();
-  _saveRestBullenVorZeit(); fmZeitstempel(v);
+  _saveRestBullenVorZeit(); fmZeitstempel(v); fmRegenEchteMengen(v);
   const e=historyData[0];
   if(fmAn() && e && e!==v && e.kategorie==="restbullen"){ e.reste=reste; saveHistoryStorage(); fmTag(fmIso(new Date())).rest=reste; fmTageMerken(); buildHistory(); }
 };
@@ -7372,7 +7392,7 @@ function fmRegenEchteMengen(vorher){
   let geaendert=false;
   for(const e of historyData){
     if(e===vorher) break;
-    const k = (kuehe2Zusammen() && e.kategorie==="kuehe2") ? "kuehe" : e.kategorie, l=t.karten[k];
+    const k = (kuehe2Zusammen() && e.kategorie==="kuehe2") ? "kuehe" : e.kategorie==="restbullen" ? restZiel() : e.kategorie, l=t.karten[k];
     if(!l || !l.length || !data[k]) continue;
     const namen=l.map(x=>futterName(data[k].items[x.i]||{}));
     (e.futter||[]).forEach(f=>{ if(namen.includes(f.name)){ f.kg=f.kg/(1+t.prozent/100); geaendert=true; } });
@@ -7421,22 +7441,64 @@ function fmWetterZurueck(k){
 function fmWetterKaesten(){
   if(!fmAn() || fmNurAnsehen()) return;
   const v=fmWetterVorschlag(), t=fmCfg.tagesZuschlag, heute=fmIso(new Date());
-  fmWetterKarten().forEach(k=>{
-    const kopf=document.querySelector(`#calc .cat-header.cat-${k}`), karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
+  [...fmWetterKarten(), ...(kategorieAn("restbullen") && data[restZiel()] ? ["restbullen"] : [])].forEach(karteK=>{
+    const k = karteK==="restbullen" ? restZiel() : karteK;
+    const kopf=document.querySelector(`#calc .cat-header.cat-${karteK}`), karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
     if(!body || body.querySelector(".fm-wetter-vorschlag")) return;
     let html="";
     if(t && t.datum===heute && t.karten[k]){
       html=`${t.art==="regen"?"💧 Regen":"🔥 Hitze"}-Anpassung für heute übernommen – morgen wieder normale Ration <button onclick="fmWetterZurueck('${k}')" style="font-size:13px">rückgängig</button>`;
     } else if(v){
-      const anz=num(data[k].anz)||0, teile=data[k].items.filter(v.passt).map(it=>`${fmEsc(futterName(it))} ${v.prozent>0?"+":"−"}${fmZahl(Math.abs(v.prozent).toFixed(0))} % (${v.prozent>0?"+":"−"}${Math.round(Math.abs(it.kg*anz*v.prozent/100))} kg)`);
+      const anz=num(karteK==="restbullen" ? data.restbullen.anz : data[k].anz)||0, teile=data[k].items.filter(v.passt).map(it=>`${fmEsc(futterName(it))} ${v.prozent>0?"+":"−"}${fmZahl(Math.abs(v.prozent).toFixed(0))} % (${v.prozent>0?"+":"−"}${Math.round(Math.abs(it.kg*anz*v.prozent/100))} kg)`);
       if(!teile.length) return;
       html=`${v.text} · ${v.art==="hitze" ? "Mischung "+(v.prozent>0?"+":"−")+fmZahl(Math.abs(v.prozent).toFixed(0))+" %" : teile.join(", ")} <button onclick="fmWetterUebernehmen('${k}')" style="font-size:13px">übernehmen</button>`;
     }
     if(!html) return;
     const d=document.createElement("div"); d.className="fm-wetter-vorschlag fm-vorschlag"; d.style.cssText=FM_VORSCHLAG_STIL; d.innerHTML=html;
-    const tab=body.querySelector("table");
+    const tab=karteK==="restbullen" ? null : body.querySelector("table");
     if(tab) tab.insertAdjacentElement("beforebegin", d); else body.prepend(d);
   });
+}
+// --- Nasse Reste in der Restmischung (Wunsch Fritz 19.11.2026) ---
+// War die Kuh-Mischung gestern nass geladen (Regen), wiegt auch der Rest mehr: Waage 300 kg, echt z. B. 250 kg.
+// Wasser im Rest = Anteil Gras-/Maissilage der Kuh-Mischung × Regen-Zuschlag von gestern (eingetragen oder gelernt).
+function fmRegenProzentAm(tag){
+  const p=fmRegenProben().find(x=>x.d===tag); if(p) return p.p;
+  const t=fmCfg.tagesZuschlag; if(t && t.datum===tag && t.art==="regen") return t.prozent;
+  const mm=((fmTage[tag]||{}).wetter||{}).regen||0;
+  return fmRegenGelernt() && mm>=fmWert("regenMm") ? fmRegenProzent(mm) : 0;
+}
+function fmRestNassFaktor(k){
+  const p=fmRegenProzentAm(fmTagPlus(fmIso(new Date()),-1)); if(!(p>0) || !data[k]) return 1;
+  const alle=data[k].items.filter(it=>it.kg>0), summe=alle.reduce((s,it)=>s+it.kg,0), nass=alle.filter(fmDraussen).reduce((s,it)=>s+it.kg,0);
+  return summe>0 ? 1+nass/summe*p/100 : 1;
+}
+function fmRestNassKasten(){
+  if(!fmAn() || fmNurAnsehen() || !kategorieAn("restbullen")) return;
+  const kopf=document.querySelector("#calc .cat-header.cat-restbullen"), body=kopf && kopf.closest(".category") && kopf.closest(".category").querySelector(".cat-body");
+  if(!body || body.querySelector(".fm-rest-nass")) return;
+  const heute=fmIso(new Date()), q=restQuellen(), r=data.restbullen, n=fmCfg.restNass;
+  let html="";
+  if(n && n.datum===heute){
+    html=`💧 Reste ohne Regenwasser übernommen <button onclick="fmRestNassZurueck()" style="font-size:13px">rückgängig</button>`;
+  } else {
+    const teile=q.map((k,i)=>{ const w=i===0 ? num(r.rest) : num(r.rest2), f=fmRestNassFaktor(k); return { k, w, echt:w/f, f }; }).filter(x=>x.w>0 && x.f>1.005);
+    if(!teile.length) return;
+    html=`💧 Reste nass (Regen gestern): ${teile.map(x=>`${fmEsc(fmRestQuelleName(x.k))} ${Math.round(x.w)} → <b>${Math.round(x.echt)} kg</b>`).join(", ")} <button onclick="fmRestNassUebernehmen()" style="font-size:13px">übernehmen</button>`;
+  }
+  const d=document.createElement("div"); d.className="fm-rest-nass fm-vorschlag"; d.style.cssText=FM_VORSCHLAG_STIL; d.innerHTML=html;
+  body.prepend(d);
+}
+function fmRestNassUebernehmen(){
+  const q=restQuellen(), r=data.restbullen;
+  fmCfg.restNass={ datum:fmIso(new Date()), vorher:{ rest:r.rest, rest2:r.rest2 } };
+  q.forEach((k,i)=>{ const f=fmRestNassFaktor(k); if(i===0) r.rest=Math.round(num(r.rest)/f); else r.rest2=Math.round(num(r.rest2)/f); });
+  fmSpeichern(); save(); buildCalc();
+}
+function fmRestNassZurueck(){
+  const n=fmCfg.restNass; if(!n) return;
+  data.restbullen.rest=n.vorher.rest; data.restbullen.rest2=n.vorher.rest2; delete fmCfg.restNass;
+  fmSpeichern(); save(); buildCalc();
 }
 const _buildHistoryVorWarn=buildHistory;
 buildHistory=function(){ _buildHistoryVorWarn(); if(fmAn()){ fmWarnstufenOrdnen(); fmLieferPreisFeld(); } };
