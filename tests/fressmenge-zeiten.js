@@ -89,10 +89,11 @@ async function main() {
         fmStall = { geholt: new Date().toISOString(), eintraege: { d: { id: "d", name: "Diele", typ: "stall", stall: null, anzahl: 10, gruppen: [{ art: "faerse", anzahl: 10, tageBisKalbung: "190–199" }] } } };
         fmCfg.gruppen = [{ id: "go", name: "Diele", karte: "faersen", art: "ohne", staelle: ["d"], auswerten: true }];
         fmCfg.lern = { go: { faktor: 2, seit: "2026-01-01" } };
-        const start = new Date(); start.setHours(6, 0, 0, 0); start.setDate(start.getDate() - 3);
+        const start = new Date(Date.now() - 61 * 3600000);   // letzte Fütterung vor 1 Std. (nie in der Zukunft)
         historyData = historyData.filter(e => e.kategorie !== "faersen");
         for (let i = 0; i < 4; i++) { const d = new Date(start.getTime() + i * 20 * 3600000);
           historyData.unshift({ id: "f" + i, datum: d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }), kategorie: "faersen", tiere: 10, gesamt: 200, futter: [], zeit: d.toISOString() }); }
+        saveHistoryStorage(); fmSpeichern();
         return { f: fmFutterzeiten(fmCfg.gruppen[0]), html: fmZeitenHtml(fmCfg.gruppen[0]) };
       });
       assert(Math.abs(r.f.mittel - 20) < 1e-9 && r.f.n === 3, JSON.stringify(r.f));
