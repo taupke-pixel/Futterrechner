@@ -4940,6 +4940,7 @@ const FM_WERTE=[
   ["regenPhaseTage","Regenphase: mehr als … nasse Tage",3,1,4,"von 5"],
   ["lernTage","Lernen Regen/Hitze: mindestens",15,5,90,"betroffene + normale Tage"],
   ["lernZeitraum","Lernen Regen/Hitze: Zeitraum",90,14,365,"Tage"],
+  ["regenLernTage","Regen lernen: Tage mit Waage-Eintrag",5,2,30,"Tage"],
   ["hitzeMax","Hitzeabzug höchstens",10,0,30,"%"],
   ["wochenendTm","Wochenend-Effekt: Meldung ab",0.5,0.1,10,"kg TM"],
   ["lernfrageTage","Lernfragen ohne Reste: höchstens alle",14,1,90,"Tage je Gruppe"],
@@ -4993,7 +4994,7 @@ const FM_ERW_GRUPPEN=[
   ["Reste und Mischen", ["restZuschlag","restZielVon","restZielBis","restSchritt","leerTage"]],
   ["Waage und Futterwagen", ["waageToleranz","wagenRest"]],
   ["Bewertung und Ausreißer", ["bewertungTage","bewertungMin","ausreisserQuote","ausreisserTm","wochenendTm","fruehTm","fruehTage"]],
-  ["Wetter (Regen, Hitze, Standort)", ["regenMm","regenPhaseTage","hitzeMax","lernTage","lernZeitraum","wetterLat","wetterLon"]],
+  ["Wetter (Regen, Hitze, Standort)", ["regenMm","regenPhaseTage","regenLernTage","hitzeMax","lernTage","lernZeitraum","wetterLat","wetterLon"]],
   ["Ration und Milch", ["neuRechnenTage","ansatzAbw","ohneAnstiegTage","mlpAbstand","erhaltungNel","erhaltungKg","fett1","eiweiss1","fett2","eiweiss2"]],
   ["MLP-Check", ["mlpFrischAnteil","harnstoffMin","harnstoffMax"]],
   ["Gruppen ohne Reste (Lernfragen)", ["lernfrageTage","lernfrageNeinTage","lernfrageMinAbw"]]
@@ -6717,7 +6718,7 @@ function fmMontag(g, reihe){
 function fmHeuteAus(art){ (fmCfg.heuteAus=fmCfg.heuteAus||{})[art]=fmIso(new Date()); fmSpeichern(); }
 function fmKorrekturZeilen(){
   const heute=fmIso(new Date()), w=(fmTage[heute]||{}).wetter, wm=(fmTage[fmTagPlus(heute,1)]||{}).wetter, aus=fmCfg.heuteAus||{}, z=[];
-  if(w && fmCfg.regen!==false && w.regen>=fmWert("regenMm") && aus.regen!==heute){
+  if(false){
     const e=fmLernErgebnis("regen");
     if(e.gelernt && e.wirkung<0){
       const plus=Math.min(25, -e.wirkung*100), kompo=String(fmCfg.draussen||"Grassilage, Maissilage");
@@ -6736,7 +6737,7 @@ function fmKorrekturZeilen(){
 }
 function fmLernstandHtml(){
   return `<div style="margin-top:10px;font-size:13px"><b>Lernen Regen/Hitze</b>
-    <div class="fm-lernstand">${fmLernText(fmLernErgebnis("regen"))}</div><div class="fm-lernstand">${fmLernText(fmLernErgebnis("hitze"))}</div>
+    <div class="fm-lernstand">${fmRegenLernText()}</div><div class="fm-lernstand">${fmLernText(fmLernErgebnis("hitze"))}</div>
     <div style="margin-top:6px">Draußen vorgelagert (für den Regenzuschlag):
       <input value="${fmEsc(fmCfg.draussen||"Grassilage, Maissilage")}" style="width:180px" onchange="fmCfg.draussen=this.value.trim();fmSpeichern()"></div></div>`;
 }
@@ -6808,7 +6809,7 @@ if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -6869,7 +6870,9 @@ function fmZeitstempel(vorher){
   buildHistory();
 }
 const _saveHistoryVorZeit=saveHistory;
-saveHistory=function(cat){ const v=historyData[0]; _saveHistoryVorZeit(cat); fmZeitstempel(v); };
+saveHistory=function(cat){ const v=historyData[0]; _saveHistoryVorZeit(cat); fmZeitstempel(v); fmRegenEchteMengen(v); };
+const _zusammenSpeichernVorRegen=zusammenSpeichern;
+zusammenSpeichern=function(){ const v=historyData[0]; _zusammenSpeichernVorRegen(); fmRegenEchteMengen(v); };
 const _saveRestBullenVorZeit=saveRestBullenHistory;
 saveRestBullenHistory=function(){
   const v=historyData[0], reste=fmResteJetzt();
@@ -7313,16 +7316,76 @@ function fmMilchpreisKarte(){
 // Erst wenn Regen bzw. Hitze GELERNT ist (Erweitert › Was die App gelernt hat). Dann gelber Kasten in jeder Karte, deren Mischung
 // draußen vorgelagerte Futter enthält (Regen) bzw. in jeder Karte (Hitze, Vorhersage für morgen). „übernehmen“ ändert die Mengen
 // NUR FÜR HEUTE (in der History steht dann die wirklich gefütterte Menge); am nächsten Tag kommt die normale Ration automatisch zurück.
+// Regen lernen über die Waage (Wunsch Fritz 19.11.2026): in der Lernphase trägt Fritz ein, was er bei Regen wirklich geladen hat.
+// Gemerkt wird je Tag nur „% mehr“ und die Regenmenge (fmCfg.regenLernen.proben, höchstens 30) – keine Wassermengen, nichts in der History.
+function fmDraussen(it){ const namen=String(fmCfg.draussen||"Grassilage, Maissilage").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean); return it && it.kg>0 && namen.some(n=>String(futterName(it)).toLowerCase().includes(n)); }
+function fmRegenProben(){ return ((fmCfg.regenLernen||{}).proben)||[]; }
+function fmRegenGelernt(){ return fmRegenProben().length>=fmWert("regenLernTage"); }
+function fmRegenProzent(mm){
+  const p=fmRegenProben(), mit=p.filter(x=>x.mm>=0.5), summeMm=mit.reduce((s,x)=>s+x.mm,0);
+  const pro = summeMm>0 ? mit.reduce((s,x)=>s+x.p,0)/summeMm*(mm||0) : (p.length ? p.reduce((s,x)=>s+x.p,0)/p.length : 0);
+  return Math.max(0, Math.min(40, Math.round(pro)));
+}
+function fmRegenLernText(){
+  const n=fmRegenProben().length, soll=fmWert("regenLernTage");
+  if(n<soll) return `Regen: lernt noch (${n} von ${soll} Regentagen mit Waage-Eintrag)`;
+  return `Regen: gelernt – bei 5 mm Regen etwa +${fmRegenProzent(5)} % Gras-/Maissilage laden`;
+}
+// geplante Menge einer Zeile in der Karte (gemeinsame Karte: Grundmischung beider Gruppen)
+function fmGeplantKg(k, i){
+  const it=data[k] && data[k].items[i]; if(!it) return 0;
+  if(k==="kuehe" && kuehe2Zusammen()){ const g=zusammenPlan().grund.find(x=>x.it===it); return g ? g.kg : 0; }
+  return it.kg*(num(data[k].anz)||0);
+}
+function fmRegenWaage(k, i, feld){
+  const kg=parseFloat(String(feld.value).replace(",",".")), plan=fmGeplantKg(k, i), heute=fmIso(new Date());
+  if(feld.value.trim()==="" ) return;
+  if(isNaN(kg) || !(plan>0) || kg<plan*0.5 || kg>plan*2){ alert("Bitte die Menge eintragen, die die Waage für dieses Futter gezeigt hat (in kg)."); return; }
+  const l=(fmCfg.regenLernen=fmCfg.regenLernen||{ proben:[] }), heuteWerte=(l.heute && l.heute.d===heute) ? l.heute.werte : {};
+  heuteWerte[k+"|"+i]=(kg/plan-1)*100;
+  l.heute={ d:heute, werte:heuteWerte };
+  const p=Object.values(heuteWerte).reduce((s,x)=>s+x,0)/Object.values(heuteWerte).length, mm=((fmTage[heute]||{}).wetter||{}).regen||0;
+  l.proben=l.proben.filter(x=>x.d!==heute); l.proben.push({ d:heute, p:Math.round(p*10)/10, mm:Math.round(mm*10)/10 });
+  if(l.proben.length>30) l.proben=l.proben.slice(-30);
+  try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
+  feld.style.background="#e8f5e9";
+}
+function fmRegenWaageZeilen(){
+  if(!fmAn() || fmNurAnsehen() || fmRegenGelernt()) return;
+  const heute=fmIso(new Date()), werte=((fmCfg.regenLernen||{}).heute||{}).d===heute ? fmCfg.regenLernen.heute.werte : {};
+  fmWetterKarten().forEach(k=>{
+    const kopf=document.querySelector(`#calc .cat-header.cat-${k}`), karte=kopf && kopf.closest(".category"), body=karte && karte.querySelector(".cat-body");
+    if(!body || body.querySelector(".fm-regen-waage")) return;
+    const zeilen=data[k].items.map((it,i)=>({ it, i })).filter(x=>fmDraussen(x.it));
+    if(!zeilen.length) return;
+    const offen=fmZu["regen:"+k]===false;
+    const d=document.createElement("div"); d.className="fm-regen-waage"; d.style.cssText="font-size:14px;background:#e3f0fb;border-radius:8px;padding:8px 10px;margin:6px 0";
+    d.innerHTML=`<div style="cursor:pointer" onclick="fmZu['regen:${k}']=${offen};try{localStorage.setItem('fmZu',JSON.stringify(fmZu))}catch(e){};buildCalc()">${offen?"▼":"▶"} 💧 Wegen Regen mehr geladen? <span style="font-size:12px;color:#666">(${fmRegenProben().length} von ${fmWert("regenLernTage")})</span></div>`
+      + (offen ? `<div style="margin-top:6px">Waage zeigt: ${zeilen.map(({it,i})=>{ const w=werte[k+"|"+i], plan=fmGeplantKg(k,i); return `${fmEsc(futterName(it))} <input type="text" inputmode="decimal" class="fm-regen-kg" data-i="${i}" placeholder="${Math.round(plan)}" value="${typeof w==="number"?Math.round(plan*(1+w/100)):""}" style="width:70px${typeof w==="number"?";background:#e8f5e9":""}" onchange="fmRegenWaage('${k}',${i},this)"> kg`; }).join(" · ")}</div>` : "");
+    const tot=body.querySelector(".total");
+    if(tot) tot.insertAdjacentElement("beforebegin", d); else body.appendChild(d);
+  });
+}
+// Nach „übernehmen“ bei Regen zeigt der Rechner die nassen Mengen (bis dahin laden); in der History steht das echte Futter
+function fmRegenEchteMengen(vorher){
+  const t=fmCfg.tagesZuschlag; if(!fmAn() || !t || t.art!=="regen" || t.datum!==fmIso(new Date()) || !(t.prozent>0)) return;
+  let geaendert=false;
+  for(const e of historyData){
+    if(e===vorher) break;
+    const k = (kuehe2Zusammen() && e.kategorie==="kuehe2") ? "kuehe" : e.kategorie, l=t.karten[k];
+    if(!l || !l.length || !data[k]) continue;
+    const namen=l.map(x=>futterName(data[k].items[x.i]||{}));
+    (e.futter||[]).forEach(f=>{ if(namen.includes(f.name)){ f.kg=f.kg/(1+t.prozent/100); geaendert=true; } });
+    e.gesamt=(e.futter||[]).reduce((s,f)=>s+(f.kg||0),0);
+  }
+  if(geaendert){ saveHistoryStorage(); buildHistory(); }
+}
 function fmWetterVorschlag(){
   if(!fmAn() || fmNurAnsehen()) return null;
   const heute=fmIso(new Date()), w=(fmTage[heute]||{}).wetter, wm=(fmTage[fmTagPlus(heute,1)]||{}).wetter, aus=fmCfg.heuteAus||{};
   if(w && fmCfg.regen!==false && w.regen>=fmWert("regenMm") && aus.regen!==heute){
-    const e=fmLernErgebnis("regen");
-    if(e.gelernt && e.wirkung<0){
-      const namen=String(fmCfg.draussen||"Grassilage, Maissilage").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
-      return { art:"regen", prozent:Math.min(25, -e.wirkung*100), passt:it=>it.kg>0 && namen.some(n=>String(futterName(it)).toLowerCase().includes(n)),
-        text:`💧 Regen heute ${fmZahl(w.regen.toFixed(1))} mm` };
-    }
+    const pr=fmRegenGelernt() ? fmRegenProzent(w.regen) : 0;
+    if(pr>=1) return { art:"regen", prozent:pr, passt:fmDraussen, text:`💧 Regen heute ${fmZahl(w.regen.toFixed(1))} mm` };
   }
   if(wm && fmCfg.hitze!==false && fmThi(wm.tmax, wm.rh)>=68 && aus.hitze!==heute){
     const e=fmLernErgebnis("hitze");
@@ -7342,7 +7405,7 @@ function fmWetterKarten(){ return ALLE_KATEGORIEN.filter(k=>k!=="restbullen" && 
 function fmWetterUebernehmen(k){
   const v=fmWetterVorschlag(); if(!v || !data[k]) return;
   const heute=fmIso(new Date());
-  if(!fmCfg.tagesZuschlag || fmCfg.tagesZuschlag.datum!==heute) fmCfg.tagesZuschlag={ datum:heute, art:v.art, karten:{} };
+  if(!fmCfg.tagesZuschlag || fmCfg.tagesZuschlag.datum!==heute) fmCfg.tagesZuschlag={ datum:heute, art:v.art, prozent:v.prozent, karten:{} };
   if(fmCfg.tagesZuschlag.karten[k]) return;
   const l=[];
   data[k].items.forEach((it,i)=>{ if(v.passt(it)){ const vorher=it.kg; it.kg=Math.round(vorher*(1+v.prozent/100)*100)/100; l.push({ i, vorher, nachher:it.kg }); } });

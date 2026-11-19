@@ -67,17 +67,18 @@ async function main() {
       // je Tier 45 statt 48 kg, Mittel 46 kg: 45/46 − 48/46 = −6,5 %
       assert(e[0].wirkung < -0.05 && e[0].wirkung > -0.08, JSON.stringify(e[0]));
       await page.evaluate(() => { fmEinrichtungZu = false; fmErweitertZu = false; fmBauen(); });
-      assert((await page.textContent("#fm-erweitert")).includes("Regen: gelernt – an Regentagen −"));
+      assert((await page.textContent("#fm-erweitert")).includes("Regen: lernt noch (0 von 5 Regentagen mit Waage-Eintrag)"), "Regen lernt jetzt über die Waage");
+      assert((await page.textContent("#fm-erweitert")).includes("Hitze: gelernt – an Hitzetagen −"));
     });
 
-    await pruefe("Heute Regen → Zeile „Regen 7,5 mm · Grassilage, Maissilage +7 %“, morgen Hitze → „Mischung −7 %“; [heute aus] blendet aus", async () => {
+    await pruefe("Reiter Fressmenge: keine Regen-Zeile mehr (Regen steht im Rechner), morgen Hitze → „Mischung −7 %“; [heute aus] blendet aus", async () => {
       await page.evaluate(() => { fmEinrichtungZu = true; fmBauen(); });
-      const r = await page.textContent('.fm-korrektur[data-art="regen"]');
-      assert(r.includes("Regen 7,5 mm · Grassilage, Maissilage +7 %"), r);
+      assert.strictEqual(await page.locator('.fm-korrektur[data-art="regen"]').count(), 0);
       const h = await page.textContent('.fm-korrektur[data-art="hitze"]');
       assert(h.includes("Hitze 30 °C · Mischung −7 %") && h.includes("Testversion: nur Anzeige"), h);
-      await page.click('.fm-korrektur[data-art="regen"] >> text=heute aus');
-      assert.strictEqual(await page.locator('.fm-korrektur[data-art="regen"]').count(), 0);
+      await page.click('.fm-korrektur[data-art="hitze"] >> text=heute aus');
+      assert.strictEqual(await page.locator('.fm-korrektur[data-art="hitze"]').count(), 0);
+      await page.evaluate(() => { delete fmCfg.heuteAus; fmBauen(); });
       await page.evaluate(() => { fmCfg.hitze = false; fmBauen(); });
       assert.strictEqual(await page.locator('.fm-korrektur[data-art="hitze"]').count(), 0, "Unterschalter Hitze aus, Zeile noch da");
       await page.evaluate(() => { fmCfg.hitze = true; delete fmCfg.heuteAus; fmSpeichern(); });

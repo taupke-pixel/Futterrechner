@@ -270,34 +270,44 @@ async function main() {
       assert.deepStrictEqual(r, { a: undefined, b: { kuehe: 120 }, z: 4, einmal: true });
     });
 
-    await pruefe("Regen gelernt + heute 8,5 mm → gelber Kasten in der Karte (nur Gras-/Maissilage +6 %); übernehmen gilt nur heute, am nächsten Tag normale Ration; Lernphase → kein Kasten", async () => {
+    await pruefe("Regen über die Waage: Lernphase → zugeklappte Zeile „Wegen Regen mehr geladen?“, Waage eintragen merkt nur % und mm; gelernt → Zeile weg, gelber Kasten +6 %; übernehmen zeigt die nassen Mengen, History bekommt das echte Futter; nächster Tag normal", async () => {
       const r = await page.evaluate(() => {
         showTab("calc"); globalCfg.kuehe2Modus = "normal";
         const heute = fmIso(new Date());
         fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 8.5 }; fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag;
         data.kuehe.items = [{ name: "Grassilage", kg: 20 }, { name: "Maissilage", kg: 15 }, { name: "Heu", kg: 1 }, { type: "mlf", kg: 3 }]; data.kuehe.anz = 40;
-        const echt = fmLernErgebnis;
-        fmLernErgebnis = art => ({ art, gelernt: false, betroffen: 4, normal: 12, noetig: 15 });
-        buildCalc(); const lernphase = document.querySelectorAll("#calc .fm-wetter-vorschlag").length;
-        fmLernErgebnis = art => art === "regen" ? { art, gelernt: true, wirkung: -0.06, betroffen: 15, normal: 15, noetig: 15 } : { art, gelernt: false };
+        fmCfg.regenLernen = { proben: [{ d: "2026-11-01", p: 6, mm: 8.5 }, { d: "2026-11-02", p: 6, mm: 8.5 }] };
+        const karte = () => [...document.querySelectorAll("#calc .category")].find(c => c.querySelector(".cat-kuehe") && c.offsetParent !== null);
+        delete fmZu["regen:kuehe"]; buildCalc();
+        const zu = karte().querySelector(".fm-regen-waage").textContent, kastenLern = karte().querySelectorAll(".fm-wetter-vorschlag").length;
+        fmZu["regen:kuehe"] = false; buildCalc();
+        const felder = [...karte().querySelectorAll(".fm-regen-kg")].map(f => f.placeholder);
+        const f = karte().querySelector(".fm-regen-kg"); f.value = "848"; fmRegenWaage("kuehe", +f.dataset.i, f);
+        const probe = fmCfg.regenLernen.proben.find(x => x.d === heute);
+        // gelernt (5 Tage)
+        fmCfg.regenLernen.proben.push({ d: "2026-11-03", p: 6, mm: 8.5 }, { d: "2026-11-04", p: 6, mm: 8.5 });
         buildCalc();
-        const k = [...document.querySelectorAll("#calc .fm-wetter-vorschlag")].find(e => e.closest(".category").querySelector(".cat-kuehe"));
-        const text = k.textContent;
+        const waageWeg = karte().querySelectorAll(".fm-regen-waage").length;
+        const k = karte().querySelector(".fm-wetter-vorschlag"), text = k.textContent;
         k.querySelector("button").click();
         const nach = data.kuehe.items.slice(0, 4).map(i => i.kg);
-        const text2 = [...document.querySelectorAll("#calc .fm-wetter-vorschlag")].find(e => e.closest(".category").querySelector(".cat-kuehe")).textContent;
-        // nächster Tag: normale Ration zurück
+        historyData = historyData.filter(e => !(e.kategorie === "kuehe" && e.datum === getToday()));
+        saveHistory("kuehe");
+        const e = historyData[0];
         fmCfg.tagesZuschlag.datum = "2000-01-01"; buildCalc();
         const morgen = data.kuehe.items.slice(0, 4).map(i => i.kg);
-        fmLernErgebnis = echt;
-        return { lernphase, text, nach, text2, morgen, rest: fmCfg.tagesZuschlag };
+        return { zu, kastenLern, felder, probe, waageWeg, text, nach, hist: e.futter.map(x => [x.name, Math.round(x.kg * 10) / 10]), gesamt: Math.round(e.gesamt * 10) / 10, morgen, lern: fmRegenLernText() };
       });
-      assert.strictEqual(r.lernphase, 0, "Lernphase: kein Kasten");
+      assert(r.zu.includes("Wegen Regen mehr geladen?") && r.zu.includes("(2 von 5)"), r.zu);
+      assert.strictEqual(r.kastenLern, 0, "Lernphase: kein Kasten");
+      assert.deepStrictEqual(r.felder, ["800", "600"]);
+      assert.deepStrictEqual(r.probe && { p: r.probe.p, mm: r.probe.mm }, { p: 6, mm: 8.5 });
+      assert.strictEqual(r.waageWeg, 0, "nach dem Lernen keine Waage-Zeile mehr");
       assert(r.text.includes("Regen heute 8,5 mm") && r.text.includes("Grassilage +6 % (+48 kg)") && r.text.includes("Maissilage +6 % (+36 kg)") && !r.text.includes("Heu"), r.text);
-      assert.deepStrictEqual(r.nach, [21.2, 15.9, 1, 3], JSON.stringify(r));
-      assert(r.text2.includes("für heute übernommen") && r.text2.includes("rückgängig"), r.text2);
+      assert.deepStrictEqual(r.nach, [21.2, 15.9, 1, 3]);
+      assert.deepStrictEqual(r.hist.slice(0, 3), [["Grassilage", 800], ["Maissilage", 600], ["Heu", 40]], JSON.stringify(r.hist));
       assert.deepStrictEqual(r.morgen, [20, 15, 1, 3]);
-      assert.strictEqual(r.rest, undefined);
+      assert(r.lern.startsWith("Regen: gelernt – bei 5 mm Regen etwa +4 %"), r.lern);
     });
 
     await pruefe("Keine Seitenfehler", async () => {
