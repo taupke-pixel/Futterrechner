@@ -7339,17 +7339,34 @@ function fmMilchpreisKarte(){
 // Regen lernen über die Waage (Wunsch Fritz 19.11.2026): in der Lernphase trägt Fritz ein, was er bei Regen wirklich geladen hat.
 // Gemerkt wird je Tag nur „% mehr“ und die Regenmenge (fmCfg.regenLernen.proben, höchstens 30) – keine Wassermengen, nichts in der History.
 function fmDraussen(it){ const namen=String(fmCfg.draussen||"Grassilage, Maissilage").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean); return it && it.kg>0 && namen.some(n=>String(futterName(it)).toLowerCase().includes(n)); }
-function fmRegenProben(){ return ((fmCfg.regenLernen||{}).proben)||[]; }
+// Je Silage getrennt (Wunsch Fritz 19.11.2026): je Probe zusätzlich f = { Futtername: % mehr } – gleicher Name in mehreren Karten = ein Wert
+function fmSilageName(it){ return String(futterName(it||{})).trim(); }
+function fmRegenProben(){
+  const l=fmCfg.regenLernen, p=(l||{}).proben||[];
+  // ältere Probe von heute ohne Werte je Silage: aus den heutigen Waage-Einträgen ergänzen
+  if(l && l.heute && l.heute.werte) p.forEach(x=>{ if(!x.f && x.d===l.heute.d){ const f=fmRegenJeSilage(l.heute.werte); if(Object.keys(f).length) x.f=f; } });
+  return p;
+}
+function fmRegenJeSilage(werte){
+  const summe={}, n={};
+  Object.entries(werte||{}).forEach(([ki,w])=>{ const [k,i]=ki.split("|"), it=data[k] && data[k].items[+i]; if(!it || typeof w!=="number") return; const name=fmSilageName(it); summe[name]=(summe[name]||0)+w; n[name]=(n[name]||0)+1; });
+  const f={}; Object.keys(summe).forEach(name=>f[name]=Math.round(summe[name]/n[name]*10)/10);
+  return f;
+}
 function fmRegenGelernt(){ return fmRegenProben().length>=fmWert("regenLernTage"); }
-function fmRegenProzent(mm){
-  const p=fmRegenProben(), mit=p.filter(x=>x.mm>=0.5), summeMm=mit.reduce((s,x)=>s+x.mm,0);
+// name angegeben und dafür Proben vorhanden → nur dieses Futter, sonst Durchschnitt aller
+function fmRegenProzent(mm, name){
+  let p=fmRegenProben().map(x=>({ mm:x.mm, p:x.p }));
+  if(name){ const eigen=fmRegenProben().filter(x=>x.f && typeof x.f[name]==="number").map(x=>({ mm:x.mm, p:x.f[name] })); if(eigen.length) p=eigen; }
+  const mit=p.filter(x=>x.mm>=0.5), summeMm=mit.reduce((s,x)=>s+x.mm,0);
   const pro = summeMm>0 ? mit.reduce((s,x)=>s+x.p,0)/summeMm*(mm||0) : (p.length ? p.reduce((s,x)=>s+x.p,0)/p.length : 0);
   return Math.max(0, Math.min(40, Math.round(pro)));
 }
+function fmRegenNamen(){ const n=[]; fmRegenProben().forEach(x=>Object.keys(x.f||{}).forEach(name=>{ if(!n.includes(name)) n.push(name); })); return n; }
 function fmRegenLernText(){
-  const n=fmRegenProben().length, soll=fmWert("regenLernTage");
+  const n=fmRegenProben().length, soll=fmWert("regenLernTage"), namen=fmRegenNamen();
   if(n<soll) return `Regen: lernt noch (${n} von ${soll} Regentagen mit Waage-Eintrag)`;
-  return `Regen: gelernt – bei 5 mm Regen etwa +${fmRegenProzent(5)} % Gras-/Maissilage laden`;
+  return `Regen: gelernt – bei 5 mm Regen etwa ${namen.length ? namen.map(name=>`${fmEsc(name)} +${fmRegenProzent(5,name)} %`).join(", ") : "+"+fmRegenProzent(5)+" % Gras-/Maissilage"} laden`;
 }
 // geplante Menge einer Zeile in der Karte (gemeinsame Karte: Grundmischung beider Gruppen)
 function fmGeplantKg(k, i){
@@ -7365,7 +7382,7 @@ function fmRegenWaage(k, i, feld){
   heuteWerte[k+"|"+i]=(kg/plan-1)*100;
   l.heute={ d:heute, werte:heuteWerte };
   const p=Object.values(heuteWerte).reduce((s,x)=>s+x,0)/Object.values(heuteWerte).length, mm=((fmTage[heute]||{}).wetter||{}).regen||0;
-  l.proben=l.proben.filter(x=>x.d!==heute); l.proben.push({ d:heute, p:Math.round(p*10)/10, mm:Math.round(mm*10)/10 });
+  l.proben=l.proben.filter(x=>x.d!==heute); l.proben.push({ d:heute, p:Math.round(p*10)/10, mm:Math.round(mm*10)/10, f:fmRegenJeSilage(heuteWerte) });
   if(l.proben.length>30) l.proben=l.proben.slice(-30);
   try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
   feld.style.background="#e8f5e9";
@@ -7394,8 +7411,8 @@ function fmRegenEchteMengen(vorher){
     if(e===vorher) break;
     const k = (kuehe2Zusammen() && e.kategorie==="kuehe2") ? "kuehe" : e.kategorie==="restbullen" ? restZiel() : e.kategorie, l=t.karten[k];
     if(!l || !l.length || !data[k]) continue;
-    const namen=l.map(x=>futterName(data[k].items[x.i]||{}));
-    (e.futter||[]).forEach(f=>{ if(namen.includes(f.name)){ f.kg=f.kg/(1+t.prozent/100); geaendert=true; } });
+    const faktor={}; l.forEach(x=>{ if(x.vorher>0) faktor[futterName(data[k].items[x.i]||{})]=x.nachher/x.vorher; });
+    (e.futter||[]).forEach(f=>{ if(faktor[f.name]>0){ f.kg=f.kg/faktor[f.name]; geaendert=true; } });
     e.gesamt=(e.futter||[]).reduce((s,f)=>s+(f.kg||0),0);
   }
   if(geaendert){ saveHistoryStorage(); buildHistory(); }
@@ -7405,7 +7422,8 @@ function fmWetterVorschlag(){
   const heute=fmIso(new Date()), w=(fmTage[heute]||{}).wetter, wm=(fmTage[fmTagPlus(heute,1)]||{}).wetter, aus=fmCfg.heuteAus||{};
   if(w && fmCfg.regen!==false && w.regen>=fmWert("regenMm") && aus.regen!==heute){
     const pr=fmRegenGelernt() ? fmRegenProzent(w.regen) : 0;
-    if(pr>=1) return { art:"regen", prozent:pr, passt:fmDraussen, text:`💧 Regen heute ${fmZahl(w.regen.toFixed(1))} mm` };
+    const je=it=>fmRegenProzent(w.regen, fmSilageName(it));
+    if(pr>=1) return { art:"regen", prozent:pr, prozentFuer:je, passt:it=>fmDraussen(it) && je(it)>=1, text:`💧 Regen heute ${fmZahl(w.regen.toFixed(1))} mm` };
   }
   if(wm && fmCfg.hitze!==false && fmThi(wm.tmax, wm.rh)>=68 && aus.hitze!==heute){
     const e=fmLernErgebnis("hitze");
@@ -7428,7 +7446,7 @@ function fmWetterUebernehmen(k){
   if(!fmCfg.tagesZuschlag || fmCfg.tagesZuschlag.datum!==heute) fmCfg.tagesZuschlag={ datum:heute, art:v.art, prozent:v.prozent, karten:{} };
   if(fmCfg.tagesZuschlag.karten[k]) return;
   const l=[];
-  data[k].items.forEach((it,i)=>{ if(v.passt(it)){ const vorher=it.kg; it.kg=Math.round(vorher*(1+v.prozent/100)*100)/100; l.push({ i, vorher, nachher:it.kg }); } });
+  data[k].items.forEach((it,i)=>{ if(v.passt(it)){ const vorher=it.kg, pr=v.prozentFuer ? v.prozentFuer(it) : v.prozent; it.kg=Math.round(vorher*(1+pr/100)*100)/100; l.push({ i, vorher, nachher:it.kg, p:pr }); } });
   fmCfg.tagesZuschlag.karten[k]=l;
   fmSpeichern(); save(); buildCalc();
 }
@@ -7449,7 +7467,7 @@ function fmWetterKaesten(){
     if(t && t.datum===heute && t.karten[k]){
       html=`${t.art==="regen"?"💧 Regen":"🔥 Hitze"}-Anpassung für heute übernommen – morgen wieder normale Ration <button onclick="fmWetterZurueck('${k}')" style="font-size:13px">rückgängig</button>`;
     } else if(v){
-      const anz=num(karteK==="restbullen" ? data.restbullen.anz : data[k].anz)||0, teile=data[k].items.filter(v.passt).map(it=>`${fmEsc(futterName(it))} ${v.prozent>0?"+":"−"}${fmZahl(Math.abs(v.prozent).toFixed(0))} % (${v.prozent>0?"+":"−"}${Math.round(Math.abs(it.kg*anz*v.prozent/100))} kg)`);
+      const anz=num(karteK==="restbullen" ? data.restbullen.anz : data[k].anz)||0, teile=data[k].items.filter(v.passt).map(it=>{ const pr=v.prozentFuer ? v.prozentFuer(it) : v.prozent; return `${fmEsc(futterName(it))} ${pr>0?"+":"−"}${fmZahl(Math.abs(pr).toFixed(0))} % (${pr>0?"+":"−"}${Math.round(Math.abs(it.kg*anz*pr/100))} kg)`; });
       if(!teile.length) return;
       html=`${v.text} · ${v.art==="hitze" ? "Mischung "+(v.prozent>0?"+":"−")+fmZahl(Math.abs(v.prozent).toFixed(0))+" %" : teile.join(", ")} <button onclick="fmWetterUebernehmen('${k}')" style="font-size:13px">übernehmen</button>`;
     }
@@ -7462,16 +7480,20 @@ function fmWetterKaesten(){
 // --- Nasse Reste in der Restmischung (Wunsch Fritz 19.11.2026) ---
 // War die Kuh-Mischung gestern nass geladen (Regen), wiegt auch der Rest mehr: Waage 300 kg, echt z. B. 250 kg.
 // Wasser im Rest = Anteil Gras-/Maissilage der Kuh-Mischung × Regen-Zuschlag von gestern (eingetragen oder gelernt).
-function fmRegenProzentAm(tag){
-  const p=fmRegenProben().find(x=>x.d===tag); if(p) return p.p;
-  const t=fmCfg.tagesZuschlag; if(t && t.datum===tag && t.art==="regen") return t.prozent;
+function fmRegenProzentAm(tag, name){
+  const p=fmRegenProben().find(x=>x.d===tag); if(p) return (name && p.f && typeof p.f[name]==="number") ? p.f[name] : p.p;
+  const t=fmCfg.tagesZuschlag; if(t && t.datum===tag && t.art==="regen"){
+    for(const [kk,l] of Object.entries(t.karten||{})) for(const x of l) if(typeof x.p==="number" && data[kk] && fmSilageName(data[kk].items[x.i])===name) return x.p;
+    return t.prozent;
+  }
   const mm=((fmTage[tag]||{}).wetter||{}).regen||0;
-  return fmRegenGelernt() && mm>=fmWert("regenMm") ? fmRegenProzent(mm) : 0;
+  return fmRegenGelernt() && mm>=fmWert("regenMm") ? fmRegenProzent(mm, name) : 0;
 }
 function fmRestNassFaktor(k){
-  const p=fmRegenProzentAm(fmTagPlus(fmIso(new Date()),-1)); if(!(p>0) || !data[k]) return 1;
-  const alle=data[k].items.filter(it=>it.kg>0), summe=alle.reduce((s,it)=>s+it.kg,0), nass=alle.filter(fmDraussen).reduce((s,it)=>s+it.kg,0);
-  return summe>0 ? 1+nass/summe*p/100 : 1;
+  if(!data[k]) return 1;
+  const gestern=fmTagPlus(fmIso(new Date()),-1), alle=data[k].items.filter(it=>it.kg>0), summe=alle.reduce((s,it)=>s+it.kg,0);
+  const wasser=alle.filter(fmDraussen).reduce((s,it)=>s+it.kg*Math.max(0, fmRegenProzentAm(gestern, fmSilageName(it))||0)/100,0);
+  return summe>0 ? 1+wasser/summe : 1;
 }
 function fmRestNassKasten(){
   if(!fmAn() || fmNurAnsehen() || !kategorieAn("restbullen")) return;

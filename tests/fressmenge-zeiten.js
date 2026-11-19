@@ -308,7 +308,43 @@ async function main() {
       assert.deepStrictEqual(r.nach, [21.2, 15.9, 1, 3]);
       assert.deepStrictEqual(r.hist.slice(0, 3), [["Grassilage", 800], ["Maissilage", 600], ["Heu", 40]], JSON.stringify(r.hist));
       assert.deepStrictEqual(r.morgen, [20, 15, 1, 3]);
-      assert(r.lern.startsWith("Regen: gelernt – bei 5 mm Regen etwa +4 %"), r.lern);
+      assert(r.lern.startsWith("Regen: gelernt – bei 5 mm Regen etwa Grassilage +4 %"), r.lern);
+    });
+
+    await pruefe("Regen je Silage getrennt: Waage Schnitt 5 +4,5 %, Schnitt 2 +8,8 %, Mais +16 % → jede Silage bekommt ihren eigenen Zuschlag (Kasten, übernehmen, History echt, nasse Reste)", async () => {
+      const r = await page.evaluate(() => {
+        showTab("calc"); globalCfg.kuehe2Modus = "normal"; globalCfg.restQuellen = ["kuehe"];
+        const heute = fmIso(new Date()), gestern = fmTagPlus(heute, -1);
+        fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 10 }; fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag; delete fmCfg.restNass;
+        fmCfg.draussen = "Schnitt,Mais";
+        data.kuehe.items = [{ name: "Schnitt 5", kg: 12 }, { name: "Schnitt 2", kg: 6 }, { name: "Mais", kg: 28 }, { name: "Heu", kg: 1 }]; data.kuehe.anz = 40;
+        // alte Probe von heute ohne Werte je Silage + heutige Waage-Werte → wird ergänzt
+        fmCfg.regenLernen = { proben: [{ d: heute, p: 9.9, mm: 10 }], heute: { d: heute, werte: { "kuehe|0": 4.5, "kuehe|1": 8.8, "kuehe|2": 16 } } };
+        const ergaenzt = JSON.stringify(fmRegenProben()[0].f);
+        ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"].forEach(d => fmCfg.regenLernen.proben.push({ d, p: 9.8, mm: 10, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } }));
+        buildCalc();
+        const karte = () => [...document.querySelectorAll("#calc .category")].find(c => c.querySelector(".cat-kuehe") && c.offsetParent !== null);
+        const k = karte().querySelector(".fm-wetter-vorschlag"), text = k.textContent;
+        k.querySelector("button").click();
+        const nach = data.kuehe.items.slice(0, 4).map(i => i.kg);
+        historyData = historyData.filter(e => !(e.kategorie === "kuehe" && e.datum === getToday()));
+        saveHistory("kuehe");
+        const hist = historyData[0].futter.map(x => [x.name, Math.round(x.kg)]);
+        // nasse Reste: gestern dieselben Werte (Waage), 300 kg Rest
+        fmCfg.tagesZuschlag.datum = "2000-01-01"; buildCalc();
+        fmCfg.regenLernen.proben.push({ d: gestern, p: 9.8, mm: 10, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } });
+        data.restbullen.rest = 300; buildCalc();
+        const nass = document.querySelector("#calc .fm-rest-nass").textContent;
+        const erg = { ergaenzt, text, nach, hist, nass, lern: fmRegenLernText(), morgen: data.kuehe.items.slice(0, 4).map(i => i.kg) }; delete fmCfg.draussen; return erg;
+      });
+      assert.strictEqual(r.ergaenzt, JSON.stringify({ "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 }));
+      assert(r.text.includes("Schnitt 5 +5 % (+24 kg)") && r.text.includes("Schnitt 2 +9 % (+22 kg)") && r.text.includes("Mais +16 % (+179 kg)") && !r.text.includes("Heu"), r.text);
+      assert.deepStrictEqual(r.nach, [12.6, 6.54, 32.48, 1], JSON.stringify(r));
+      assert.deepStrictEqual(r.hist.slice(0, 4), [["Schnitt 5", 480], ["Schnitt 2", 240], ["Mais", 1120], ["Heu", 40]], JSON.stringify(r.hist));
+      assert.deepStrictEqual(r.morgen, [12, 6, 28, 1]);
+      assert(r.lern.includes("Schnitt 5 +2 %") && r.lern.includes("Schnitt 2 +4 %") && r.lern.includes("Mais +8 %"), r.lern);
+      // Wasser: (12×4,5 + 6×8,8 + 28×16)/47 % = 11,8 % → 300/1,118 = 268
+      assert(r.nass.includes("300 → 268 kg"), r.nass);
     });
 
     await pruefe("Nasse Reste: gestern +20 % nass geladen → Restmischung „Rest 300 → 254 kg“, übernehmen setzt den echten Rest, rückgängig; Regen-Kasten auch in der Restmischung", async () => {
