@@ -207,13 +207,14 @@ async function main() {
       const r = await page.evaluate(() => ({ a: data.kuehe.anz, b: data.kuehe2.anz, g: parseFloat(document.getElementById("total-zusammen").dataset.val) }));
       assert(Math.abs(r.a / r.b - 40 / 60) < 0.01, JSON.stringify(r));
       assert(Math.abs(r.g - vor * 1.1) < vor * 0.01, JSON.stringify(r) + " vor " + vor);
-      // je Gruppe: Ziel Kühe ändern → nur Kühe-Tierzahl ändert sich, Gruppe 2 bleibt
-      const vor2 = await page.evaluate(() => ({ b: data.kuehe2.anz, p1: zusammenPlan().plan1 }));
-      await page.fill(".zusammen-ziel1", String(Math.round(vor2.p1 * 1.2))); await page.dispatchEvent(".zusammen-ziel1", "change");
-      const r2 = await page.evaluate(() => ({ b: data.kuehe2.anz, p1: zusammenPlan().plan1, abl: document.querySelector(".zusammen-abladen").textContent }));
-      assert.strictEqual(r2.b, vor2.b, "Gruppe 2 unverändert");
-      assert(Math.abs(r2.p1 - vor2.p1 * 1.2) < vor2.p1 * 0.01, JSON.stringify([vor2, r2]));
-      assert(r2.abl.includes("abladen bis"), r2.abl);
+      // Einzelkarten (Bullen, Trockensteher): kilo + Gesamt wie in der normalen App
+      for (const k of ["bullen", "trocken"]) {
+        const altK = await page.evaluate(k => JSON.stringify(data[k]), k);
+        await page.evaluate(k => { data[k].items.forEach((it, i) => it.kg = i === 0 ? 10 : 0); data[k].anz = 10; kiloMode[k] = true; buildCalc(); }, k);
+        await page.click("#total-" + k); await page.fill("#edit-" + k, "150"); await page.press("#edit-" + k, "Enter");
+        assert.strictEqual(await page.evaluate(k => data[k].anz, k), 15, k);
+        await page.evaluate(([k, a]) => { kiloMode[k] = false; data[k] = JSON.parse(a); save(); buildCalc(); }, [k, altK]);
+      }
       await page.evaluate(a => { kiloMode.zusammen = false; data.kuehe.anz = a[0]; data.kuehe2.anz = a[1]; kuehe2ModusSetzen(a[2]); save(); }, alt);
     });
 
