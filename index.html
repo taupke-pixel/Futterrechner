@@ -4889,6 +4889,7 @@ function zusammenKarteHtml(){
     <div class="cat-body">
       <div>${n1}: <input type="number" class="zusammen-anz1" value="${data.kuehe.anz}" style="width:70px" oninput="data.kuehe.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g1,"kuehe") : ""}</div>
       <div style="margin-top:4px">${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}</div>
+      ${kiloMode.zusammen ? `<div class="zusammen-ziel" style="margin-top:6px;background:#e3f0fb;border-radius:8px;padding:6px 8px">Zielgewicht: ${n1} <input type="number" class="zusammen-ziel1" value="${Math.round(p.plan1)}" style="width:80px" onchange="zusammenZielGruppe(1,num(this.value))"> kg · ${n2} <input type="number" class="zusammen-ziel2" value="${Math.round(p.plan2)}" style="width:80px" onchange="zusammenZielGruppe(2,num(this.value))"> kg</div>` : ""}
       ${hm ? fmVorschlagRestHtml(hm.g1,"kuehe",n1)+fmVorschlagRestHtml(hm.g2,"kuehe2",n2) : ""}
       ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
@@ -4915,6 +4916,13 @@ function zusammenGesamtBearbeiten(){
   input.focus();
   input.onblur=()=>zusammenZielgewicht(num(input.value));
   input.onkeydown=e=>{ if(e.key==="Enter") input.blur(); };
+}
+// Zielgewicht je Gruppe (z. B. für mehr oder weniger als 24 Std.): nur die Tierzahl dieser Gruppe wird angepasst
+function zusammenZielGruppe(nr, kg){
+  const p=zusammenPlan(), alt = nr===1 ? p.plan1 : p.plan2, k = nr===1 ? "kuehe" : "kuehe2";
+  if(!(kg>0) || !(alt>0)){ buildCalc(); return; }
+  data[k].anz=Math.round(num(data[k].anz)*kg/alt*10)/10;
+  save(); buildCalc();
 }
 function zusammenZielgewicht(kg){
   const alt=zusammenPlan(), gesamt=alt.grund.reduce((s,g)=>s+g.kg,0)+alt.zugabe.reduce((s,z)=>s+z.kg,0);

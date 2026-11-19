@@ -207,6 +207,13 @@ async function main() {
       const r = await page.evaluate(() => ({ a: data.kuehe.anz, b: data.kuehe2.anz, g: parseFloat(document.getElementById("total-zusammen").dataset.val) }));
       assert(Math.abs(r.a / r.b - 40 / 60) < 0.01, JSON.stringify(r));
       assert(Math.abs(r.g - vor * 1.1) < vor * 0.01, JSON.stringify(r) + " vor " + vor);
+      // je Gruppe: Ziel Kühe ändern → nur Kühe-Tierzahl ändert sich, Gruppe 2 bleibt
+      const vor2 = await page.evaluate(() => ({ b: data.kuehe2.anz, p1: zusammenPlan().plan1 }));
+      await page.fill(".zusammen-ziel1", String(Math.round(vor2.p1 * 1.2))); await page.dispatchEvent(".zusammen-ziel1", "change");
+      const r2 = await page.evaluate(() => ({ b: data.kuehe2.anz, p1: zusammenPlan().plan1, abl: document.querySelector(".zusammen-abladen").textContent }));
+      assert.strictEqual(r2.b, vor2.b, "Gruppe 2 unverändert");
+      assert(Math.abs(r2.p1 - vor2.p1 * 1.2) < vor2.p1 * 0.01, JSON.stringify([vor2, r2]));
+      assert(r2.abl.includes("abladen bis"), r2.abl);
       await page.evaluate(a => { kiloMode.zusammen = false; data.kuehe.anz = a[0]; data.kuehe2.anz = a[1]; kuehe2ModusSetzen(a[2]); save(); }, alt);
     });
 
