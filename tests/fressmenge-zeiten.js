@@ -275,7 +275,7 @@ async function main() {
       const r = await page.evaluate(() => {
         showTab("calc"); globalCfg.kuehe2Modus = "normal";
         const heute = fmIso(new Date());
-        fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 8.5 }; fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag;
+        fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 8.5 }; fmTag(fmTagPlus(heute, -1)).wetter = { tmax: 9, rh: 85, regen: 0 }; fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag;
         data.kuehe.items = [{ name: "Grassilage", kg: 20 }, { name: "Maissilage", kg: 15 }, { name: "Heu", kg: 1 }, { type: "mlf", kg: 3 }]; data.kuehe.anz = 40;
         fmCfg.regenLernen = { proben: [{ d: "2026-11-01", p: 6, mm: 8.5 }, { d: "2026-11-02", p: 6, mm: 8.5 }] };
         const karte = () => [...document.querySelectorAll("#calc .category")].find(c => c.querySelector(".cat-kuehe") && c.offsetParent !== null);
@@ -316,12 +316,12 @@ async function main() {
         showTab("calc"); globalCfg.kuehe2Modus = "normal"; globalCfg.restQuellen = ["kuehe"];
         const heute = fmIso(new Date()), gestern = fmTagPlus(heute, -1);
         fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 10 }; fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag; delete fmCfg.restNass;
-        fmCfg.draussen = "Schnitt,Mais";
+        fmCfg.draussen = "Schnitt,Mais"; fmTag(gestern).wetter = { tmax: 9, rh: 85, regen: 0 }; const kompAlt = fmCfg.komponenten; fmCfg.komponenten = {};
         data.kuehe.items = [{ name: "Schnitt 5", kg: 12 }, { name: "Schnitt 2", kg: 6 }, { name: "Mais", kg: 28 }, { name: "Heu", kg: 1 }]; data.kuehe.anz = 40;
         // alte Probe von heute ohne Werte je Silage + heutige Waage-Werte → wird ergänzt
         fmCfg.regenLernen = { proben: [{ d: heute, p: 9.9, mm: 10 }], heute: { d: heute, werte: { "kuehe|0": 4.5, "kuehe|1": 8.8, "kuehe|2": 16 } } };
         const ergaenzt = JSON.stringify(fmRegenProben()[0].f);
-        ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"].forEach(d => fmCfg.regenLernen.proben.push({ d, p: 9.8, mm: 10, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } }));
+        ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"].forEach(d => fmCfg.regenLernen.proben.push({ d, p: 9.8, mm: 10, nass: 1, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } }));
         buildCalc();
         const karte = () => [...document.querySelectorAll("#calc .category")].find(c => c.querySelector(".cat-kuehe") && c.offsetParent !== null);
         const k = karte().querySelector(".fm-wetter-vorschlag"), text = k.textContent;
@@ -332,10 +332,10 @@ async function main() {
         const hist = historyData[0].futter.map(x => [x.name, Math.round(x.kg)]);
         // nasse Reste: gestern dieselben Werte (Waage), 300 kg Rest
         fmCfg.tagesZuschlag.datum = "2000-01-01"; buildCalc();
-        fmCfg.regenLernen.proben.push({ d: gestern, p: 9.8, mm: 10, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } });
+        fmCfg.regenLernen.proben.push({ d: gestern, p: 9.8, mm: 10, nass: 1, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } });
         data.restbullen.rest = 300; buildCalc();
         const nass = document.querySelector("#calc .fm-rest-nass").textContent;
-        const erg = { ergaenzt, text, nach, hist, nass, lern: fmRegenLernText(), morgen: data.kuehe.items.slice(0, 4).map(i => i.kg) }; delete fmCfg.draussen; return erg;
+        const erg = { ergaenzt, text, nach, hist, nass, lern: fmRegenLernText(), morgen: data.kuehe.items.slice(0, 4).map(i => i.kg) }; delete fmCfg.draussen; fmCfg.komponenten = kompAlt; return erg;
       });
       assert.strictEqual(r.ergaenzt, JSON.stringify({ "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 }));
       assert(r.text.includes("Schnitt 5 +5 % (+24 kg)") && r.text.includes("Schnitt 2 +9 % (+22 kg)") && r.text.includes("Mais +16 % (+179 kg)") && !r.text.includes("Heu"), r.text);
@@ -345,6 +345,47 @@ async function main() {
       assert(r.lern.includes("Schnitt 5 +2 %") && r.lern.includes("Schnitt 2 +4 %") && r.lern.includes("Mais +8 %"), r.lern);
       // Wasser: (12×4,5 + 6×8,8 + 28×16)/47 % = 11,8 % → 300/1,118 = 268
       assert(r.nass.includes("300 → 268 kg"), r.nass);
+    });
+
+    await pruefe("Regen je Futterart über die TS: Gras lernt einen Wert je kg Trockenmasse (Schnitt 5 TS 26 %, Schnitt 2 TS 49 %), neuer Schnitt/andere TS ohne neues Lernen; Regen gestern zählt auch heute", async () => {
+      const r = await page.evaluate(() => {
+        showTab("calc"); globalCfg.kuehe2Modus = "normal";
+        const heute = fmIso(new Date()), gestern = fmTagPlus(heute, -1), kompAlt = fmCfg.komponenten;
+        fmTag(heute).wetter = { tmax: 9, rh: 85, regen: 0 }; fmTag(gestern).wetter = { tmax: 9, rh: 85, regen: 10 };
+        fmCfg.regen = true; delete fmCfg.heuteAus; delete fmCfg.tagesZuschlag; delete fmCfg.restNass; fmCfg.draussen = "Schnitt,Mais";
+        fmCfg.komponenten = { "Gras 05-25/Dairy": [{ ab: "2026-11-05", ts: 26 }], "Gras 02-26 Stickt": [{ ab: "2026-11-05", ts: 49 }], "Mais": [{ ab: "2026-11-05", ts: 37 }] };
+        fmCfg.tsZuordnung = { "Schnitt 5": "Gras 05-25/Dairy", "Schnitt 2": "Gras 02-26 Stickt" };
+        data.kuehe.items = [{ name: "Schnitt 5", kg: 12 }, { name: "Schnitt 2", kg: 6 }, { name: "Mais", kg: 28 }, { name: "Heu", kg: 1 }]; data.kuehe.anz = 40;
+        fmCfg.regenLernen = { proben: ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05"].map(d => ({ d, p: 9.8, mm: 10, f: { "Schnitt 5": 4.5, "Schnitt 2": 8.8, "Mais": 16 } })) };
+        const vorher = { s5: fmRegenProzent(10, "Schnitt 5"), s2: fmRegenProzent(10, "Schnitt 2"), mais: fmRegenProzent(10, "Mais") };
+        // neue Beraterration: Schnitt 2 jetzt TS 40 %, neuer Schnitt 1 (TS 35 %) ohne eigene Waage-Werte
+        fmCfg.komponenten["Gras 02-26 Stickt"].push({ ab: "2026-11-20", ts: 40 });
+        fmCfg.komponenten["Gras 01-26"] = [{ ab: "2026-11-20", ts: 35 }]; fmCfg.tsZuordnung["Schnitt 1"] = "Gras 01-26";
+        const nachher = { s2: fmRegenProzent(10, "Schnitt 2"), s1: fmRegenProzent(10, "Schnitt 1") };
+        buildCalc();
+        const karte = [...document.querySelectorAll("#calc .category")].find(c => c.querySelector(".cat-kuehe") && c.offsetParent !== null);
+        const text = (karte.querySelector(".fm-wetter-vorschlag") || {}).textContent || "";
+        const zuordnung = fmTsZuordnungHtml();
+        // Waage-Eintrag heute (kein Regen heute, gestern 10 mm) merkt 10 mm
+        fmCfg.regenLernen.proben = fmCfg.regenLernen.proben.slice(0, 2); buildCalc();
+        const meld = []; const altAlert = window.alert; window.alert = m => meld.push(m);
+        const tipp = { value: "", style: {} }; ["5", "50", "504"].forEach(v => { tipp.value = v; fmRegenWaage("kuehe", 0, tipp, true); });
+        const mais = { value: "1.299", style: {} }; fmRegenWaage("kuehe", 2, mais, true);
+        window.alert = altAlert;
+        const leise = { meld: meld.length, gruen: tipp.style.background, mais: Math.round(fmCfg.regenLernen.heute.werte["kuehe|2"]) };
+        const probe = fmCfg.regenLernen.proben.find(x => x.d === heute);
+        fmCfg.komponenten = kompAlt; delete fmCfg.tsZuordnung; delete fmCfg.draussen; delete fmCfg.regenLernen; fmTag(gestern).wetter = { tmax: 9, rh: 85, regen: 0 };
+        return { vorher, nachher, text, zuordnung, probe, leise };
+      });
+      // Gras: (4,5/0,26 + 8,8/0,49)/2 = 17,6 % je 100 % TS → Schnitt 5 ×0,26 = 4,6 → 5; Schnitt 2 ×0,49 = 8,6 → 9; Mais 16
+      assert.deepStrictEqual(r.vorher, { s5: 5, s2: 9, mais: 16 });
+      // Schnitt 2 mit TS 40 % → 7; neuer Schnitt 1 TS 35 % → 6 (ohne eigene Waage-Werte)
+      assert.deepStrictEqual(r.nachher, { s2: 7, s1: 6 });
+      assert(r.text.includes("Regen gestern 10,0 mm") && r.text.includes("Schnitt 5 +5 %") && r.text.includes("Schnitt 2 +7 %") && r.text.includes("Mais +16 %"), r.text);
+      assert(r.zuordnung.includes("Schnitt 5") && r.zuordnung.includes("TS 26 %") && r.zuordnung.includes("<select"), r.zuordnung);
+      assert.deepStrictEqual(r.probe && { mm: r.probe.mm, nass: r.probe.nass, f: r.probe.f }, { mm: 10, nass: 1, f: { "Schnitt 5": 5, "Mais": 16 } });
+      // beim Tippen: keine Meldung bei halben Zahlen, grün sobald es passt; „1.299“ = 1299 kg (Mais geplant 1120 → +16 %)
+      assert.deepStrictEqual(r.leise, { meld: 0, gruen: "#e8f5e9", mais: 16 });
     });
 
     await pruefe("Nasse Reste: gestern +20 % nass geladen → Restmischung „Rest 300 → 254 kg“, übernehmen setzt den echten Rest, rückgängig; Regen-Kasten auch in der Restmischung", async () => {

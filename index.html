@@ -6757,9 +6757,9 @@ function fmKorrekturZeilen(){
 }
 function fmLernstandHtml(){
   return `<div style="margin-top:10px;font-size:13px"><b>Lernen Regen/Hitze</b>
-    <div class="fm-lernstand">${fmRegenLernText()}</div><div class="fm-lernstand">${fmLernText(fmLernErgebnis("hitze"))}</div>
+    <div class="fm-lernstand fm-lernstand-regen">${fmRegenLernText()}</div><div class="fm-lernstand">${fmLernText(fmLernErgebnis("hitze"))}</div>
     <div style="margin-top:6px">Draußen vorgelagert (für den Regenzuschlag):
-      <input value="${fmEsc(fmCfg.draussen||"Grassilage, Maissilage")}" style="width:180px" onchange="fmCfg.draussen=this.value.trim();fmSpeichern()"></div></div>`;
+      <input value="${fmEsc(fmCfg.draussen||"Grassilage, Maissilage")}" style="width:180px" onchange="fmCfg.draussen=this.value.trim();fmSpeichern()"></div><div class="fm-ts-zuordnung">${fmTsZuordnungHtml()}</div></div>`;
 }
 
 // Nach dem Laden im Hintergrund neu zeichnen – aber nicht, während jemand im Reiter etwas eintippt
@@ -7354,15 +7354,65 @@ function fmRegenJeSilage(werte){
   return f;
 }
 function fmRegenGelernt(){ return fmRegenProben().length>=fmWert("regenLernTage"); }
-// name angegeben und dafür Proben vorhanden → nur dieses Futter, sonst Durchschnitt aller
+// Regen, der die Silage nass macht (Wunsch Fritz 20.11.2026): Regen von gestern UND heute – auch wenn heute kein Regen
+// gemeldet ist, ist die Silage vom Vortag noch nass. Gilt gleich fürs Lernen, den Vorschlag und die nassen Reste.
+function fmRegenMm(tag){ const r=d=>((fmTage[d]||{}).wetter||{}).regen; const h=r(tag), g=r(fmTagPlus(tag,-1)); return (typeof h==="number" ? h : 0)+(typeof g==="number" ? g : 0); }
+// neue Einträge (nass:1) merken Regen gestern+heute schon beim Eintragen; ältere (nur Regen des Tages) werden nachgerechnet
+function fmProbeMm(x){ return (!x.nass && (fmTage[x.d]||{}).wetter) ? fmRegenMm(x.d) : (x.mm||0); }
+// Je Futterart über die TS (Wunsch Fritz 20.11.2026): Gras, Mais, Stroh lernen je einen Wert „Wasser je kg Trockenmasse“.
+// Zuschlag eines Schnitts = Wert der Art × TS dieses Futters (Beraterration) – ein neuer Schnitt braucht kein neues Lernen.
+// Welches Berater-Futter zu welchem Namen im Rechner gehört: gleicher Name oder einmal zugeordnet (fmCfg.tsZuordnung).
+function fmTsName(name){ const z=(fmCfg.tsZuordnung||{})[name]; return z && (fmCfg.komponenten||{})[z] ? z : name; }
+// tag angegeben: TS, die an dem Tag galt (Einträge der Beraterration mit „ab“-Datum), sonst die neueste
+function fmTsFutter(name, tag){
+  const l=(fmCfg.komponenten||{})[fmTsName(name)]; if(!l || !l.length) return null;
+  let k=l[l.length-1];
+  if(tag){ const vor=l.filter(x=>!x.ab || x.ab<=tag); k=vor.length ? vor[vor.length-1] : l[0]; }
+  return k && k.ts>0 ? k.ts : null;
+}
+function fmFutterArt(name){
+  const t=(String(name)+" "+fmTsName(name)).toLowerCase();
+  if(t.includes("mais")) return "Mais";
+  if(t.includes("stroh")) return "Stroh";
+  if(t.includes("gras") || t.includes("schnitt")) return "Gras";
+  return null;
+}
+// name angegeben: über Art + TS, sonst eigene Proben dieses Futters, sonst Durchschnitt aller
 function fmRegenProzent(mm, name){
-  let p=fmRegenProben().map(x=>({ mm:x.mm, p:x.p }));
-  if(name){ const eigen=fmRegenProben().filter(x=>x.f && typeof x.f[name]==="number").map(x=>({ mm:x.mm, p:x.f[name] })); if(eigen.length) p=eigen; }
-  const mit=p.filter(x=>x.mm>=0.5), summeMm=mit.reduce((s,x)=>s+x.mm,0);
-  const pro = summeMm>0 ? mit.reduce((s,x)=>s+x.p,0)/summeMm*(mm||0) : (p.length ? p.reduce((s,x)=>s+x.p,0)/p.length : 0);
+  const proben=fmRegenProben(), art=name ? fmFutterArt(name) : null, ts=name ? fmTsFutter(name) : null;
+  const rechne=(p, z)=>{ const mit=p.filter(x=>x.mm>=0.5), summeMm=mit.reduce((s,x)=>s+x.mm,0); return summeMm>0 ? mit.reduce((s,x)=>s+x.p,0)/summeMm*(mm||0)*z : (p.length ? p.reduce((s,x)=>s+x.p,0)/p.length*z : 0); };
+  let pro=null;
+  if(art && ts){
+    const p=[]; proben.forEach(x=>Object.entries(x.f||{}).forEach(([n,w])=>{ const t=fmTsFutter(n, x.d); if(fmFutterArt(n)===art && t) p.push({ mm:fmProbeMm(x), p:w/(t/100) }); }));
+    if(p.length) pro=rechne(p, ts/100);
+  }
+  if(pro===null && name){ const eigen=proben.filter(x=>x.f && typeof x.f[name]==="number").map(x=>({ mm:fmProbeMm(x), p:x.f[name] })); if(eigen.length) pro=rechne(eigen, 1); }
+  if(pro===null) pro=rechne(proben.map(x=>({ mm:fmProbeMm(x), p:x.p })), 1);
   return Math.max(0, Math.min(40, Math.round(pro)));
 }
-function fmRegenNamen(){ const n=[]; fmRegenProben().forEach(x=>Object.keys(x.f||{}).forEach(name=>{ if(!n.includes(name)) n.push(name); })); return n; }
+function fmRegenNamen(){
+  const n=[]; const dazu=name=>{ if(name && !n.includes(name)) n.push(name); };
+  fmWetterKarten().forEach(k=>data[k].items.filter(fmDraussen).forEach(it=>dazu(fmSilageName(it))));
+  fmRegenProben().forEach(x=>Object.keys(x.f||{}).forEach(dazu));
+  return n;
+}
+// Zuordnung Rechner-Name → Berater-Futter (für die TS), unter „Was die App gelernt hat“
+function fmTsZuordnungHtml(){
+  const namen=fmRegenNamen(), komp=Object.keys(fmCfg.komponenten||{}).filter(n=>{ const l=fmCfg.komponenten[n]; return l && l.length && l[l.length-1].ts>0 && fmFutterArt(n); });
+  if(!namen.length) return "";
+  return `<div style="margin-top:6px">TS je Futter (aus der Beraterration):${namen.map((name,j)=>{
+    const ts=fmTsFutter(name), direkt=(fmCfg.komponenten||{})[name];
+    const wahl=direkt ? "" : `<select data-name="${fmEsc(name)}" onchange="fmTsZuordnen(this.dataset.name,this.value)" style="font-size:13px"><option value="">– welches Futter? –</option>${komp.map(k=>`<option value="${fmEsc(k)}"${fmTsName(name)===k?" selected":""}>${fmEsc(k)}</option>`).join("")}</select> `;
+    return `<div class="fm-ts-zeile" style="margin-top:4px">${fmEsc(name)}: ${wahl}<b>${ts ? "TS "+fmZahl(ts.toFixed(0))+" %" : "TS fehlt"}</b></div>`;
+  }).join("")}</div>`;
+}
+function fmTsZuordnen(name, wert){
+  fmCfg.tsZuordnung=fmCfg.tsZuordnung||{};
+  if(wert) fmCfg.tsZuordnung[name]=wert; else delete fmCfg.tsZuordnung[name];
+  fmSpeichern();
+  document.querySelectorAll(".fm-ts-zuordnung").forEach(d=>d.innerHTML=fmTsZuordnungHtml());
+  document.querySelectorAll(".fm-lernstand-regen").forEach(d=>d.innerHTML=fmRegenLernText());
+}
 function fmRegenLernText(){
   const n=fmRegenProben().length, soll=fmWert("regenLernTage"), namen=fmRegenNamen();
   if(n<soll) return `Regen: lernt noch (${n} von ${soll} Regentagen mit Waage-Eintrag)`;
@@ -7374,15 +7424,17 @@ function fmGeplantKg(k, i){
   if(k==="kuehe" && kuehe2Zusammen()){ const g=zusammenPlan().grund.find(x=>x.it===it); return g ? g.kg : 0; }
   return it.kg*(num(data[k].anz)||0);
 }
-function fmRegenWaage(k, i, feld){
-  const kg=parseFloat(String(feld.value).replace(",",".")), plan=fmGeplantKg(k, i), heute=fmIso(new Date());
+// leise (beim Tippen): speichert, sobald die Zahl passt – ohne Meldung. Beim Verlassen des Felds wie bisher mit Meldung.
+// (Wunsch Fritz 20.11.2026: das letzte Feld wurde nicht grün, weil das Wegklappen der Tastatur das Feld nicht verlässt)
+function fmRegenWaage(k, i, feld, leise){
+  const kg=parseFloat(String(feld.value).replace(/\./g,"").replace(",",".")), plan=fmGeplantKg(k, i), heute=fmIso(new Date());
   if(feld.value.trim()==="" ) return;
-  if(isNaN(kg) || !(plan>0) || kg<plan*0.5 || kg>plan*2){ alert("Bitte die Menge eintragen, die die Waage für dieses Futter gezeigt hat (in kg)."); return; }
+  if(isNaN(kg) || !(plan>0) || kg<plan*0.5 || kg>plan*2){ if(leise){ feld.style.background=""; return; } alert("Bitte die Menge eintragen, die die Waage für dieses Futter gezeigt hat (in kg)."); return; }
   const l=(fmCfg.regenLernen=fmCfg.regenLernen||{ proben:[] }), heuteWerte=(l.heute && l.heute.d===heute) ? l.heute.werte : {};
   heuteWerte[k+"|"+i]=(kg/plan-1)*100;
   l.heute={ d:heute, werte:heuteWerte };
-  const p=Object.values(heuteWerte).reduce((s,x)=>s+x,0)/Object.values(heuteWerte).length, mm=((fmTage[heute]||{}).wetter||{}).regen||0;
-  l.proben=l.proben.filter(x=>x.d!==heute); l.proben.push({ d:heute, p:Math.round(p*10)/10, mm:Math.round(mm*10)/10, f:fmRegenJeSilage(heuteWerte) });
+  const p=Object.values(heuteWerte).reduce((s,x)=>s+x,0)/Object.values(heuteWerte).length, mm=fmRegenMm(heute);
+  l.proben=l.proben.filter(x=>x.d!==heute); l.proben.push({ d:heute, p:Math.round(p*10)/10, mm:Math.round(mm*10)/10, nass:1, f:fmRegenJeSilage(heuteWerte) });
   if(l.proben.length>30) l.proben=l.proben.slice(-30);
   try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
   feld.style.background="#e8f5e9";
@@ -7398,7 +7450,7 @@ function fmRegenWaageZeilen(){
     const offen=fmZu["regen:"+k]===false;
     const d=document.createElement("div"); d.className="fm-regen-waage"; d.style.cssText="font-size:14px;background:#e3f0fb;border-radius:8px;padding:8px 10px;margin:6px 0";
     d.innerHTML=`<div style="cursor:pointer" onclick="fmZu['regen:${k}']=${offen};try{localStorage.setItem('fmZu',JSON.stringify(fmZu))}catch(e){};buildCalc()">${offen?"▼":"▶"} 💧 Wegen Regen mehr geladen? <span style="font-size:12px;color:#666">(${fmRegenProben().length} von ${fmWert("regenLernTage")})</span></div>`
-      + (offen ? `<div style="margin-top:6px">Waage zeigt: ${zeilen.map(({it,i})=>{ const w=werte[k+"|"+i], plan=fmGeplantKg(k,i); return `${fmEsc(futterName(it))} <input type="text" inputmode="decimal" class="fm-regen-kg" data-i="${i}" placeholder="${Math.round(plan)}" value="${typeof w==="number"?Math.round(plan*(1+w/100)):""}" style="width:70px${typeof w==="number"?";background:#e8f5e9":""}" onchange="fmRegenWaage('${k}',${i},this)"> kg`; }).join(" · ")}</div>` : "");
+      + (offen ? `<div style="margin-top:6px">Waage zeigt: ${zeilen.map(({it,i})=>{ const w=werte[k+"|"+i], plan=fmGeplantKg(k,i); return `${fmEsc(futterName(it))} <input type="text" inputmode="decimal" class="fm-regen-kg" data-i="${i}" placeholder="${Math.round(plan)}" value="${typeof w==="number"?Math.round(plan*(1+w/100)):""}" style="width:70px${typeof w==="number"?";background:#e8f5e9":""}" oninput="fmRegenWaage('${k}',${i},this,true)" onchange="fmRegenWaage('${k}',${i},this)"> kg`; }).join(" · ")}</div>` : "");
     const tot=body.querySelector(".total");
     if(tot) tot.insertAdjacentElement("beforebegin", d); else body.appendChild(d);
   });
@@ -7420,10 +7472,11 @@ function fmRegenEchteMengen(vorher){
 function fmWetterVorschlag(){
   if(!fmAn() || fmNurAnsehen()) return null;
   const heute=fmIso(new Date()), w=(fmTage[heute]||{}).wetter, wm=(fmTage[fmTagPlus(heute,1)]||{}).wetter, aus=fmCfg.heuteAus||{};
-  if(w && fmCfg.regen!==false && w.regen>=fmWert("regenMm") && aus.regen!==heute){
-    const pr=fmRegenGelernt() ? fmRegenProzent(w.regen) : 0;
-    const je=it=>fmRegenProzent(w.regen, fmSilageName(it));
-    if(pr>=1) return { art:"regen", prozent:pr, prozentFuer:je, passt:it=>fmDraussen(it) && je(it)>=1, text:`💧 Regen heute ${fmZahl(w.regen.toFixed(1))} mm` };
+  const mmNass=fmRegenMm(heute);
+  if(w && fmCfg.regen!==false && mmNass>=fmWert("regenMm") && aus.regen!==heute){
+    const pr=fmRegenGelernt() ? fmRegenProzent(mmNass) : 0;
+    const je=it=>fmRegenProzent(mmNass, fmSilageName(it));
+    if(pr>=1) return { art:"regen", prozent:pr, prozentFuer:je, passt:it=>fmDraussen(it) && je(it)>=1, text:`💧 Regen ${w.regen<0.5 ? "gestern" : mmNass-w.regen<0.5 ? "heute" : "gestern + heute"} ${fmZahl(mmNass.toFixed(1))} mm` };
   }
   if(wm && fmCfg.hitze!==false && fmThi(wm.tmax, wm.rh)>=68 && aus.hitze!==heute){
     const e=fmLernErgebnis("hitze");
@@ -7486,7 +7539,7 @@ function fmRegenProzentAm(tag, name){
     for(const [kk,l] of Object.entries(t.karten||{})) for(const x of l) if(typeof x.p==="number" && data[kk] && fmSilageName(data[kk].items[x.i])===name) return x.p;
     return t.prozent;
   }
-  const mm=((fmTage[tag]||{}).wetter||{}).regen||0;
+  const mm=fmRegenMm(tag);
   return fmRegenGelernt() && mm>=fmWert("regenMm") ? fmRegenProzent(mm, name) : 0;
 }
 function fmRestNassFaktor(k){
