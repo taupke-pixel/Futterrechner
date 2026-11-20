@@ -176,14 +176,14 @@ async function main() {
       assert.strictEqual(await T.evaluate(() => data.kuehe.anz), 88.4);
       const ab = await karte.locator(".fm-abladen").innerText();
       // 88,4 × 40 kg = 3536 kg; Stall 1: 38/85 → 1581 kg, danach bleiben 1955 kg (= Stall 2)
-      assert(ab.includes("▼ Stall 1 abladen bis 1955 kg (1581 kg)") && ab.includes("→ Rest: Stall 2 1955 kg"), ab);
+      assert(ab.includes("▼ Stall 1 abladen bis 1955 kg (1581 kg · 45 %)") && ab.includes("1955 kg · 55 %") && ab.includes("→ Rest: Stall 2 1955 kg"), ab);
       await karte.locator(".fm-abladen-zeile").first().click();
       assert((await T.textContent("#fm-anders")).includes("Reihenfolge beim Abladen"));
       assert(await T.locator('#fm-anders .fm-abladen-stall[data-platz="s1"] .fm-hoch').isDisabled());
       await T.click('#fm-anders .fm-abladen-stall[data-platz="s2"] .fm-hoch');
       assert((await T.locator("#fm-anders .fm-abladen-stall").first().textContent()).includes("1. Stall 2"));
       const ab2 = await karte.locator(".fm-abladen").innerText();
-      assert(ab2.includes("▼ Stall 2 abladen bis 1581 kg (1955 kg)") && ab2.includes("→ Rest: Stall 1 1581 kg"), ab2);
+      assert(ab2.includes("▼ Stall 2 abladen bis 1581 kg (1955 kg · 55 %)") && ab2.includes("→ Rest: Stall 1 1581 kg"), ab2);
       await T.click("#fm-anders >> text=Schließen");
       assert.strictEqual(await T.locator("#fm-anders").count(), 0);
       assert.strictEqual(await T.locator("#calc .category", { has: T.locator(".cat-header.cat-faersen") }).locator(".fm-hm-zeile").count() <= 1, true);

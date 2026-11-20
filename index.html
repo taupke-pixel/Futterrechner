@@ -4873,11 +4873,11 @@ function zusammenKarteHtml(){
   let wagen=p.G;
   const teile1 = st1 ? st1.map(({p:pl,menge},i)=>{ wagen-=menge; return { name:fmPlatzName(pl), bis:i===st1.length-1?p.geplant:wagen, menge }; })
     : [{ name:einStall(hm && hm.g1, n1), bis:p.geplant, menge:p.G-p.geplant }];
-  const ablade1 = teile1.map(t=>zeile(`▼ ${t.name} abladen bis ${t.bis.toFixed(0)} kg <span style="font-weight:normal">(${t.menge.toFixed(0)} kg)</span>`)).join("");
+  const ablade1 = teile1.map(t=>zeile(`▼ ${t.name} abladen bis ${t.bis.toFixed(0)} kg <span style="font-weight:normal">(${t.menge.toFixed(0)} kg${fmProzent(t.menge,p.G)})</span>`)).join("");
   let wagen2=lauf2;
   const teile2 = st2 ? st2.map(({p:pl,menge},i)=>{ wagen2-=menge; return { name:fmPlatzName(pl), bis:wagen2, menge, letzter:i===st2.length-1 }; })
     : [{ name:einStall(hm && hm.g2, n2), menge:lauf2, letzter:true }];
-  const ablade2 = teile2.map(t=>zeile(t.letzter ? `→ Rest: ${t.name} ${t.menge.toFixed(0)} kg` : `▼ ${t.name} abladen bis ${t.bis.toFixed(0)} kg <span style="font-weight:normal">(${t.menge.toFixed(0)} kg)</span>`)).join("");
+  const ablade2 = teile2.map(t=>zeile(t.letzter ? `→ Rest: ${t.name} ${t.menge.toFixed(0)} kg<span style="font-weight:normal">${fmProzent(t.menge,lauf2)}</span>` : `▼ ${t.name} abladen bis ${t.bis.toFixed(0)} kg <span style="font-weight:normal">(${t.menge.toFixed(0)} kg${fmProzent(t.menge,lauf2)})</span>`)).join("");
   const info = p.echt===null ? "" : `<div style="font-size:13px;color:#1b5e20;margin-top:4px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>`
     + (data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+fmWert("waageToleranz") ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr rechnet die Auswertung beim Rest mit.</div>` : "")
     + (p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : "");
@@ -5841,6 +5841,8 @@ function fmTierzahlGruppe(g){
 }
 function fmTierzahlUebernehmen(k, n){ data[k].anz=n; save(); buildCalc(); }
 function fmLetzteTiere(k){ const e=historyData.find(x=>x && x.kategorie===k); return e ? num(e.tiere) : null; }
+// Anteil am Wagen in % (Wunsch Fritz 20.11.2026: zum Selbstrechnen, wenn die Waage mehr zeigt, z. B. nasses Futter)
+function fmProzent(menge, wagen){ const p=wagen>0 ? Math.round(menge/wagen*100) : 100; return p<100 ? ` · ${p} %` : ""; }
 function fmAbladenHtml(g, gesamt){
   const z=fmAbladenZeilen(g, gesamt);
   if(!z || z.length<2 || !(gesamt>0)) return "";
@@ -5849,9 +5851,9 @@ function fmAbladenHtml(g, gesamt){
   return `<div class="fm-abladen" style="margin:8px 0">${z.map(({p,menge,fest},i)=>{
     const stil=`background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:6px 8px;margin-top:4px;font-weight:bold;cursor:pointer`;
     const klick=`onclick="fmAbladenOeffnen(['${g.id}'])"`, merk=fest?" ✎":"";
-    if(i===z.length-1) return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>→ Rest: ${fmPlatzName(p)} ${menge.toFixed(0)} kg${merk}</div>`;
+    if(i===z.length-1) return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>→ Rest: ${fmPlatzName(p)} ${menge.toFixed(0)} kg<span style="font-weight:normal">${fmProzent(menge,gesamt)}</span>${merk}</div>`;
     rest-=menge;
-    return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>▼ ${fmPlatzName(p)} abladen bis ${rest.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg)</span>${merk}</div>`;
+    return `<div class="fm-abladen-zeile" style="${stil}" ${klick}>▼ ${fmPlatzName(p)} abladen bis ${rest.toFixed(0)} kg <span style="font-weight:normal">(${menge.toFixed(0)} kg${fmProzent(menge,gesamt)})</span>${merk}</div>`;
   }).join("")}</div>`;
 }
 // Gruppe ohne Reste: Menge aus den Ställen übernehmen (Restmischung: Zielgewicht wie bei Eingabe von Hand, sonst Tierzahl passend zur Menge)

@@ -79,7 +79,7 @@ async function main() {
     await pruefe(`Schritte: 1. Grundmischung (${S1 + S2} × 49,7 kg), 2. Kühe abladen bis ${PLAN_REST.toFixed(0)} kg, 3. MLF ${S2 * MLF} kg, 4. Rest ${(PLAN_REST + S2 * MLF).toFixed(0)} kg; im Normalfall nichts antippen`, async () => {
       const t = await page.locator(".zusammen-karte").innerText();
       assert(t.includes(`Maissilage\t${(29 * (S1 + S2)).toFixed(1)}`), t);
-      assert(t.includes(`▼ Kühe abladen bis ${PLAN_REST.toFixed(0)} kg (${PLAN1.toFixed(0)} kg)`), t);
+      assert(t.includes(`▼ Kühe abladen bis ${PLAN_REST.toFixed(0)} kg (${PLAN1.toFixed(0)} kg · `), t);
       assert(!/\b[1-5]\. /.test(t), "keine Schritt-Nummern");
       assert(t.includes("Dazumischen für Kühe Gruppe 2"), t);
       assert(t.includes(`${(S2 * MLF).toFixed(1)}`), t);
@@ -180,7 +180,7 @@ async function main() {
       assert(r.hm[0].includes("Herdenmanager: 45 + 4 % Rest – übernehmen") && r.hm[1].includes("Herdenmanager: 47 + 4 % Rest"), r.hm.join(" | "));
       assert.strictEqual(r.fremd, 0, "allgemeine Ergänzung in der gemeinsamen Karte");
       const stroh = PLAN1 * 8 / 45;
-      assert(r.ablade.includes(`▼ Strohstall abladen bis ${(G - stroh).toFixed(0)} kg (${stroh.toFixed(0)} kg)`), r.ablade);
+      assert(r.ablade.includes(`▼ Strohstall abladen bis ${(G - stroh).toFixed(0)} kg (${stroh.toFixed(0)} kg · `), r.ablade);
       assert(r.ablade.includes(`▼ Stall 1 abladen bis ${PLAN_REST.toFixed(0)} kg`), r.ablade);
       assert(r.rest.includes(`→ Rest: Stall 2`), r.rest);
       await page.locator("button.zusammen-hm").first().click();

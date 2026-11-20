@@ -73,7 +73,7 @@ async function main() {
       assert.strictEqual(await page.evaluate(() => data.restbullen.ziel), 300);
       const ab = await bullenKarte().locator(".fm-abladen").innerText();
       // Scheune 300 × 53/122 = 130,3 kg → danach bleiben 169,7 kg (Diele)
-      assert(ab.includes("▼ Scheune abladen bis 170 kg (130 kg)") && ab.includes("→ Rest: Diele 170 kg"), ab);
+      assert(ab.includes("▼ Scheune abladen bis 170 kg (130 kg · 43 %)") && ab.includes("170 kg · 57 %") && ab.includes("→ Rest: Diele 170 kg"), ab);
     });
 
     await pruefe("„Anders abgeladen?“ an der Zeile: 150 kg in der Scheune, „Ab jetzt so“ → Faktor neu, Rest heute auf die Diele verteilt", async () => {
@@ -84,7 +84,7 @@ async function main() {
       await page.click("#fm-anders >> text=Ab jetzt so");
       nah(await page.evaluate(() => fmLern(fmCfg.gruppen[0]).faktor), 300 / 122 * 150 / (300 * 53 / 122), 1e-9, "Faktor neu");
       const ab = await bullenKarte().locator(".fm-abladen").innerText();
-      assert(ab.includes("Scheune abladen bis 150 kg (150 kg) ✎") && ab.includes("→ Rest: Diele 150 kg"), ab);
+      assert(ab.includes("Scheune abladen bis 150 kg (150 kg · 50 %) ✎") && ab.includes("→ Rest: Diele 150 kg"), ab);
       // neue Menge: 122 kg TM × Faktor = 345 kg
       assert((await bullenKarte().locator(".fm-hm-zeile").textContent()).includes("345 kg"));
     });
