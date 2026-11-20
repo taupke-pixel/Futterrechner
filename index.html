@@ -5919,7 +5919,7 @@ function fmRechnerErgaenzen(){
       const v=fmVorschlagRestHtml(g, k);
       if(v) zeile.insertAdjacentHTML("afterend", v);
     }
-    const gesamt = k==="restbullen" ? num(data.restbullen.ziel) : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
+    const gesamt = k==="restbullen" ? num(data.restbullen.ziel)*fmRestWaageFaktor() : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
     const html=fmAbladenHtml(g, gesamt);
     if(!html) return;
     const total=body.querySelector(".total");
@@ -7571,6 +7571,13 @@ function fmRestNassWasser(){
   const zwei=restQuellen().length>1, r=data.restbullen;
   const w=(num(n.vorher.rest)||0)+(zwei ? num(n.vorher.rest2)||0 : 0)-(num(r.rest)||0)-(zwei ? num(r.rest2)||0 : 0);
   return w>0.5 ? w : 0;
+}
+// Abladen in der Restmischung nach der Waage: Zielgewicht + Regenwasser im Rest + heutiger Regen-Zuschlag (übernommen)
+function fmRestWaageFaktor(){
+  const ziel=num(data.restbullen.ziel)||0; if(!(ziel>0) || !fmAn()) return 1;
+  const t=fmCfg.tagesZuschlag, l=t && t.datum===fmIso(new Date()) ? (t.karten||{})[restZiel()] : null;
+  const zuschlag=(l||[]).reduce((s,x)=>s+(x.nachher-x.vorher),0)*(num(data.restbullen.anz)||0);
+  return (ziel+fmRestNassWasser()+Math.max(0,zuschlag))/ziel;
 }
 function fmRestNassWaage(){
   const w=fmRestNassWasser(); if(!w) return;

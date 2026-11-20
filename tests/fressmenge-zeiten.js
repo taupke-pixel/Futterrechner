@@ -402,9 +402,10 @@ async function main() {
         const rest = data.restbullen.rest, text2 = kasten().textContent;
         const summen = () => [...document.querySelector("#calc .cat-header.cat-restbullen").closest(".category").querySelectorAll("table tr")].map(tr => tr.children[4]).filter(td => td && td.tagName === "TD").map(td => parseFloat(td.textContent));
         const mitWasser = summen(), hinweis = (document.querySelector("#calc .fm-rest-nass-waage") || {}).textContent || "";
+        const zielAlt = data.restbullen.ziel; data.restbullen.ziel = 1000; const faktor = Math.round(fmRestWaageFaktor() * 1000) / 1000; data.restbullen.ziel = zielAlt;
         const merk = fmCfg.restNass; delete fmCfg.restNass; buildCalc(); const ohne = summen(); fmCfg.restNass = merk; buildCalc();
         kasten().querySelector("button").click();
-        return { text, rest, text2, zurueck: data.restbullen.rest, plus: mitWasser.map((v, i) => Math.round((v - ohne[i]) * 10) / 10), hinweis, nachher: !!document.querySelector("#calc .fm-rest-nass-waage") };
+        return { text, rest, text2, zurueck: data.restbullen.rest, faktor, faktorDanach: (() => { data.restbullen.ziel = 1000; const f = fmRestWaageFaktor(); data.restbullen.ziel = zielAlt; return f; })(), plus: mitWasser.map((v, i) => Math.round((v - ohne[i]) * 10) / 10), hinweis, nachher: !!document.querySelector("#calc .fm-rest-nass-waage") };
       });
       assert(r.text.includes("Reste nass (Regen gestern)") && r.text.includes("300 → 254 kg"), r.text);
       assert.strictEqual(r.rest, 254);
@@ -414,6 +415,8 @@ async function main() {
       assert(r.plus.length > 0 && r.plus.every(x => x === 46), JSON.stringify(r.plus));
       assert(r.hinweis.includes("46 kg Regenwasser"), r.hinweis);
       assert.strictEqual(r.nachher, false);
+      // Abladen „bis … kg“ nach der Waage: Ziel 1000 + 46 kg Wasser
+      assert.strictEqual(r.faktor, 1.046); assert.strictEqual(r.faktorDanach, 1);
     });
 
     await pruefe("Keine Seitenfehler", async () => {
