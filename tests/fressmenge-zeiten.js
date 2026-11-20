@@ -400,13 +400,20 @@ async function main() {
         const text = kasten().textContent;
         kasten().querySelector("button").click();
         const rest = data.restbullen.rest, text2 = kasten().textContent;
+        const summen = () => [...document.querySelector("#calc .cat-header.cat-restbullen").closest(".category").querySelectorAll("table tr")].map(tr => tr.children[4]).filter(td => td && td.tagName === "TD").map(td => parseFloat(td.textContent));
+        const mitWasser = summen(), hinweis = (document.querySelector("#calc .fm-rest-nass-waage") || {}).textContent || "";
+        const merk = fmCfg.restNass; delete fmCfg.restNass; buildCalc(); const ohne = summen(); fmCfg.restNass = merk; buildCalc();
         kasten().querySelector("button").click();
-        return { text, rest, text2, zurueck: data.restbullen.rest };
+        return { text, rest, text2, zurueck: data.restbullen.rest, plus: mitWasser.map((v, i) => Math.round((v - ohne[i]) * 10) / 10), hinweis, nachher: !!document.querySelector("#calc .fm-rest-nass-waage") };
       });
       assert(r.text.includes("Reste nass (Regen gestern)") && r.text.includes("300 → 254 kg"), r.text);
       assert.strictEqual(r.rest, 254);
       assert(r.text2.includes("ohne Regenwasser übernommen"), r.text2);
       assert.strictEqual(r.zurueck, 300);
+      // Waage-Spalte „Summe“: +46 kg Regenwasser im Rest (Waage zeigt den nassen Rest), nach „rückgängig“ wieder normal
+      assert(r.plus.length > 0 && r.plus.every(x => x === 46), JSON.stringify(r.plus));
+      assert(r.hinweis.includes("46 kg Regenwasser"), r.hinweis);
+      assert.strictEqual(r.nachher, false);
     });
 
     await pruefe("Keine Seitenfehler", async () => {

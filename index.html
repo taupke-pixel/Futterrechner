@@ -6829,7 +6829,7 @@ if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -7563,6 +7563,22 @@ function fmRestNassKasten(){
   }
   const d=document.createElement("div"); d.className="fm-rest-nass fm-vorschlag"; d.style.cssText=FM_VORSCHLAG_STIL; d.innerHTML=html;
   body.prepend(d);
+}
+// Nach „übernehmen“ rechnet die Restmischung mit dem echten Rest (ohne Wasser). Die Waage zeigt aber den nassen Rest –
+// deshalb bekommt die Spalte „Summe“ (Waage-Anzeige beim Laden) das Regenwasser im Rest dazu (Fritz 20.11.2026). Nur Anzeige.
+function fmRestNassWasser(){
+  const n=fmCfg.restNass; if(!fmAn() || !n || n.datum!==fmIso(new Date()) || !n.vorher) return 0;
+  const zwei=restQuellen().length>1, r=data.restbullen;
+  const w=(num(n.vorher.rest)||0)+(zwei ? num(n.vorher.rest2)||0 : 0)-(num(r.rest)||0)-(zwei ? num(r.rest2)||0 : 0);
+  return w>0.5 ? w : 0;
+}
+function fmRestNassWaage(){
+  const w=fmRestNassWasser(); if(!w) return;
+  const kopf=document.querySelector("#calc .cat-header.cat-restbullen"), body=kopf && kopf.closest(".category") && kopf.closest(".category").querySelector(".cat-body");
+  const tab=body && body.querySelector("table"); if(!tab || tab.dataset.fmNass) return;
+  tab.dataset.fmNass="1";
+  tab.querySelectorAll("tr").forEach(tr=>{ const td=tr.children[4]; if(td && td.tagName==="TD"){ const v=parseFloat(td.textContent); if(!isNaN(v)) td.textContent=(v+w).toFixed(1); } });
+  tab.insertAdjacentHTML("afterend", `<div class="fm-rest-nass-waage" style="font-size:13px;color:#555;margin-top:4px">💧 „Summe“ = was die Waage zeigt, mit ${Math.round(w)} kg Regenwasser im Rest</div>`);
 }
 function fmRestNassUebernehmen(){
   const q=restQuellen(), r=data.restbullen;
