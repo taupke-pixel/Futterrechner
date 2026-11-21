@@ -6831,7 +6831,7 @@ if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage();
+  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage(); fmRestWegZeile();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
@@ -7549,6 +7549,31 @@ function fmRestNassFaktor(k){
   const gestern=fmTagPlus(fmIso(new Date()),-1), alle=data[k].items.filter(it=>it.kg>0), summe=alle.reduce((s,it)=>s+it.kg,0);
   const wasser=alle.filter(fmDraussen).reduce((s,it)=>s+it.kg*Math.max(0, fmRegenProzentAm(gestern, fmSilageName(it))||0)/100,0);
   return summe>0 ? 1+wasser/summe : 1;
+}
+// Reste weggeworfen / anders verwertet (Wunsch Fritz 21.11.2026): Menge unbekannt → der Fütterungstag zählt nicht in der
+// Auswertung (wie die Antwort „Reste anders verwertet“). Gilt für die letzte Fütterung vor heute jeder Gruppe mit Resten.
+function fmRestWegTage(){
+  const heute=fmIso(new Date());
+  return fmGruppen().filter(g=>g.art==="rest" && restQuellen().includes(g.karte)).map(g=>{
+    const d=historyData.filter(e=>e && e.kategorie===g.karte).map(e=>fmAusDatum(e.datum)).filter(x=>x && x<heute).sort().pop();
+    return d ? { g, d } : null; }).filter(Boolean);
+}
+function fmRestWeg(an){
+  const t=fmRestWegTage(); if(!t.length) return;
+  fmCfg.antworten=fmCfg.antworten||{};
+  t.forEach(({g,d})=>{ const s=g.id+"|"+d; if(an) fmCfg.antworten[s]="anders"; else if(fmCfg.antworten[s]==="anders") delete fmCfg.antworten[s]; });
+  fmSpeichern(); buildCalc();
+}
+function fmRestWegZeile(){
+  if(!fmAn() || fmNurAnsehen() || !kategorieAn("restbullen")) return;
+  const kopf=document.querySelector("#calc .cat-header.cat-restbullen"), body=kopf && kopf.closest(".category") && kopf.closest(".category").querySelector(".cat-body");
+  if(!body || body.querySelector(".fm-rest-weg")) return;
+  const t=fmRestWegTage(); if(!t.length) return;
+  const a=fmCfg.antworten||{}, an=t.every(({g,d})=>a[g.id+"|"+d]==="anders"), tage=[...new Set(t.map(x=>fmKurz(x.d)))].join(", ");
+  const html = an ? `🗑 Reste von der Mischung vom ${tage} zählen nicht in der Auswertung <button onclick="fmRestWeg(false)" style="font-size:13px">rückgängig</button>`
+    : `🗑 Reste weggeworfen oder anders verwertet? <button onclick="if(confirm('Reste von der Mischung vom ${tage} nicht auswerten?'))fmRestWeg(true)" style="font-size:13px">Tag nicht werten</button>`;
+  const d=document.createElement("div"); d.className="fm-rest-weg"; d.style.cssText="font-size:13px;color:#555;margin:6px 0"; d.innerHTML=html;
+  const tot=body.querySelector(".total"); if(tot) tot.insertAdjacentElement("beforebegin", d); else body.appendChild(d);
 }
 function fmRestNassKasten(){
   if(!fmAn() || fmNurAnsehen() || !kategorieAn("restbullen")) return;
