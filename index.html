@@ -4891,7 +4891,7 @@ function zusammenKarteHtml(){
   const anteil = !p.grund.length ? "" : wahl
     ? `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px;background:#f3f8f4;border-radius:8px;padding:8px">
         <div style="font-weight:bold;color:#333;margin-bottom:6px">Vor dem Laden wählen – Grundmischung für ${n2}:</div>
-        <div style="display:flex;gap:6px">${wahlKnopf(!p.voll,"zusammen-genau","Genau","zusammenVoll(false)")}${wahlKnopf(p.voll,"zusammen-voll","Passt","zusammenVoll(true)")}</div>
+        <div style="display:flex;gap:6px">${wahlKnopf(!p.voll,"zusammen-genau","Genau nach Ration","zusammenVoll(false)")}${wahlKnopf(p.voll,"zusammen-voll","Volle Grundmischung","zusammenVoll(true)")}</div>
         <div style="margin-top:6px">${p.voll
           ? `<b>100 %</b> Grundmischung (${p.proTier1.toFixed(1)} kg je Tier). ${n2} bekommt dadurch etwas mehr ${futterName(p.engpass)} als in der Ration (genau wären ${Math.round(p.fGenau*100)} %).`
           : `<b>${Math.round(p.f*100)} %</b> Grundmischung (${(p.f*p.proTier1).toFixed(1)} kg je Tier), weil ${n2} weniger ${futterName(p.engpass)} bekommt. Der Rest wird dazugemischt.`}</div>
