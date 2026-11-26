@@ -1066,6 +1066,15 @@ restMischungZeilen().forEach(({it, ist})=>{
   // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
   if(it.type==="agf" || it.type==="mlf" || it.type==="wasser"){
     let exists = bull.some(b => b.type===it.type && b.kg>0);
+    // Wasser steckt in der Restmischung, auch wenn die Ration keins hat: nur anzeigen (Summe bleibt, weil es im Wagen ist)
+    if(!exists && it.type==="wasser") rows += `
+<tr class="rest-wasser-info">
+<td>${globalCfg.wasserName}<div style="font-size:11px;color:#666">schon im Rest (nicht dazu)</div></td>
+<td>${ist.toFixed(1)}</td>
+<td>0.0</td>
+<td>-</td>
+<td>${lauf.toFixed(1)}</td>
+</tr>`;
     if(!exists) return;
   }
 
