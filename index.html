@@ -4725,13 +4725,16 @@ showTab = function(t){
    Grundmischung = Kühe-Ration; Gruppe 2 bekommt davon den größten Anteil, der in ihre Ration passt, der Rest ist Zugabe. */
 function kuehe2Zusammen(){ return globalCfg.kuehe2Modus==="zusammen"; }
 function zusammenPlan(){
-  const k1=data.kuehe.items.filter(i=>i.kg>0), k2=data.kuehe2.items.filter(i=>i.kg>0);
   const gleich=(a,b)=>(a.type||b.type) ? a.type===b.type : a.name===b.name;
+  // Gruppe 2 hat ihre komplette Ration je Kuh (Wunsch Fritz 26.11.): dasselbe Futter zweimal → Mengen zusammenzählen
+  const k1=data.kuehe.items.filter(i=>i.kg>0), k2=[];
+  data.kuehe2.items.filter(i=>i.kg>0).forEach(i=>{ const x=k2.find(y=>gleich(y,i)); if(x) x.kg+=i.kg; else k2.push(i.type ? { type:i.type, kg:i.kg } : { name:i.name, kg:i.kg }); });
   const s1=num(data.kuehe.anz)||0, s2=num(data.kuehe2.anz)||0;
   // Anteil Grundmischung je Tier der Gruppe 2: so viel, wie bei JEDEM Futter der Grundmischung in ihre Ration passt
-  let f = k1.length ? Infinity : 0;
-  k1.forEach(a=>{ const b=k2.find(x=>gleich(a,x)); f=Math.min(f, b ? b.kg/a.kg : 0); });
+  let f = k1.length ? Infinity : 0, engpass=null;
+  k1.forEach(a=>{ const b=k2.find(x=>gleich(a,x)), v=b ? b.kg/a.kg : 0; if(v<f){ f=v; engpass=a; } });
   if(!isFinite(f)) f=0;
+  const fehlt=k1.filter(a=>!k2.some(x=>gleich(a,x)));
   const grund=k1.map(a=>({ it:a, kg:a.kg*s1 + a.kg*f*s2 }));
   const G=grund.reduce((s,g)=>s+g.kg,0), proTier1=k1.reduce((s,a)=>s+a.kg,0);
   const geplant=proTier1*f*s2;
@@ -4753,7 +4756,7 @@ function zusammenPlan(){
   });
   const zugabe=zeilen2.filter(z=>z.diff>0).map(z=>({ it:z.it, kg:z.diff }));
   const zuViel=zeilen2.filter(z=>z.diff<0).map(z=>({ it:z.it, kg:z.diff }));
-  return { s1, s2, f, grund, G, zugabe, zuViel, zeilen2, rest2:R, geplant, echt, menge1:G-R, faktor2, plan1, plan2:k2.reduce((x,b)=>x+b.kg,0)*s2 };
+  return { s1, s2, f, engpass, fehlt, proTier1, grund, G, zugabe, zuViel, zeilen2, rest2:R, geplant, echt, menge1:G-R, faktor2, plan1, plan2:k2.reduce((x,b)=>x+b.kg,0)*s2 };
 }
 function zusammenZeit(it, kg){
   if(it.type==="agf") return `<span class="agf">${fmt(kg/globalCfg.agfKg)}</span>`;
@@ -4784,8 +4787,9 @@ Abbrechen = ${globalCfg.kuehe2Name} normal füttern (die Mehrmenge wird bei den 
 }
 // Speichern (zugleich Zeitstempel der Mischung): jedes kg genau einmal – Stall 1 bekommt Grundmischung minus Rest,
 // Gruppe 2 den Rest plus alles, was dazu bzw. nachgeladen wurde. Lager wie bei „Speichern“ je Gruppe.
-// „zusammen“: Gruppe 2 übernimmt die Grundmischung von Kühe automatisch (gleiche Futter, Werte, Reihenfolge).
-// Nur Felder, die bei Kühe leer sind, gehören Gruppe 2 selbst (Zugabe, z. B. MLF) und bleiben erhalten.
+// Beim Umstellen auf „zusammen“ EINMAL: Gruppe 2 mit der Grundmischung von Kühe vorbelegen (gleiche Futter, Werte, Reihenfolge).
+// Felder, die bei Kühe leer sind, bleiben wie sie sind (z. B. MLF). Danach ist Gruppe 2 frei änderbar (Wunsch Fritz 26.11.):
+// dort steht die komplette Ration je Kuh, der Rechner ermittelt daraus den Anteil Grundmischung und die Zugabe.
 function zusammenAbgleich(){
   if(!kuehe2Zusammen()) return;
   const a=data.kuehe.items, b=data.kuehe2.items;
@@ -4796,17 +4800,11 @@ function zusammenAbgleich(){
     z.kg=it.kg;
   });
 }
-// In den Einstellungen: übernommene Zeilen bei Gruppe 2 grau (nicht änderbar, „wie Kühe“)
+// In den Einstellungen: Hinweis bei Gruppe 2 – alle Felder frei, komplette Ration je Kuh
 function zusammenEinstellungen(){
   if(!kuehe2Zusammen()) return;
   const modus=document.getElementById("kuehe2-modus"); if(!modus) return;
-  modus.insertAdjacentHTML("beforeend", `<div class="zusammen-hinweis" style="font-size:13px;color:#666;margin-top:4px">Grundmischung wie bei „${globalCfg.kueheName}“ (grau). Zugabe in die freien Felder eintragen.</div>`);
-  let i=0;
-  for(let e=modus.nextElementSibling; e && e.id!=="edit-faersen"; e=e.nextElementSibling){
-    if(!e.classList || !e.classList.contains("sort-row")) continue;
-    const it=data.kuehe.items[i++];
-    if(it && it.kg>0){ e.classList.add("zusammen-wie-kuehe"); e.querySelectorAll("input").forEach(x=>{ x.disabled=true; x.style.background="#eee"; x.style.color="#777"; }); }
-  }
+  modus.insertAdjacentHTML("beforeend", `<div class="zusammen-hinweis" style="font-size:13px;color:#666;margin-top:4px">Hier die <b>komplette Ration je Kuh</b> für „${globalCfg.kuehe2Name}“ eintragen – auch die Futter der Grundmischung, gern in anderer Menge. Der Rechner ermittelt, wie viel Grundmischung von „${globalCfg.kueheName}“ passt und was dazugemischt wird.</div>`);
 }
 function zusammenSpeichern(){
   if(alreadySavedToday("kuehe") || alreadySavedToday("kuehe2")){ alert("Heute bereits gespeichert"); return; }
@@ -4881,6 +4879,9 @@ function zusammenKarteHtml(){
   const info = p.echt===null ? "" : `<div style="font-size:13px;color:#1b5e20;margin-top:4px">✎ Waage zeigte ${p.echt.toFixed(0)} kg → ${n1} hat ${p.menge1.toFixed(0)} kg bekommen</div>`
     + (data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+fmWert("waageToleranz") ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr rechnet die Auswertung beim Rest mit.</div>` : "")
     + (p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : "");
+  // Anteil Grundmischung je Tier der Gruppe 2 (eigene Ration je Kuh, Wunsch Fritz 26.11.) + Warnung, wenn ein Grundmischungs-Futter fehlt
+  const anteil = p.grund.length ? `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>${Math.round(p.f*100)} %</b> (${(p.f*p.proTier1).toFixed(1)} kg)${p.f<0.995 && p.f>0 && p.engpass ? ` – begrenzt durch ${futterName(p.engpass)}` : ""}</div>` : "";
+  const warnung = p.fehlt.length && p.grund.length ? `<div class="zusammen-fehlt" style="font-size:13px;background:#fff3cd;color:#6b4e00;border-radius:6px;padding:6px 8px;margin-top:6px">⚠ In der Ration von „${n2}“ fehlt ${p.fehlt.map(futterName).join(", ")} aus der Grundmischung → ${n2} bekommt <b>keine</b> Grundmischung, alles wird extra gemischt. Bitte in den Einstellungen bei „${n2}“ eintragen.</div>` : "";
   return `
   <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
     <div class="cat-header cat-kuehe" onclick="data.kuehe.collapsed=!data.kuehe.collapsed;save();buildCalc();">
@@ -4892,7 +4893,7 @@ function zusammenKarteHtml(){
       ${hm ? fmVorschlagRestHtml(hm.g1,"kuehe",n1)+fmVorschlagRestHtml(hm.g2,"kuehe2",n2) : ""}
       ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
-      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade1}${info}</div>
+      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade1}${info}</div>${anteil}${warnung}
       ${zug ? `<div style="font-weight:bold;margin-top:8px">${p.echt!==null&&p.echt<p.geplant?"Nachladen und dazumischen":"Dazumischen"} für ${einStall(hm && hm.g2, n2)}</div>
       <table>${zug}</table>` : ""}
       <div class="zusammen-rest" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade2}</div>
@@ -6831,11 +6832,11 @@ if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
   if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
-  zusammenAbgleich(); _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage(); fmRestWegZeile();
+  _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage(); fmRestWegZeile();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
-buildSettings = function(){ zusammenAbgleich(); _buildSettingsVorZusammen(); zusammenEinstellungen(); };
+buildSettings = function(){ _buildSettingsVorZusammen(); zusammenEinstellungen(); };
 const _showTabVorFressmenge = showTab;
 showTab = function(t){
   _showTabVorFressmenge(t);

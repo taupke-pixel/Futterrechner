@@ -1,5 +1,5 @@
 // Test „Kühe + Kühe Gruppe 2 zusammen mischen“ (Wunsch Fritz 15.11.2026):
-//  - Einstellungen: dritte Auswahl; Gruppe 2 übernimmt die Grundmischung von Kühe automatisch (grau), nur Zugabe selbst
+//  - Einstellungen: dritte Auswahl; Gruppe 2 einmal mit der Grundmischung vorbelegt, danach eigene Ration je Kuh (26.11.)
 //  - Rechner: EINE Karte (1. Grundmischung für beide, 2. Kühe abladen bis …, 3. Zugabe, 4. Rest an Gruppe 2)
 //  - „anders abgeladen“ (Waage): nachladen, Gruppe 2 prozentual mitziehen oder normal (Mehrmenge zählt bei den Resten)
 //  - Speichern je Gruppe, jedes kg genau einmal, Lager wie bisher, Zeitstempel
@@ -49,7 +49,7 @@ async function main() {
     }, [S1, S2]);
     const vorher = await page.evaluate(() => document.getElementById("calc").innerHTML);
 
-    await pruefe("Einstellungen: dritte Auswahl „zusammen mit Kühe mischen“ → Gruppe 2 übernimmt Grundmischung (gleiche Futter, Werte, Reihenfolge, grau), Zugabe MLF bleibt", async () => {
+    await pruefe("Einstellungen: dritte Auswahl „zusammen mit Kühe mischen“ → Gruppe 2 wird einmal mit der Grundmischung vorbelegt (gleiche Futter, Werte, Reihenfolge), alle Felder frei, Zugabe MLF bleibt", async () => {
       await page.evaluate(() => { showTab("settings"); buildSettings(); });
       assert.deepStrictEqual(await page.$$eval("#kuehe2-modus option", o => o.map(x => x.value)), ["normal", "aufwerten", "zusammen"]);
       await page.selectOption("#kuehe2-modus select", "zusammen");
@@ -57,14 +57,14 @@ async function main() {
       r.k1.forEach(([n, kg], i) => { if (kg > 0) assert.deepStrictEqual(r.k2[i], [n, kg], "Zeile " + i); });
       assert.deepStrictEqual(r.k2.find(x => x[0] === "mlf"), ["mlf", 4]);
       assert.deepStrictEqual(r.k2[6], ["Mineral 2", 0], "freies Zugabe-Feld von Gruppe 2 überschrieben");
-      assert.strictEqual(await page.locator(".zusammen-wie-kuehe").count(), 5);
-      assert(await page.locator(".zusammen-wie-kuehe input").first().isDisabled());
-      assert((await page.textContent("#kuehe2-modus")).includes("Grundmischung wie bei „Kühe“"));
+      assert.strictEqual(await page.locator(".zusammen-wie-kuehe").count(), 0, "keine grauen Zeilen mehr");
+      assert.strictEqual(await page.evaluate(() => [...document.querySelectorAll("#settings input")].filter(x => x.disabled).length), 0, "gesperrte Felder");
+      assert((await page.textContent("#kuehe2-modus")).includes("komplette Ration je Kuh"));
     });
 
-    await pruefe("Kühe ändern (Mais 29 → 31) → Gruppe 2 zieht automatisch mit; danach wieder 29", async () => {
-      await page.evaluate(() => { data.kuehe.items[0].kg = 31; save(); buildCalc(); });
-      assert.strictEqual(await page.evaluate(() => data.kuehe2.items[0].kg), 31);
+    await pruefe("Kühe ändern (Mais 29 → 31) → Gruppe 2 bleibt bei ihrer eigenen Ration (29), wird nicht mehr überschrieben; danach wieder 29", async () => {
+      await page.evaluate(() => { data.kuehe.items[0].kg = 31; save(); buildCalc(); buildSettings(); });
+      assert.strictEqual(await page.evaluate(() => data.kuehe2.items[0].kg), 29);
       await page.evaluate(() => { data.kuehe.items[0].kg = 29; save(); buildCalc(); buildSettings(); });
     });
 
@@ -187,6 +187,31 @@ async function main() {
       assert.strictEqual(await page.evaluate(() => data.kuehe.anz), 46.8);
       await page.evaluate(s1 => { data.kuehe.anz = s1; fmCfg.an = false; fmCfg.gruppen = []; fmStall = null; globalCfg.restQuellen = ["kuehe"]; save(); buildCalc(); }, S1);
       assert.strictEqual(await page.locator(".zusammen-hm").count(), 0);
+    });
+
+    await pruefe("Eigene Ration je Kuh in Gruppe 2 (Prüf-Beispiel Fritz 26.11.): Anteil 78 % (41,4 kg, begrenzt durch Schnitt 2), Zugabe Mais 357,5 · Schnitt 5 226,1 · AGF 91,7 · MLF 165; doppeltes Futter wird zusammengezählt; fehlendes Futter → Warnung", async () => {
+      const r = await page.evaluate(() => {
+        const alt = JSON.stringify({ k: data.kuehe, k2: data.kuehe2 }); historyData = historyData.filter(h => h.datum !== getToday());
+        const setze = (liste, werte) => { liste.forEach(i => i.kg = 0); werte.forEach(([n, kg], i) => { if (n === "agf" || n === "mlf") liste.find(x => x.type === n).kg = kg; else { liste[i].name = n; delete liste[i].type; liste[i].kg = kg; } }); };
+        setze(data.kuehe.items, [["Mais", 27], ["Schnitt 5", 14], ["Schnitt 2", 9], ["Stroh", 0.2], ["agf", 3]]);
+        setze(data.kuehe2.items, [["Mais", 27.5], ["Schnitt 5", 15], ["Schnitt 2", 7], ["Stroh", 0.2], ["agf", 4], ["mlf", 3]]);
+        data.kuehe.anz = 35; data.kuehe2.anz = 55; data.kuehe2.zusRest = null; showTab("calc"); buildCalc();
+        const plan = () => { const p = zusammenPlan(); return { f: p.f, eng: p.engpass && p.engpass.name, z: Object.fromEntries(p.zugabe.map(z => [z.it.type || z.it.name, Math.round(z.kg * 10) / 10])), text: document.querySelector(".zusammen-karte").innerText }; };
+        const a = plan();
+        data.kuehe2.items[0].kg = 21; data.kuehe2.items[6].name = "Mais"; delete data.kuehe2.items[6].type; data.kuehe2.items[6].kg = 6.5; buildCalc();   // Mais 21 + 6,5
+        const b = plan();
+        data.kuehe2.items[2].kg = 0; buildCalc();   // Schnitt 2 fehlt
+        const c = plan();
+        const o = JSON.parse(alt); data.kuehe = o.k; data.kuehe2 = o.k2; save(); buildCalc();
+        return { a, b, c };
+      });
+      assert(Math.abs(r.a.f - 7 / 9) < 1e-9 && r.a.eng === "Schnitt 2", JSON.stringify(r.a));
+      assert.deepStrictEqual(r.a.z, { Mais: 357.5, "Schnitt 5": 226.1, Stroh: 2.4, agf: 91.7, mlf: 165 });
+      assert(r.a.text.includes("Grundmischung je Tier Kühe Gruppe 2: 78 % (41.4 kg) – begrenzt durch Schnitt 2"), r.a.text);
+      assert(!r.a.text.includes("fehlt"), r.a.text);
+      assert.deepStrictEqual(r.b.z, r.a.z, "doppeltes Mais-Feld nicht zusammengezählt");
+      assert.strictEqual(r.c.f, 0);
+      assert(r.c.text.includes("fehlt Schnitt 2 aus der Grundmischung"), r.c.text);
     });
 
     await pruefe("Zurück auf „eigene Mischung“ → Rechner genau wie vorher; Gruppe 2 behält die übernommenen Werte zum Weiterbearbeiten", async () => {
