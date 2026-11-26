@@ -4887,8 +4887,8 @@ function zusammenKarteHtml(){
   // Anteil Grundmischung je Tier der Gruppe 2 (eigene Ration je Kuh, Wunsch Fritz 26.11.) + Warnung, wenn ein Grundmischungs-Futter fehlt
   const knopf="font-size:13px;background:#fff;border:1px solid #999;border-radius:10px;padding:2px 8px;margin-left:4px";
   const anteil = !p.grund.length ? "" : p.voll
-    ? `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>100 %</b> (${p.proTier1.toFixed(1)} kg) – Unterschied bei ${futterName(p.engpass)} vernachlässigt (genau wären ${Math.round(p.fGenau*100)} %) <button class="zusammen-genau" style="${knopf}" onclick="zusammenVoll(false)">genau rechnen</button></div>`
-    : `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>${Math.round(p.f*100)} %</b> (${(p.f*p.proTier1).toFixed(1)} kg)${p.f<0.995 && p.f>0 && p.engpass ? ` – begrenzt durch ${futterName(p.engpass)} <button class="zusammen-voll" style="${knopf}" onclick="zusammenVoll(true)">passt so – 100 % Grundmischung</button>` : ""}</div>`;
+    ? `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>100 %</b> (${p.proTier1.toFixed(1)} kg) – Unterschied bei ${futterName(p.engpass)} vernachlässigt (genau wären ${Math.round(p.fGenau*100)} %) – vor dem Laden wählen <button class="zusammen-genau" style="${knopf}" onclick="zusammenVoll(false)">genau rechnen</button></div>`
+    : `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>${Math.round(p.f*100)} %</b> (${(p.f*p.proTier1).toFixed(1)} kg)${p.f<0.995 && p.f>0 && p.engpass ? ` – begrenzt durch ${futterName(p.engpass)} <button class="zusammen-voll" style="${knopf}" onclick="zusammenVoll(true)">passt so – 100 % Grundmischung</button><div style="font-size:12px;color:#888">vor dem Laden wählen – ändert alle Mengen unten</div>` : ""}</div>`;
   const warnung = p.fehlt.length && p.grund.length ? `<div class="zusammen-fehlt" style="font-size:13px;background:#fff3cd;color:#6b4e00;border-radius:6px;padding:6px 8px;margin-top:6px">⚠ In der Ration von „${n2}“ fehlt ${p.fehlt.map(futterName).join(", ")} aus der Grundmischung → ${n2} bekommt <b>keine</b> Grundmischung, alles wird extra gemischt. Bitte in den Einstellungen bei „${n2}“ eintragen.</div>` : "";
   return `
   <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
@@ -4900,8 +4900,9 @@ function zusammenKarteHtml(){
       <div style="margin-top:4px">${n2}: <input type="number" class="zusammen-anz2" value="${data.kuehe2.anz}" style="width:70px" oninput="data.kuehe2.anz=num(this.value);save()" onblur="buildCalc()"> Tiere${hm ? zusammenHmTiere(hm.g2,"kuehe2") : ""}</div>
       ${hm ? fmVorschlagRestHtml(hm.g1,"kuehe",n1)+fmVorschlagRestHtml(hm.g2,"kuehe2",n2) : ""}
       ${hm && (!hm.g1 || !hm.g2) ? `<div class="zusammen-hm-hinweis" style="font-size:12px;color:#b36b00;margin-top:4px">Für die Tierzahlen aus dem Herdenmanager im Reiter „Fressmenge“ je eine Futtergruppe mit Mischung „${n1}“ und „${n2}“ anlegen.</div>` : ""}
+      ${anteil}${warnung}
       <table><tr><th>Futter</th><th>kg</th><th>Summe</th><th>Zeit</th></tr>${zeilen||"<tr><td colspan=4>–</td></tr>"}</table>
-      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade1}${info}</div>${anteil}${warnung}
+      <div class="zusammen-abladen" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade1}${info}</div>
       ${zug ? `<div style="font-weight:bold;margin-top:8px">${p.echt!==null&&p.echt<p.geplant?"Nachladen und dazumischen":"Dazumischen"} für ${einStall(hm && hm.g2, n2)}</div>
       <table>${zug}</table>` : ""}
       <div class="zusammen-rest" style="cursor:pointer" onclick="zusammenAbladenOeffnen()">${ablade2}</div>
