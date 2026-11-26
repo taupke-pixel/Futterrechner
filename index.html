@@ -1069,7 +1069,7 @@ restMischungZeilen().forEach(({it, ist})=>{
     // Wasser steckt in der Restmischung, auch wenn die Ration keins hat: nur anzeigen (Summe bleibt, weil es im Wagen ist)
     if(!exists && it.type==="wasser") rows += `
 <tr class="rest-wasser-info">
-<td>${globalCfg.wasserName}<div style="font-size:11px;color:#666">schon im Rest (nicht dazu)</div></td>
+<td>${globalCfg.wasserName}</td>
 <td>${ist.toFixed(1)}</td>
 <td>0.0</td>
 <td>-</td>
