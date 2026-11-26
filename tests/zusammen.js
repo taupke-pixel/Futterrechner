@@ -212,14 +212,14 @@ async function main() {
       });
       assert(Math.abs(r.a.f - 7 / 9) < 1e-9 && r.a.eng === "Schnitt 2", JSON.stringify(r.a));
       assert.deepStrictEqual(r.a.z, { Mais: 357.5, "Schnitt 5": 226.1, Stroh: 2.4, agf: 91.7, mlf: 165 });
-      assert(r.a.text.includes("Grundmischung je Tier Kühe Gruppe 2: 78 % (41.4 kg) – begrenzt durch Schnitt 2"), r.a.text);
+      assert(r.a.text.includes("Vor dem Laden wählen") && r.a.text.includes("78 % Grundmischung (41.4 kg je Tier), weil Kühe Gruppe 2 weniger Schnitt 2 bekommt"), r.a.text);
       assert(!r.a.text.includes("fehlt"), r.a.text);
       assert.deepStrictEqual(r.b.z, r.a.z, "doppeltes Mais-Feld nicht zusammengezählt");
       // „passt so“: volle Grundmischung, nur Mehrbedarf dazu; Schnitt 2 bekommt Gruppe 2 2 kg/Tier mehr (110 kg), wird so gespeichert
       assert.strictEqual(r.v.f, 1);
       assert.deepStrictEqual(r.v.z, { Mais: 27.5, "Schnitt 5": 55, agf: 55, mlf: 165 });
       assert.deepStrictEqual(r.v.zuViel, { "Schnitt 2": -110 });
-      assert(r.v.text.includes("100 % (53.2 kg) – Unterschied bei Schnitt 2 vernachlässigt (genau wären 78 %)") && r.v.text.includes("mehr als Ration (passt so)") && r.v.text.includes("+110.0"), r.v.text);
+      assert(r.v.text.includes("100 % Grundmischung (53.2 kg je Tier). Kühe Gruppe 2 bekommt dadurch etwas mehr Schnitt 2 als in der Ration (genau wären 78 %)") && r.v.text.includes("mehr als Ration (passt so)") && r.v.text.includes("+110.0"), r.v.text);
       assert.strictEqual(r.v.e2, Math.round(55 * (53.2 + 0.5 + 1 + 1 + 3) * 10) / 10, "Gruppe 2 gespeichert");
       assert(Math.abs(r.v.zurueck - 7 / 9) < 1e-9, "genau rechnen");
       assert.strictEqual(r.c.f, 0);

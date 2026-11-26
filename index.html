@@ -4885,10 +4885,18 @@ function zusammenKarteHtml(){
     + (data.kuehe2.zusAnpassen===false && p.menge1>p.plan1+fmWert("waageToleranz") ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">${n2} wird normal gefüttert – die ${(p.menge1-p.plan1).toFixed(0)} kg mehr rechnet die Auswertung beim Rest mit.</div>` : "")
     + (p.faktor2>1.005 ? `<div class="zusammen-faktor" style="font-size:13px;color:#1b5e20">Damit beide gleich lange reichen, bekommt ${n2} auch +${Math.round((p.faktor2-1)*100)} %.</div>` : "");
   // Anteil Grundmischung je Tier der Gruppe 2 (eigene Ration je Kuh, Wunsch Fritz 26.11.) + Warnung, wenn ein Grundmischungs-Futter fehlt
-  const knopf="font-size:13px;background:#fff;border:1px solid #999;border-radius:10px;padding:2px 8px;margin-left:4px";
-  const anteil = !p.grund.length ? "" : p.voll
-    ? `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>100 %</b> (${p.proTier1.toFixed(1)} kg) – Unterschied bei ${futterName(p.engpass)} vernachlässigt (genau wären ${Math.round(p.fGenau*100)} %) – vor dem Laden wählen <button class="zusammen-genau" style="${knopf}" onclick="zusammenVoll(false)">genau rechnen</button></div>`
-    : `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>${Math.round(p.f*100)} %</b> (${(p.f*p.proTier1).toFixed(1)} kg)${p.f<0.995 && p.f>0 && p.engpass ? ` – begrenzt durch ${futterName(p.engpass)} <button class="zusammen-voll" style="${knopf}" onclick="zusammenVoll(true)">passt so – 100 % Grundmischung</button><div style="font-size:12px;color:#888">vor dem Laden wählen – ändert alle Mengen unten</div>` : ""}</div>`;
+  // Wahl vor dem Laden (Wunsch Fritz 26.11.): „Genau nach Ration“ (Anteil < 100 %, mehr dazumischen) oder „Volle Grundmischung“ (kleine Unterschiede egal)
+  const wahlKnopf=(an, cls, text, fn)=>`<button class="${cls}" onclick="${fn}" style="flex:1;font-size:14px;padding:6px 4px;border-radius:8px;border:2px solid #2e7d4f;${an?"background:#2e7d4f;color:#fff;font-weight:bold":"background:#fff;color:#2e7d4f"}">${an?"✓ ":""}${text}</button>`;
+  const wahl = p.grund.length && p.fGenau>0 && p.fGenau<0.995 && !p.fehlt.length && p.engpass;
+  const anteil = !p.grund.length ? "" : wahl
+    ? `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px;background:#f3f8f4;border-radius:8px;padding:8px">
+        <div style="font-weight:bold;color:#333;margin-bottom:6px">Vor dem Laden wählen – Grundmischung für ${n2}:</div>
+        <div style="display:flex;gap:6px">${wahlKnopf(!p.voll,"zusammen-genau","Genau nach Ration","zusammenVoll(false)")}${wahlKnopf(p.voll,"zusammen-voll","Volle Grundmischung","zusammenVoll(true)")}</div>
+        <div style="margin-top:6px">${p.voll
+          ? `<b>100 %</b> Grundmischung (${p.proTier1.toFixed(1)} kg je Tier). ${n2} bekommt dadurch etwas mehr ${futterName(p.engpass)} als in der Ration (genau wären ${Math.round(p.fGenau*100)} %).`
+          : `<b>${Math.round(p.f*100)} %</b> Grundmischung (${(p.f*p.proTier1).toFixed(1)} kg je Tier), weil ${n2} weniger ${futterName(p.engpass)} bekommt. Der Rest wird dazugemischt.`}</div>
+      </div>`
+    : `<div class="zusammen-anteil" style="font-size:13px;color:#555;margin-top:6px">Grundmischung je Tier ${n2}: <b>${Math.round(p.f*100)} %</b> (${(p.f*p.proTier1).toFixed(1)} kg)</div>`;
   const warnung = p.fehlt.length && p.grund.length ? `<div class="zusammen-fehlt" style="font-size:13px;background:#fff3cd;color:#6b4e00;border-radius:6px;padding:6px 8px;margin-top:6px">⚠ In der Ration von „${n2}“ fehlt ${p.fehlt.map(futterName).join(", ")} aus der Grundmischung → ${n2} bekommt <b>keine</b> Grundmischung, alles wird extra gemischt. Bitte in den Einstellungen bei „${n2}“ eintragen.</div>` : "";
   return `
   <div class="category zusammen-karte ${data.kuehe.collapsed?'collapsed':''}">
