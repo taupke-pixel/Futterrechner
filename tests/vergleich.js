@@ -46,7 +46,7 @@ async function schnappschuss(page) {
     // Ebenso das neue dritte Futter (Elemente mit Klasse „drittes-futter“) – alles andere streng
     const ohneNeues = id => {
       const c = document.getElementById(id).cloneNode(true);
-      c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove());
+      c.querySelectorAll(".rest-info, .drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove());
       return c.textContent;
     };
     const text = id => norm(ohneNeues(id));
@@ -168,7 +168,7 @@ function ohneIds(o) {
   if (Array.isArray(o)) return o.filter(x => !(x && typeof x === "object" && x.type === "wasser")).map(ohneIds);
   if (o && typeof o === "object") {
     const r = {};
-    Object.keys(o).sort().forEach(k => { if (k !== "id" && k !== "wasser" && k !== "wasserName" && k !== "wasserKg" && k !== "kuehe2" && k !== "kuehe2Name" && k !== "kuehe2Modus") r[k] = ohneIds(o[k]); });
+    Object.keys(o).sort().forEach(k => { if (k !== "id" && k !== "wasser" && k !== "wasserName" && k !== "wasserKg" && k !== "kuehe2" && k !== "kuehe2Name" && k !== "kuehe2Modus" && k !== "restTag" && k !== "restWert") r[k] = ohneIds(o[k]); });
     return r;
   }
   return o;

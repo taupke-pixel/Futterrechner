@@ -1051,7 +1051,8 @@ function restMischungZeilen(){
   data[restZiel()].items.forEach(b=>{
     if(b.kg>0 && !zeilen.some(z=>gleich(z.it,b))) zeilen.push({ it:b, ist:0, nurZiel:true });
   });
-  return zeilen;
+  // Wasser wie bei allen Rationen ganz zum Schluss (Fritz 27.11.)
+  return [...zeilen.filter(z=>z.it.type!=="wasser"), ...zeilen.filter(z=>z.it.type==="wasser")];
 }
 // Woraus der Rest einer Gruppe besteht. Normal: ihre Ration. Kühe Gruppe 2 „zusammen mischen“: das, was zuletzt
 // (heute/gestern) wirklich an sie verfüttert wurde – bei „Volle Grundmischung“ ist das mehr als ihre Ration (Fritz 27.11.).
@@ -1060,10 +1061,18 @@ function restZusammensetzung(cat){
   const tag=n=>{ const x=new Date(); x.setDate(x.getDate()-n); return String(x.getDate()).padStart(2,"0")+"."+String(x.getMonth()+1).padStart(2,"0")+"."+x.getFullYear(); };
   const e=historyData.find(h=>h.kategorie==="kuehe2" && (h.datum===tag(0) || h.datum===tag(1)) && (h.futter||[]).length);
   const alle=[...data.kuehe2.items, ...data.kuehe.items];
-  if(e) return e.futter.map(f=>{
-    const it=alle.find(i=>i.type && futterName(i)===f.name);
-    return it ? { type:it.type, kg:f.kg } : { name:f.name, kg:f.kg };
-  });
+  if(e){
+    const frei={ agf:e.agf||0, mlf:e.mlf||0, wasser:e.wasser||0 };
+    const namenTyp=n=>{ const it=alle.find(i=>i.type && futterName(i)===n); return it ? it.type : null; };
+    const istName=n=>alle.some(i=>!i.type && i.name===n);
+    return e.futter.map(f=>{
+      // Typ über den Namen – oder (falls umbenannt) über die Summe, die beim Speichern je Typ gemerkt wurde
+      let t=namenTyp(f.name);
+      if(!t && !istName(f.name)) t=["mlf","agf","wasser"].find(x=>frei[x]>0 && Math.abs(frei[x]-f.kg)<1e-6) || null;
+      if(t){ frei[t]=Math.max(0,frei[t]-f.kg); return { type:t, kg:f.kg }; }
+      return { name:f.name, kg:f.kg };
+    });
+  }
   // noch nichts gespeichert: wie heute geplant
   const p=zusammenPlan();
   return p.zeilen2.map(z=>({ ...(z.it.type ? { type:z.it.type } : { name:z.it.name }), kg:z.ist+Math.max(0,z.diff) }));
@@ -1088,10 +1097,10 @@ restMischungZeilen().forEach(({it, ist, nurZiel})=>{
   // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
   if(it.type==="agf" || it.type==="mlf" || it.type==="wasser"){
     let exists = bull.some(b => b.type===it.type && b.kg>0);
-    // Wasser steckt in der Restmischung, auch wenn die Ration keins hat: nur anzeigen (Summe bleibt, weil es im Wagen ist)
-    if(!exists && it.type==="wasser") rows += `
-<tr class="rest-wasser-info">
-<td>${globalCfg.wasserName}</td>
+    // Steckt im Rest, die Ration hat es aber nicht (Wasser, Kraft, Ergänzer): nur anzeigen, Summe bleibt (Fritz 27.11.)
+    if(!exists) rows += `
+<tr class="rest-info">
+<td>${futterName(it)}</td>
 <td>${ist.toFixed(1)}</td>
 <td>0.0</td>
 <td>-</td>
@@ -6916,11 +6925,19 @@ function fmBauen(){
   if(fmOffen && fmAnsicht==="diagramm"){ const g=fmGruppen().find(x=>x.id===fmOffen); if(g) fmChartsZeichnen(g, fmReihe(g)); }
   if(fmOhneOffen){ const g=fmGruppen().find(x=>x.id===fmOhneOffen); if(g) fmOhneDiagramm(g); }
 }
+// Restmischung „vorhanden“ gilt nur am Tag der Eingabe – am nächsten Tag leer (Zielgewicht/Tierzahl bleiben), Fritz 27.11.
+function restVomVortagLeeren(){
+  const r=data.restbullen; if(!r || fmNurAnsehen()) return;
+  const w=(num(r.rest)||0)+"|"+(num(r.rest2)||0), heute=getToday();
+  if(r.restWert!==w){ const neu=!(r.restWert===undefined && w==="0|0"); r.restWert=w; r.restTag=heute; if(neu) save(); return; }
+  if(r.restTag!==heute && w!=="0|0"){ r.rest=0; r.rest2=0; r.restWert="0|0"; r.restTag=heute; save(); }
+}
 // Rechner: bestehende Karten unverändert zeichnen, danach nur die Ergänzungen (bei AUS nichts)
 if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign({ rest:0, ziel:0, anz:0, collapsed:false }, saved.restbullen);
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  if(!fmNurAnsehen()) fmTagesZuschlagAufraeumen();   // auch bei ausgeschalteter Fressmenge (sonst bliebe der Zuschlag von gestern stehen)
+  if(!fmNurAnsehen()) fmTagesZuschlagAufraeumen();
+  restVomVortagLeeren();   // auch bei ausgeschalteter Fressmenge (sonst bliebe der Zuschlag von gestern stehen)
   _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage(); fmRestWegZeile();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)

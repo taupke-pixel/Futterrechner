@@ -30,10 +30,12 @@ function erwartet(backup, quellen, resten, anz) {
   const bull = d.bullen.items;
   // Futter, die nur die Ziel-Ration hat: Ist 0, werden voll geladen (Wunsch Fritz 27.11.)
   d.bullen.items.forEach(b => { if (b.kg > 0 && !zeilen.some(z => (z.it.type || b.type) ? z.it.type === b.type : z.it.name === b.name)) zeilen.push({ it: b, ist: 0 }); });
+  zeilen.sort((x, y) => (x.it.type === "wasser") - (y.it.type === "wasser"));   // Wasser ans Ende
   let lauf = resten.reduce((s, r) => s + r, 0);
   const tabelle = [], gespeichert = [];
   zeilen.forEach(({ it, ist }) => {
-    if ((it.type === "agf" || it.type === "mlf") && !bull.some(b => b.type === it.type && b.kg > 0)) return;
+    // im Rest, aber nicht in der Ration (Kraft/Ergänzer/Wasser): nur anzeigen, Summe bleibt (Fritz 27.11.)
+    if (it.type && !bull.some(b => b.type === it.type && b.kg > 0)) { tabelle.push([it.type === "agf" ? g.agfName : it.type === "mlf" ? g.mlfName : g.wasserName, ist.toFixed(1), "0.0", lauf.toFixed(1)]); return; }
     const b = bull.find(b => (it.type && b.type) ? it.type === b.type : b.name === it.name);
     const soll = b ? b.kg * anz : 0;
     const diff = soll - ist;
@@ -173,6 +175,25 @@ async function main() {
       assert.strictEqual(await page.evaluate(() => data.restbullen.rest), 333, "Eingabe von Gerät A wurde überschrieben");
       assert.strictEqual(await feld(0).inputValue(), "333");
       await ctxB.close();
+    });
+
+    await pruefe("Nächster Tag: „vorhanden“ ist leer, Zielgewicht und Bullen bleiben; Wasser steht in der Tabelle ganz unten", async () => {
+      const r = await page.evaluate(() => {
+        showTab("calc");
+        const vorher = [data.restbullen.rest, data.restbullen.anz, data.restbullen.ziel];
+        data.restbullen.restTag = "01.01.2000"; buildCalc();
+        const nachher = [data.restbullen.rest, data.restbullen.anz, data.restbullen.ziel];
+        // Wasser: steht bei Kühe mitten drin, bei Bullen auch → in der Restmischung als letzte Zeile
+        globalCfg.restQuellen = ["kuehe"];
+        const w = data.kuehe.items.find(i => i.type === "wasser"); if (w) w.kg = 2; else data.kuehe.items.splice(1, 0, { type: "wasser", kg: 2 });
+        const wb = data.bullen.items.find(i => i.type === "wasser"); if (wb) wb.kg = 1; else data.bullen.items.splice(1, 0, { type: "wasser", kg: 1 });
+        data.restbullen.rest = 300; buildCalc();
+        const zeilen = [...document.querySelectorAll(".cat-restbullen + .cat-body table tr")].slice(1).map(tr => tr.querySelector("td").textContent.trim());
+        return { vorher, nachher, letzte: zeilen[zeilen.length - 1], wasser: globalCfg.wasserName, heuteNochDa: data.restbullen.rest };
+      });
+      assert.deepStrictEqual(r.nachher, [0, r.vorher[1], r.vorher[2]], JSON.stringify(r));
+      assert.strictEqual(r.letzte, r.wasser, JSON.stringify(r));
+      assert.strictEqual(r.heuteNochDa, 300, "heute eingetragener Rest bleibt");
     });
 
     await pruefe("Keine Seitenfehler", async () => {

@@ -30,10 +30,12 @@ function erwartet(backup, quellen, resten, anz, ziel) {
   const zielItems = d[ziel].items;
   // Futter, die nur die Ziel-Ration hat: Ist 0, werden voll geladen (Wunsch Fritz 27.11.)
   d[ziel].items.forEach(b => { if (b.kg > 0 && !zeilen.some(z => (z.it.type || b.type) ? z.it.type === b.type : z.it.name === b.name)) zeilen.push({ it: b, ist: 0 }); });
+  zeilen.sort((x, y) => (x.it.type === "wasser") - (y.it.type === "wasser"));   // Wasser ans Ende
   let lauf = resten.reduce((s, r) => s + r, 0);
   const tabelle = [], gespeichert = [];
   zeilen.forEach(({ it, ist }) => {
-    if ((it.type === "agf" || it.type === "mlf") && !zielItems.some(b => b.type === it.type && b.kg > 0)) return;
+    // im Rest, aber nicht in der Ration (Kraft/Ergänzer/Wasser): nur anzeigen, Summe bleibt (Fritz 27.11.)
+    if (it.type && !zielItems.some(b => b.type === it.type && b.kg > 0)) { tabelle.push([it.type === "agf" ? g.agfName : it.type === "mlf" ? g.mlfName : g.wasserName, ist.toFixed(1), "0.0", lauf.toFixed(1)]); return; }
     const b = zielItems.find(b => (it.type && b.type) ? it.type === b.type : b.name === it.name);
     const soll = b ? b.kg * anz : 0;
     const diff = soll - ist;
