@@ -6920,7 +6920,7 @@ function fmBauen(){
 if(testEigeneDaten() && saved && saved.restbullen) data.restbullen=Object.assign({ rest:0, ziel:0, anz:0, collapsed:false }, saved.restbullen);
 const _buildCalcVorFressmenge = buildCalc;
 buildCalc = function(){
-  if(fmAn() && !fmNurAnsehen()) fmTagesZuschlagAufraeumen();
+  if(!fmNurAnsehen()) fmTagesZuschlagAufraeumen();   // auch bei ausgeschalteter Fressmenge (sonst bliebe der Zuschlag von gestern stehen)
   _buildCalcVorFressmenge(); zusammenKarteEinbauen(); fmRechnerErgaenzen(); fmRestHilfe(); fmRestKompakt(); fmMilchpreisKarte(); fmWetterKaesten(); fmRegenWaageZeilen(); fmRestNassKasten(); fmRestNassWaage(); fmRestWegZeile();
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
@@ -7577,9 +7577,15 @@ function fmWetterVorschlag(){
   return null;
 }
 // Gestern übernommene Regen-/Hitze-Mengen zurück auf die normale Ration (nur wenn sie seitdem niemand geändert hat)
+// Feld eines Zuschlags wiederfinden – auch wenn die Zeilen inzwischen umsortiert wurden (27.11.)
+function fmZuschlagZeile(items, x){
+  const passt=it=>it && (x.typ ? it.type===x.typ : (x.name===undefined || (!it.type && it.name===x.name)));
+  if(passt(items[x.i])) return items[x.i];
+  return (x.typ || x.name) ? items.find(passt) : null;
+}
 function fmTagesZuschlagAufraeumen(){
   const t=fmCfg.tagesZuschlag; if(!t || t.datum===fmIso(new Date())) return;
-  Object.entries(t.karten||{}).forEach(([k,l])=>{ const items=data[k] && data[k].items; if(items) l.forEach(x=>{ const it=items[x.i]; if(it && Math.abs(it.kg-x.nachher)<1e-9) it.kg=x.vorher; }); });
+  Object.entries(t.karten||{}).forEach(([k,l])=>{ const items=data[k] && data[k].items; if(items) l.forEach(x=>{ const it=fmZuschlagZeile(items,x); if(it && Math.abs(it.kg-x.nachher)<1e-9) it.kg=x.vorher; }); });
   delete fmCfg.tagesZuschlag;
   try{ localStorage.setItem("fressmenge", JSON.stringify(fmCfg)); }catch(e){}
   save();
@@ -7591,13 +7597,13 @@ function fmWetterUebernehmen(k){
   if(!fmCfg.tagesZuschlag || fmCfg.tagesZuschlag.datum!==heute) fmCfg.tagesZuschlag={ datum:heute, art:v.art, prozent:v.prozent, karten:{} };
   if(fmCfg.tagesZuschlag.karten[k]) return;
   const l=[];
-  data[k].items.forEach((it,i)=>{ if(v.passt(it)){ const vorher=it.kg, pr=v.prozentFuer ? v.prozentFuer(it) : v.prozent; it.kg=Math.round(vorher*(1+pr/100)*100)/100; l.push({ i, vorher, nachher:it.kg, p:pr }); } });
+  data[k].items.forEach((it,i)=>{ if(v.passt(it)){ const vorher=it.kg, pr=v.prozentFuer ? v.prozentFuer(it) : v.prozent; it.kg=Math.round(vorher*(1+pr/100)*100)/100; l.push({ i, typ:it.type||null, name:it.type ? null : it.name, vorher, nachher:it.kg, p:pr }); } });
   fmCfg.tagesZuschlag.karten[k]=l;
   fmSpeichern(); save(); buildCalc();
 }
 function fmWetterZurueck(k){
   const t=fmCfg.tagesZuschlag, l=t && t.karten[k]; if(!l) return;
-  l.forEach(x=>{ const it=data[k].items[x.i]; if(it && Math.abs(it.kg-x.nachher)<1e-9) it.kg=x.vorher; });
+  l.forEach(x=>{ const it=fmZuschlagZeile(data[k].items,x); if(it && Math.abs(it.kg-x.nachher)<1e-9) it.kg=x.vorher; });
   delete t.karten[k];
   fmSpeichern(); save(); buildCalc();
 }

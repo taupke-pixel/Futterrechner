@@ -271,6 +271,24 @@ async function main() {
       assert.deepStrictEqual(r, { a: undefined, b: { kuehe: 120 }, z: 4, einmal: true });
     });
 
+    await pruefe("Regen-Zuschlag von gestern wird zurückgenommen – auch nach Umsortieren und bei ausgeschalteter Fressmenge", async () => {
+      const r = await page.evaluate(() => {
+        showTab("calc"); globalCfg.kuehe2Modus = "normal";
+        const items = () => data.kuehe.items.map(i => (i.type || i.name) + " " + i.kg).join(", ");
+        data.kuehe.items = [{ name: "Grassilage", kg: 20 }, { name: "Maissilage", kg: 15 }, { name: "Heu", kg: 1 }, { type: "mlf", kg: 3 }];
+        fmCfg.tagesZuschlag = { datum: fmIso(new Date()), art: "regen", prozent: 10, karten: { kuehe: [{ i: 0, typ: null, name: "Grassilage", vorher: 20, nachher: 22, p: 10 }, { i: 1, typ: null, name: "Maissilage", vorher: 15, nachher: 16.5, p: 10 }] } };
+        data.kuehe.items[0].kg = 22; data.kuehe.items[1].kg = 16.5;
+        moveItem("kuehe", 0, 1); moveItem("kuehe", 1, 1);   // Grassilage zwei Plätze nach unten
+        const fmAnAlt = fmCfg.an; fmCfg.an = false;
+        fmCfg.tagesZuschlag.datum = "2000-01-01"; buildCalc();
+        const aus = items(), weg = !fmCfg.tagesZuschlag;
+        fmCfg.an = fmAnAlt;
+        return { aus, weg };
+      });
+      assert.strictEqual(r.aus, "Maissilage 15, Heu 1, Grassilage 20, mlf 3, wasser 0", JSON.stringify(r));
+      assert(r.weg, "Zuschlag gelöscht");
+    });
+
     await pruefe("Regen über die Waage: Lernphase → zugeklappte Zeile „Wegen Regen mehr geladen?“, Waage eintragen merkt nur % und mm; gelernt → Zeile weg, gelber Kasten +6 %; übernehmen zeigt die nassen Mengen, History bekommt das echte Futter; nächster Tag normal", async () => {
       const r = await page.evaluate(() => {
         showTab("calc"); globalCfg.kuehe2Modus = "normal";
