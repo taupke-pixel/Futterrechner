@@ -196,7 +196,7 @@ async function main() {
         setze(data.kuehe.items, [["Mais", 27], ["Schnitt 5", 14], ["Schnitt 2", 9], ["Stroh", 0.2], ["agf", 3]]);
         setze(data.kuehe2.items, [["Mais", 27.5], ["Schnitt 5", 15], ["Schnitt 2", 7], ["Stroh", 0.2], ["agf", 4], ["mlf", 3]]);
         data.kuehe.anz = 35; data.kuehe2.anz = 55; data.kuehe2.zusRest = null; showTab("calc"); buildCalc();
-        const plan = () => { const p = zusammenPlan(); return { f: p.f, eng: p.engpass && p.engpass.name, z: Object.fromEntries(p.zugabe.map(z => [z.it.type || z.it.name, Math.round(z.kg * 10) / 10])), text: document.querySelector(".zusammen-karte").innerText }; };
+        const plan = () => { const p = zusammenPlan(); return { f: p.f, eng: p.engpass && p.engpass.name, z: Object.fromEntries(p.zugabe.map(z => [z.it.type || z.it.name, Math.round(z.kg * 10) / 10])), ord: p.zugabe.map(z => z.it.type || z.it.name), ord2: data.kuehe2.items.filter(i => i.kg > 0).map(i => i.type || i.name).filter(n => p.zugabe.some(z => (z.it.type || z.it.name) === n)), text: document.querySelector(".zusammen-karte").innerText }; };
         const a = plan();
         document.querySelector(".zusammen-voll").click();   // „passt so – 100 % Grundmischung“
         const v = plan(); v.zuViel = Object.fromEntries(zusammenPlan().zuViel.map(z => [z.it.type || z.it.name, Math.round(z.kg * 10) / 10]));
@@ -211,6 +211,7 @@ async function main() {
         return { a, b, c, v };
       });
       assert(Math.abs(r.a.f - 7 / 9) < 1e-9 && r.a.eng === "Schnitt 2", JSON.stringify(r.a));
+      assert.deepStrictEqual(r.a.ord, r.a.ord2, "Dazumischen in der Reihenfolge von Gruppe 2");
       assert.deepStrictEqual(r.a.z, { Mais: 357.5, "Schnitt 5": 226.1, Stroh: 2.4, agf: 91.7, mlf: 165 });
       assert(r.a.text.includes("Vor dem Laden wählen") && r.a.text.includes("78 % Grundmischung (41.4 kg je Tier), weil Kühe Gruppe 2 weniger Schnitt 2 bekommt"), r.a.text);
       assert(!r.a.text.includes("fehlt"), r.a.text);

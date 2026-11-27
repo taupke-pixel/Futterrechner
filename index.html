@@ -4760,7 +4760,8 @@ function zusammenPlan(){
   const plan1=G-geplant, faktor2 = (echt!==null && plan1>0 && data.kuehe2.zusAnpassen!==false && (G-R)-plan1>tol) ? Math.max(1, (G-R)/plan1) : 1;
   // Für Gruppe 2 je Futter: im Wagen (Rest × Anteil in der Grundmischung) gegen Soll (Ration × Tiere) – wie bei der Restmischung.
   // Rundungsreste unter 20 g je Tier zählen nicht. Positiv = dazu bzw. nachladen, negativ = schon zu viel im Wagen.
-  const alle=[...k1, ...k2.filter(b=>!k1.some(a=>gleich(a,b)))];
+  // Reihenfolge beim Dazumischen = Sortierung von Gruppe 2 (Wunsch Fritz 27.11.), danach Futter, die nur Stall 1 hat
+  const alle=[...k2, ...k1.filter(a=>!k2.some(b=>gleich(a,b)))];
   const zeilen2=alle.map(it=>{
     const a=k1.find(x=>gleich(x,it)), b=k2.find(x=>gleich(x,it));
     const ist = a && proTier1>0 ? R*a.kg/proTier1 : 0, soll = b ? b.kg*s2*faktor2 : 0;
