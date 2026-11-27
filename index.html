@@ -1048,6 +1048,7 @@ function restMischungZeilen(){
   return zeilen;
 }
 
+let restbullenEnde=null;   // Endsumme der Tabelle inkl. Wasser aus dem Rest (für „abladen bis … kg“, Fritz 27.11.)
 function buildRestBullen(){
   let el=document.getElementById("calc");
   let quellen=restQuellen();
@@ -1124,6 +1125,7 @@ rows += `
 </tr>`;
 });
 
+  restbullenEnde = lauf;
   el.innerHTML+=`
   <div class="category ${data.restbullen.collapsed?'collapsed':''}">
     <div class="cat-header cat-restbullen"
@@ -5968,7 +5970,9 @@ function fmRechnerErgaenzen(){
       const v=fmVorschlagRestHtml(g, k);
       if(v) zeile.insertAdjacentHTML("afterend", v);
     }
-    const gesamt = k==="restbullen" ? num(data.restbullen.ziel)*fmRestWaageFaktor() : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
+    // Restmischung: mit der Endsumme der Tabelle abladen – Wasser aus dem Rest ist Zusatzgewicht und zählt mit –
+    // dazu nasses Futter/Tageszuschlag wie bisher (Fritz 27.11.)
+    const gesamt = k==="restbullen" ? (restbullenEnde!==null ? restbullenEnde : num(data.restbullen.ziel)) + num(data.restbullen.ziel)*(fmRestWaageFaktor()-1) : parseFloat((document.getElementById("total-"+k)||{dataset:{}}).dataset.val);
     const html=fmAbladenHtml(g, gesamt);
     if(!html) return;
     const total=body.querySelector(".total");
