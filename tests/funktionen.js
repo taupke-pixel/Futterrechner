@@ -30,7 +30,7 @@ function schnappschuss(page) {
     // neue Auswahl „Mischung(en) für die Restmischung“ gibt es in der alten Fassung nicht – nicht mitvergleichen
     const wahl = document.getElementById("restquellen-wahl");
     // ebenso das neue dritte Futter (Klasse „drittes-futter“)
-    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove()); return c.textContent; };
+    const ohneNeues = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll(".rest-nur-ziel, .drittes-futter, #restquellen-wahl, #kategorien-wahl, #timer-kasten, #app-update, .gruppe2, #kuehe2-modus, #alte-jahre-loeschen, [onclick*=\"kategorien['kuehe2']\"]").forEach(e => e.remove()); return c.textContent; };
     const text = id => norm(ohneNeues(id));
     const werte = id => [...document.querySelectorAll("#" + id + " input, #" + id + " select")]
       .filter(e => e.type !== "file" && !(wahl && wahl.contains(e)) && !e.closest(".drittes-futter, #kategorien-wahl, #timer-kasten, .gruppe2")).map(e => e.value);

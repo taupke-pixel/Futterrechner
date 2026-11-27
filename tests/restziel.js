@@ -28,6 +28,8 @@ function erwartet(backup, quellen, resten, anz, ziel) {
     });
   });
   const zielItems = d[ziel].items;
+  // Futter, die nur die Ziel-Ration hat: Ist 0, werden voll geladen (Wunsch Fritz 27.11.)
+  d[ziel].items.forEach(b => { if (b.kg > 0 && !zeilen.some(z => (z.it.type || b.type) ? z.it.type === b.type : z.it.name === b.name)) zeilen.push({ it: b, ist: 0 }); });
   let lauf = resten.reduce((s, r) => s + r, 0);
   const tabelle = [], gespeichert = [];
   zeilen.forEach(({ it, ist }) => {

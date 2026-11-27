@@ -1049,7 +1049,7 @@ function restMischungZeilen(){
   // Futter, die nur die Ration der Restmischung hat (nicht im Rest): Ist 0 → wird voll dazugeladen und gespeichert (Fritz 27.11.)
   const gleich=(x,y)=>(x.type||y.type) ? x.type===y.type : x.name===y.name;
   data[restZiel()].items.forEach(b=>{
-    if(b.kg>0 && !zeilen.some(z=>gleich(z.it,b))) zeilen.push({ it:b, ist:0 });
+    if(b.kg>0 && !zeilen.some(z=>gleich(z.it,b))) zeilen.push({ it:b, ist:0, nurZiel:true });
   });
   return zeilen;
 }
@@ -1083,7 +1083,7 @@ let lauf = rest + (quellen.length>1 ? (data.restbullen.rest2||0) : 0);
 
 let bull = data[restZiel()].items;
 
-restMischungZeilen().forEach(({it, ist})=>{
+restMischungZeilen().forEach(({it, ist, nurZiel})=>{
 
   // AGF / MLF nur wenn bei Bullen vorhanden UND kg > 0
   if(it.type==="agf" || it.type==="mlf" || it.type==="wasser"){
@@ -1137,7 +1137,7 @@ let summe = lauf;
     it.name;
 
 rows += `
-<tr>
+<tr${nurZiel ? ' class="rest-nur-ziel"' : ''}>
 <td>${name}</td>
 <td>${ist.toFixed(1)}</td>
 <td>${soll.toFixed(1)}</td>
