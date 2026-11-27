@@ -4808,12 +4808,29 @@ Abbrechen = ${globalCfg.kuehe2Name} normal füttern (die Mehrmenge wird bei den 
 function zusammenAbgleich(){
   if(!kuehe2Zusammen()) return;
   const a=data.kuehe.items, b=data.kuehe2.items;
+  const gleich=(x,y)=>(x.type||y.type) ? x.type===y.type : x.name===y.name;
   a.forEach((it,i)=>{
     if(!(it.kg>0)) return;                  // leeres Kühe-Feld → Zugabe-Feld von Gruppe 2 bleibt, wie es ist
+    // Steht dasselbe Futter in Gruppe 2 an anderer Stelle: Felder tauschen statt ein zweites anlegen (sonst z. B. zwei MLF-Felder, 27.11.)
+    const j=b.findIndex((x,k)=>k!==i && x && gleich(x,it));
+    if(j>=0){ const t=b[j]; b[j]=b[i] || { kg:0, name:"Futter "+(j+1) }; b[i]=t; }
     const z=b[i] || (b[i]={ kg:0 });
     if(it.type){ z.type=it.type; delete z.name; } else { delete z.type; z.name=it.name; }
     z.kg=it.kg;
   });
+}
+// Gruppe 2: ein zweites, leeres AGF-/MLF-/Wasser-Feld (entstand früher beim Umstellen) wird wieder ein normales leeres Feld.
+// Sonst heißt es wie das echte Feld, und wer es umbenennt, benennt AGF/MLF/Wasser überall um (Fritz 27.11.).
+function zusammenDoppelteWeg(){
+  const b=data.kuehe2 && data.kuehe2.items; if(!b) return;
+  let geaendert=false;
+  ["agf","mlf","wasser"].forEach(t=>{
+    const felder=b.map((x,i)=>({ x, i })).filter(o=>o.x && o.x.type===t);
+    if(felder.length<2) return;
+    const behalten=felder.find(o=>o.x.kg>0) || felder[0];
+    felder.forEach(o=>{ if(o!==behalten && !(o.x.kg>0)){ b[o.i]={ kg:0, name:"Futter "+(o.i+1) }; geaendert=true; } });
+  });
+  if(geaendert) save();
 }
 // In den Einstellungen: Hinweis bei Gruppe 2 – alle Felder frei, komplette Ration je Kuh
 function zusammenEinstellungen(){
@@ -6863,7 +6880,7 @@ buildCalc = function(){
 };
 // Einstellungen: bei „zusammen“ vorher abgleichen und die übernommenen Zeilen grau zeigen (sonst unverändert)
 const _buildSettingsVorZusammen = buildSettings;
-buildSettings = function(){ _buildSettingsVorZusammen(); zusammenEinstellungen(); };
+buildSettings = function(){ zusammenDoppelteWeg(); _buildSettingsVorZusammen(); zusammenEinstellungen(); };
 const _showTabVorFressmenge = showTab;
 showTab = function(t){
   _showTabVorFressmenge(t);

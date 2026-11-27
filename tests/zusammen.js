@@ -227,6 +227,28 @@ async function main() {
       assert(r.c.text.includes("fehlt Schnitt 2 aus der Grundmischung"), r.c.text);
     });
 
+    await pruefe("Kein zweites MLF-Feld in Gruppe 2: beim Umstellen wird getauscht statt doppelt angelegt; ein vorhandenes leeres zweites MLF-Feld wird ein normales Feld (Name MLF bleibt)", async () => {
+      const r = await page.evaluate(() => {
+        const alt = JSON.stringify({ k: data.kuehe, k2: data.kuehe2, n: globalCfg.mlfName, m: globalCfg.kuehe2Modus });
+        globalCfg.mlfName = "Kraft";
+        const it = (o) => Object.assign({ kg: 0 }, o);
+        // 1) vorhandene Doppelung (wie auf dem Tablet 27.11.)
+        data.kuehe2.items = [it({ name: "Stroh", kg: 0.2 }), it({ type: "agf", kg: 3 }), it({ type: "mlf" }), it({ type: "mlf", kg: 4 }), it({ name: "Mais", kg: 30 }), it({ type: "wasser", kg: 2 })];
+        showTab("settings"); buildSettings();
+        const t1 = data.kuehe2.items.map(i => i.type || i.name);
+        // 2) Umstellen mit anderer Reihenfolge: MLF bei Kühe an Stelle 2, bei Gruppe 2 an Stelle 4
+        kuehe2ModusSetzen("normal");
+        data.kuehe.items = [it({ name: "Stroh", kg: 0.2 }), it({ type: "agf", kg: 3 }), it({ type: "mlf", kg: 1 }), it({ name: "Mais", kg: 23 }), it({ name: "Futter 5" }), it({ type: "wasser", kg: 2 })];
+        data.kuehe2.items = [it({ name: "Stroh", kg: 0.2 }), it({ type: "agf", kg: 3 }), it({ name: "Futter 3" }), it({ name: "Mais", kg: 30 }), it({ type: "mlf", kg: 4 }), it({ type: "wasser", kg: 2 })];
+        kuehe2ModusSetzen("zusammen");
+        const t2 = data.kuehe2.items.map(i => (i.type || i.name) + " " + i.kg);
+        const o = JSON.parse(alt); data.kuehe = o.k; data.kuehe2 = o.k2; globalCfg.mlfName = o.n; kuehe2ModusSetzen(o.m); save();
+        return { t1, t2 };
+      });
+      assert.deepStrictEqual(r.t1, ["Stroh", "agf", "Futter 3", "mlf", "Mais", "wasser"]);
+      assert.deepStrictEqual(r.t2, ["Stroh 0.2", "agf 3", "mlf 1", "Mais 23", "Futter 3 0", "wasser 2"]);
+    });
+
     await pruefe("Zurück auf „eigene Mischung“ → Rechner genau wie vorher; Gruppe 2 behält die übernommenen Werte zum Weiterbearbeiten", async () => {
       await page.evaluate(() => { kuehe2ModusSetzen("normal"); showTab("calc"); buildCalc(); });
       assert.strictEqual(await page.locator(".zusammen-karte").count(), 0);
