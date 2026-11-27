@@ -103,7 +103,7 @@ async function main() {
     const R = 2000, fk = (G - R) / PLAN1;      // Stall 1 hat (G − 2000) statt PLAN1 bekommen
     await pruefe(`Verladen (Waage ${R} statt ${PLAN_REST.toFixed(0)} kg), Gruppe 2 mitziehen: Stall 1 +${Math.round((fk - 1) * 100)} %, Gruppe 2 auch; nachladen + MLF; jedes kg genau einmal`, async () => {
       await heuteLeeren();
-      await page.evaluate(r => { data.kuehe2.zusRest = r; data.kuehe2.zusAnpassen = true; save(); buildCalc(); }, R);
+      await page.evaluate(r => { data.kuehe2.zusRest = r; data.kuehe2.zusRestTag = getToday(); data.kuehe2.zusAnpassen = true; save(); buildCalc(); }, R);
       const t = await page.locator(".zusammen-karte").innerText();
       assert(t.includes(`✎ Waage zeigte ${R} kg → Kühe hat ${(G - R).toFixed(0)} kg bekommen`), t);
       assert(t.includes(`auch +${Math.round((fk - 1) * 100)} %`), t);
@@ -124,7 +124,7 @@ async function main() {
 
     await pruefe(`Verladen, Gruppe 2 normal: Gruppe 2 bekommt ihre normale Menge, Stall 1 merkt sich ${(G - R - PLAN1).toFixed(0)} kg „mehr“`, async () => {
       await heuteLeeren();
-      await page.evaluate(r => { data.kuehe2.zusRest = r; data.kuehe2.zusAnpassen = false; save(); buildCalc(); }, R);
+      await page.evaluate(r => { data.kuehe2.zusRest = r; data.kuehe2.zusRestTag = getToday(); data.kuehe2.zusAnpassen = false; save(); buildCalc(); }, R);
       const t = await page.locator(".zusammen-karte").innerText();
       assert(t.includes(`Kühe Gruppe 2 wird normal gefüttert – die ${(G - R - PLAN1).toFixed(0)} kg mehr rechnet die Auswertung beim Rest mit.`), t);
       await page.click(".zusammen-karte .save-btn");
@@ -136,7 +136,7 @@ async function main() {
 
     await pruefe("Zu viel Rest (Waage 3000 kg): Gruppe 2 bekommt alles im Wagen + MLF, nichts abgezogen oder doppelt", async () => {
       await heuteLeeren();
-      await page.evaluate(() => { data.kuehe2.zusRest = 3000; data.kuehe2.zusAnpassen = null; buildCalc(); });
+      await page.evaluate(() => { data.kuehe2.zusRest = 3000; data.kuehe2.zusRestTag = getToday(); data.kuehe2.zusAnpassen = null; buildCalc(); });
       assert((await page.locator(".zusammen-karte").innerText()).includes("schon zu viel"));
       await page.click(".zusammen-karte .save-btn");
       const e = await eintraege();
@@ -247,6 +247,21 @@ async function main() {
       });
       assert.deepStrictEqual(r.t1, ["Stroh", "agf", "Futter 3", "mlf", "Mais", "wasser"]);
       assert.deepStrictEqual(r.t2, ["Stroh 0.2", "agf 3", "mlf 1", "Mais 23", "Futter 3 0", "wasser 2"]);
+    });
+
+    await pruefe("„Anders abgeladen“ von gestern gilt heute nicht mehr (wieder wie geplant)", async () => {
+      const r = await page.evaluate(() => {
+        historyData = historyData.filter(h => h.datum !== getToday());
+        data.kuehe2.zusRest = 1490; data.kuehe2.zusRestTag = "26.11.2000"; buildCalc();
+        const gestern = zusammenPlan().echt;
+        data.kuehe2.zusRestTag = undefined; buildCalc();
+        const ohneTag = zusammenPlan().echt;
+        data.kuehe2.zusRestTag = getToday(); buildCalc();
+        const heute = zusammenPlan().echt;
+        data.kuehe2.zusRest = null; data.kuehe2.zusRestTag = null; save(); buildCalc();
+        return { gestern, ohneTag, heute };
+      });
+      assert.deepStrictEqual(r, { gestern: null, ohneTag: null, heute: 1490 });
     });
 
     await pruefe("Zurück auf „eigene Mischung“ → Rechner genau wie vorher; Gruppe 2 behält die übernommenen Werte zum Weiterbearbeiten", async () => {

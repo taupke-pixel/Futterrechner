@@ -4752,7 +4752,8 @@ function zusammenPlan(){
   const G=grund.reduce((s,g)=>s+g.kg,0), proTier1=k1.reduce((s,a)=>s+a.kg,0);
   const geplant=proTier1*f*s2;
   // Rest auf dem Wagen nach dem Abladen in Stall 1: wie geplant oder wie die Waage tatsächlich zeigt („anders abgeladen“)
-  const echt = typeof data.kuehe2.zusRest==="number" ? Math.max(0, Math.min(G, data.kuehe2.zusRest)) : null;
+  // „Anders abgeladen“ gilt nur am Tag der Eingabe – am nächsten Tag wieder wie geplant (Fritz 27.11.)
+  const echt = typeof data.kuehe2.zusRest==="number" && data.kuehe2.zusRestTag===getToday() ? Math.max(0, Math.min(G, data.kuehe2.zusRest)) : null;
   const R = echt!==null ? echt : geplant;
   // Stall 1 hat mehr bekommen als geplant → Gruppe 2 bekommt prozentual genauso mehr (damit beide gleich lange reichen).
   // Hat Stall 1 weniger bekommen, liegt der Rest ohnehin auf dem Wagen → keine Verkleinerung.
@@ -4788,6 +4789,7 @@ function zusammenRestEingeben(){
   if(String(a).trim()===""){ data.kuehe2.zusRest=null; }
   else if(isNaN(v) || v<0){ alert("Bitte eine Zahl in kg eingeben."); return; }
   else data.kuehe2.zusRest=v;
+  data.kuehe2.zusRestTag = data.kuehe2.zusRest===null ? null : getToday();   // gilt nur für heute (Fritz 27.11.)
   data.kuehe2.zusAnpassen=null;
   // Stall 1 hat mehr bekommen → einmal fragen: Gruppe 2 prozentual mitziehen oder normal füttern (Mehrmenge zählt bei den Resten)
   const q=zusammenPlan();
@@ -4862,7 +4864,7 @@ function zusammenSpeichern(){
     if(e2.gesamt-p.plan2>tol) e2.mehr=e2.gesamt-p.plan2;
   }
   historyData.unshift(e2); historyData.unshift(e1);
-  data.kuehe2.zusRest=null; data.kuehe2.zusAnpassen=null;
+  data.kuehe2.zusRest=null; data.kuehe2.zusRestTag=null; data.kuehe2.zusAnpassen=null;
   save();
   saveHistoryStorage();
   saveLagerStorage();
