@@ -1125,7 +1125,8 @@ rows += `
 </tr>`;
 });
 
-  restbullenEnde = lauf;
+  // nur wenn wirklich Rest im Wagen ist – ohne Rest bleibt das Zielgewicht die Grundlage fürs Abladen
+  restbullenEnde = (rest + (quellen.length>1 ? (data.restbullen.rest2||0) : 0)) > 0 && lauf > 0 ? lauf : null;
   el.innerHTML+=`
   <div class="category ${data.restbullen.collapsed?'collapsed':''}">
     <div class="cat-header cat-restbullen"
