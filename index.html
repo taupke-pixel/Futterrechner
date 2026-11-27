@@ -210,6 +210,7 @@ font-size:16px;
   background:#f59e0b !important;
   color:white !important;
 }
+#settings input.name-fest{background:#eee;color:#555;}
 </style>
 <style>
 /* 📱 Handy-Ansicht: nichts darf breiter als der Bildschirm sein, sonst zoomt das Handy heraus (sieht aus wie PC-Seite).
@@ -1840,22 +1841,22 @@ Thüringen
 <hr>
   <h3>AGF / MLF</h3>
   AGF Name <input value="${globalCfg.agfName}" 
-    oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();" 
-    onblur="buildSettings();"><br>
+    onfocus="this.dataset.alt=this.value" oninput="globalCfg.agfName=this.value;saveGlobal();buildCalc();" 
+    onblur="if(!this.value.trim()){globalCfg.agfName=this.dataset.alt||globalCfg.agfName;saveGlobal();buildCalc();}buildSettings();"><br>
 
   kg/s <input type="number" value="${globalCfg.agfKg}" 
     oninput="globalCfg.agfKg=num(this.value)||0.01;saveGlobal();buildCalc();"><br><br>
 
   MLF Name <input value="${globalCfg.mlfName}" 
-    oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();" 
-    onblur="buildSettings();"><br>
+    onfocus="this.dataset.alt=this.value" oninput="globalCfg.mlfName=this.value;saveGlobal();buildCalc();" 
+    onblur="if(!this.value.trim()){globalCfg.mlfName=this.dataset.alt||globalCfg.mlfName;saveGlobal();buildCalc();}buildSettings();"><br>
 
   kg/s <input type="number" value="${globalCfg.mlfKg}" 
     oninput="globalCfg.mlfKg=num(this.value)||0.01;saveGlobal();buildCalc();">
   <span class="drittes-futter"><br><br>
   3. Futter Name <input value="${globalCfg.wasserName}" 
-    oninput="globalCfg.wasserName=this.value;saveGlobal();buildCalc();" 
-    onblur="buildSettings();"><br>
+    onfocus="this.dataset.alt=this.value" oninput="globalCfg.wasserName=this.value;saveGlobal();buildCalc();" 
+    onblur="if(!this.value.trim()){globalCfg.wasserName=this.dataset.alt||globalCfg.wasserName;saveGlobal();buildCalc();}buildSettings();"><br>
 
   kg/s <input type="number" value="${globalCfg.wasserKg}" 
     oninput="globalCfg.wasserKg=num(this.value)||0.01;saveGlobal();buildCalc();"></span><hr>
@@ -1925,13 +1926,10 @@ Thüringen
         </div>`:`<div></div>`}
         
         <div>
-          <input type="text" value="${name}" oninput="
-            if('${it.type}'==='agf'){globalCfg.agfName=this.value;saveGlobal();}
-            else if('${it.type}'==='mlf'){globalCfg.mlfName=this.value;saveGlobal();}
-            else if('${it.type}'==='wasser'){globalCfg.wasserName=this.value;saveGlobal();}
-            else{data['${cat}'].items[${i}].name=this.value;save();}
+          ${it.type ? `<input type="text" class="name-fest" value="${name}" readonly title="Name nur oben bei AGF / MLF änderbar">` : `<input type="text" value="${name}" oninput="
+            data['${cat}'].items[${i}].name=this.value;save();
             buildCalc();
-          ">
+          ">`}
 
           <input type="number" value="${it.kg}" 
           oninput="data['${cat}'].items[${i}].kg=num(this.value);save();buildCalc();">
