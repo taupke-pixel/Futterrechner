@@ -4812,7 +4812,8 @@ function zusammenPlan(){
   // Für Gruppe 2 je Futter: im Wagen (Rest × Anteil in der Grundmischung) gegen Soll (Ration × Tiere) – wie bei der Restmischung.
   // Rundungsreste unter 20 g je Tier zählen nicht. Positiv = dazu bzw. nachladen, negativ = schon zu viel im Wagen.
   // Reihenfolge beim Dazumischen = Sortierung von Gruppe 2 (Wunsch Fritz 27.11.), danach Futter, die nur Stall 1 hat
-  const alle=[...k2, ...k1.filter(a=>!k2.some(b=>gleich(a,b)))];
+  const alle0=[...k2, ...k1.filter(a=>!k2.some(b=>gleich(a,b)))];
+  const alle=[...alle0.filter(i=>i.type!=="wasser"), ...alle0.filter(i=>i.type==="wasser")];   // Wasser immer zuletzt (Fritz 28.11.)
   const zeilen2=alle.map(it=>{
     const a=k1.find(x=>gleich(x,it)), b=k2.find(x=>gleich(x,it));
     const ist = a && proTier1>0 ? R*a.kg/proTier1 : 0, soll = b ? b.kg*s2*faktor2 : 0;
@@ -7572,7 +7573,7 @@ function fmRegenEchteMengen(vorher){
     if(e===vorher) break;
     const k = (kuehe2Zusammen() && e.kategorie==="kuehe2") ? "kuehe" : e.kategorie==="restbullen" ? restZiel() : e.kategorie, l=t.karten[k];
     if(!l || !l.length || !data[k]) continue;
-    const faktor={}; l.forEach(x=>{ if(x.vorher>0) faktor[futterName(data[k].items[x.i]||{})]=x.nachher/x.vorher; });
+    const faktor={}; l.forEach(x=>{ if(x.vorher>0) faktor[futterName(fmZuschlagZeile(data[k].items,x)||{})]=x.nachher/x.vorher; });
     (e.futter||[]).forEach(f=>{ if(faktor[f.name]>0){ f.kg=f.kg/faktor[f.name]; geaendert=true; } });
     e.gesamt=(e.futter||[]).reduce((s,f)=>s+(f.kg||0),0);
   }
@@ -7651,7 +7652,7 @@ function fmWetterKaesten(){
 function fmRegenProzentAm(tag, name){
   const p=fmRegenProben().find(x=>x.d===tag); if(p) return (name && p.f && typeof p.f[name]==="number") ? p.f[name] : p.p;
   const t=fmCfg.tagesZuschlag; if(t && t.datum===tag && t.art==="regen"){
-    for(const [kk,l] of Object.entries(t.karten||{})) for(const x of l) if(typeof x.p==="number" && data[kk] && fmSilageName(data[kk].items[x.i])===name) return x.p;
+    for(const [kk,l] of Object.entries(t.karten||{})) for(const x of l) if(typeof x.p==="number" && data[kk] && fmSilageName(fmZuschlagZeile(data[kk].items,x))===name) return x.p;
     return t.prozent;
   }
   const mm=fmRegenMm(tag);

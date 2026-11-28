@@ -293,6 +293,21 @@ async function main() {
       await page.evaluate(a => { kiloMode.zusammen = false; data.kuehe.anz = a[0]; data.kuehe2.anz = a[1]; kuehe2ModusSetzen(a[2]); save(); }, alt);
     });
 
+    await pruefe("Wasser steht bei Gruppe 2 immer zuletzt – auch wenn Kühe ein Futter haben, das Gruppe 2 fehlt, und anders abgeladen wurde", async () => {
+      const r = await page.evaluate(() => {
+        const alt = JSON.stringify([data.kuehe, data.kuehe2]);
+        kuehe2ModusSetzen("zusammen");
+        data.kuehe.items.find(i => i.type === "wasser").kg = 2; data.kuehe2.items.find(i => i.type === "wasser").kg = 2;
+        data.kuehe2.items.forEach(i => { if (!i.type && i.name === "Stroh") i.kg = 0; });
+        data.kuehe2.zusRest = 1500; data.kuehe2.zusRestTag = getToday();
+        const p = zusammenPlan(), typen = p.zeilen2.map(z => z.it.type || z.it.name);
+        [data.kuehe, data.kuehe2] = JSON.parse(alt); kuehe2ModusSetzen("normal"); save();
+        return { typen, stroh: p.zeilen2.some(z => z.it.name === "Stroh" && z.ist > 0) };
+      });
+      assert(r.stroh, "Stroh (nur Kühe) steckt im Rest: " + r.typen.join(", "));
+      assert.strictEqual(r.typen[r.typen.length - 1], "wasser", r.typen.join(", "));
+    });
+
     await pruefe("„Rest der Kühe-Mischung + Zugabe“ unverändert (eigene Karte mit Restmischung)", async () => {
       await page.evaluate(() => { kuehe2ModusSetzen("aufwerten"); showTab("calc"); buildCalc(); });
       assert.strictEqual(await page.locator(".zusammen-karte").count(), 0);

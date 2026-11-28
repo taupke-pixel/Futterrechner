@@ -81,6 +81,8 @@ async function main() {
 
     await pruefe("Einrichten wie bei Fritz: Kühe + Gruppe 2 zusammen, Reste aus beiden, Herdenmanager-Ställe, Futtergruppen", async () => {
       await T.evaluate(() => {
+        // Testdaten reichen bis 20 Tage vor dem 18.12.2026 – fällt „heute“ hinein, wäre Speichern gesperrt (28.11.2026)
+        historyData = historyData.filter(h => h.datum !== getToday()); saveHistoryStorage();
         fmCfg.an = true; fmStallzahlenHolen = async () => {}; fmWetterHolen = async () => {};
         globalCfg.kuehe2Modus = "zusammen"; globalCfg.restQuellen = ["kuehe", "kuehe2"]; saveGlobal();
         fmStall = { geholt: new Date().toISOString(), eintraege: {
